@@ -1,0 +1,22 @@
+export default {
+  title: 'Willkommen zurück',
+  subtitle: 'Melde dich an, um die Familiengeschichte zu entdecken.',
+  username: 'Benutzername',
+  password: 'Passwort',
+  submit: 'Anmelden',
+  forgot: 'Passwort vergessen?',
+  errors: {
+    invalid_credentials: 'Benutzername oder Passwort ist falsch.',
+    account_unconfirmed: 'Dieses Konto ist noch nicht bestätigt. Der Bestätigungslink kam per E-Mail.',
+    account_disabled: 'Dieses Konto ist deaktiviert. Bitte die Person, die den Stammbaum verwaltet, es freizuschalten.',
+    rate_limited: 'Zu viele Versuche. Warte kurz und versuche es erneut.',
+    failed: 'Die Anmeldung hat nicht geklappt. Versuche es gleich noch einmal.',
+  },
+  reset: {
+    title: 'Passwort zurücksetzen',
+    description: 'Wir schicken einen Link an die E-Mail-Adresse dieses Kontos.',
+    submit: 'Link senden',
+    sent: 'Falls das Konto existiert und eine E-Mail-Adresse hat, ist der Link unterwegs.',
+    error: 'Für dieses Konto konnte kein Link verschickt werden.',
+  },
+}

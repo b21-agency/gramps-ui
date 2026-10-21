@@ -1,0 +1,133 @@
+import { useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { api } from '@/lib/api'
+import { apiLocale } from '@/i18n'
+import { describeObject, kindIcon } from '@/lib/objects'
+import type { ObjectKind, SearchHit } from '@/lib/types'
+import { cn } from '@/lib/utils'
+import { searchQuery, useDebounced } from './command-search'
+
+export interface PickedObject {
+  kind: ObjectKind
+  handle: string
+  gramps_id: string
+  title: string
+  subtitle: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  object: any
+}
+
+/** Search-as-you-type list of objects of the given kinds (uses /api/search/). */
+export function ObjectSearchList({
+  kinds,
+  onPick,
+  selected,
+  placeholder,
+  autoFocus,
+}: {
+  kinds: ObjectKind[]
+  onPick: (o: PickedObject) => void
+  selected?: string | null
+  placeholder?: string
+  autoFocus?: boolean
+}) {
+  const { t } = useTranslation()
+  const [q, setQ] = useState('')
+  const dq = useDebounced(q, 180)
+  const { data, isFetching } = useQuery({
+    queryKey: ['search', 'picker', kinds.join(','), dq, apiLocale()],
+    enabled: dq.trim().length > 0,
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      api<SearchHit[]>('/search/', {
+        query: { query: searchQuery(dq), type: kinds.join(','), locale: apiLocale(), profile: 'self', page: 1, pagesize: 20 },
+      }),
+  })
+  return (
+    <Command shouldFilter={false}>
+      <CommandInput value={q} onValueChange={setQ} placeholder={placeholder ?? t('actions.searchPlaceholder')} autoFocus={autoFocus} />
+      <CommandList>
+        {isFetching && !data && (
+          <div className="flex justify-center py-6">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {dq && !isFetching && data?.length === 0 && <CommandEmpty>{t('noResults')}</CommandEmpty>}
+        {!!data?.length && dq && (
+          <CommandGroup>
+            {data.map((hit) => {
+              const kind = hit.object_type as ObjectKind
+              const Icon = kindIcon[kind]
+              const d = describeObject(kind, hit.object)
+              return (
+                <CommandItem
+                  key={hit.handle}
+                  value={hit.handle}
+                  onSelect={() =>
+                    onPick({ kind, handle: hit.handle, gramps_id: hit.object.gramps_id, object: hit.object, ...d })
+                  }
+                >
+                  <Icon className="text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{d.title}</span>
+                    {d.subtitle && <span className="block truncate text-xs text-muted-foreground">{d.subtitle}</span>}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{hit.object.gramps_id}</span>
+                  {selected === hit.handle && <Check className="ml-1" />}
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </Command>
+  )
+}
+
+/** Button + popover to pick one object; used by forms and "set home person". */
+export function ObjectPicker({
+  kinds,
+  value,
+  onChange,
+  placeholder,
+  className,
+  trigger,
+}: {
+  kinds: ObjectKind[]
+  value?: { handle: string; title: string } | null
+  onChange: (o: PickedObject) => void
+  placeholder?: string
+  className?: string
+  trigger?: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {trigger ?? (
+          <Button variant="outline" role="combobox" className={cn('w-full justify-between font-normal', className)}>
+            <span className={cn('truncate', !value && 'text-muted-foreground')}>{value?.title ?? placeholder}</span>
+            <ChevronsUpDown className="opacity-50" />
+          </Button>
+        )}
+      </PopoverTrigger>
+      <PopoverContent className="w-[min(26rem,calc(100vw-2rem))] p-0" align="start">
+        <ObjectSearchList
+          kinds={kinds}
+          selected={value?.handle}
+          placeholder={placeholder}
+          autoFocus
+          onPick={(o) => {
+            onChange(o)
+            setOpen(false)
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}

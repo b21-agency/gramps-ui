@@ -1,0 +1,80 @@
+# UI conventions (read before building a feature)
+
+The app replaces the Gramps Web UI. Treat the classic UI as a **feature checklist only**:
+never copy its layout or flows. The goal is the best possible UX for non-technical family
+members: fast, calm, obvious, works on a phone.
+
+API reference: `docs/gramps-web-reference.md` (endpoints, params, payloads). Read the
+sections relevant to your feature.
+
+## Stack
+
+- Vite + React 19 + TypeScript, Tailwind v4, shadcn/ui (radix, "nova" preset) in
+  `src/components/ui/*`. Add more shadcn components with
+  `pnpm dlx shadcn@latest add <name> -y` (don't hand-edit generated ui files except to fix bugs).
+- Data: TanStack Query. Routing: react-router v7 (`src/routes.tsx`, already lists every route).
+- i18n: i18next, German + English. **Every user-visible string goes through `t()`**.
+  Each feature owns `src/locales/<ns>.en.ts` + `src/locales/<ns>.de.ts` (default export
+  object; namespace = file prefix). Use `useTranslation('<ns>')`; shared strings live in
+  `common` (`t('common:actions.save')`). Write natural German (du-form, sentence case).
+- Icons: lucide-react.
+
+## Design language
+
+- Palette tokens (see `src/index.css`): stone background, ink text, **moss** `primary`
+  (lineage, main actions), **brass** (`text-brass`, `bg-brass`) for highlights such as home
+  person, bookmarks, years. `--lineage` for tree connector lines. Dark mode via `.dark`.
+  Use tokens only (`bg-card`, `text-muted-foreground`, `border`), never raw hex.
+- Type: `font-serif` (Newsreader) for names, headings, big numbers; sans (Instrument Sans)
+  for UI. `h1/h2/h3` are serif automatically. Use `tabular-nums` for dates/IDs.
+- No ALL-CAPS labels, no eyebrow labels, no decorative gradients, no "→" in buttons, no
+  identical card grids for everything. Sections are separated by a heading + hairline
+  (`DetailSection`), cards (`rounded-xl border bg-card`) only where grouping helps.
+- Motion: only in response to user action (open, expand, recentre). Respect reduced motion.
+- Mobile: everything must work at 375px wide. Tables collapse to stacked rows; toolbars wrap.
+- Empty and error states give direction (`EmptyState`, `ErrorState` in `components/states.tsx`).
+- Copy: plain verbs, sentence case, buttons say what happens ("Save changes", "Add parent").
+
+## Shared building blocks (reuse, don't duplicate)
+
+| Need | Use |
+|---|---|
+| API calls | `api`, `apiRaw` (gives `total` from X-Total-Count), `qs` from `@/lib/api`; image URLs `mediaThumbUrl`, `mediaCroppedUrl`, `mediaFileUrl` |
+| Locale for API | `apiLocale()` from `@/i18n` — pass as `locale` param |
+| Object by Gramps ID | `useObjectById(kind, id, query)` (`@/lib/queries`) |
+| Object by handle | `useObjectByHandle(kind, handle, query)` |
+| Paged list | `useObjectList(kind, query)` → `{items,total}` |
+| Metadata / tags | `useMetadata()`, `useTags()` |
+| Permissions | `useAuth().can('AddObject' \| 'EditObject' \| 'DeleteObject' \| 'ViewPrivate' \| 'EditOtherUser' ...)` |
+| Current user | `useCurrentUser()` from `@/components/user-menu` |
+| Home person, bookmarks, recent, per-tree prefs | `@/lib/prefs` (`useHomePerson`, `useBookmarks`, `useRecent`, `usePref`, `useRecordVisit`) |
+| Formatting | `@/lib/format` (`profileName`, `displayName`, `lifespan`, `yearOf`, `typeStr`, `timeAgo`, `isEmpty`) |
+| Object titles/icons/links | `@/lib/objects` (`describeObject`, `kindIcon`, `objectPath`, `normalizeKind`) |
+| Page frame | `Page` from `@/components/app-shell` (title, description, actions) |
+| Tab title | `useTitle(title)` |
+| Person avatar | `Portrait` (`@/components/portrait`), `refThumbUrl(mediaRef,size)` |
+| Person row link | `PersonChip` (`@/components/person-chip`) |
+| Batch portraits | `usePortraits(handles)` (`@/hooks/use-portraits`) |
+| Object page header | `ObjectToolbar` + `ObjectTitle` (`@/components/detail/object-header`) |
+| Object page sections | `DetailSection`, `SectionNav`, `EventsTable`, `Gallery`, `NotesList`, `CitationsList`, `FactsTable`, `ReferencesList` (`@/components/detail/sections`) |
+| Note HTML | `NoteHtml` |
+| Tags | `TagList`, `tagColor` |
+| Search / pick an object | `ObjectPicker`, `ObjectSearchList` (`@/components/object-picker`), `searchQuery`, `useDebounced` |
+| Loading | `Skeleton`, `RowsSkeleton` |
+| Toasts | `toast` from `sonner` |
+
+Reference implementations: `src/features/people/person-page.tsx`,
+`src/features/home/home-page.tsx`.
+
+## Rules for parallel work
+
+- Only create/edit files inside your feature folder(s) and your own locale files, unless
+  your brief says otherwise. If a shared file needs a change, keep it additive and
+  minimal (new export, never change existing signatures) and mention it in your report.
+- Keep the exported component names that `src/routes.tsx` expects.
+- `npx tsc -b` must pass for your files. Run `pnpm build` at the end if possible.
+- Don't commit, don't touch git, don't start/stop dev servers or docker.
+- Local backend for testing: `http://localhost:5055` (Gramps Web API with the Gramps example
+  tree, users `owner/owner` (role 4), `editor/editor` (3), `guest/guest` (0)).
+  Use curl against it to inspect real JSON shapes. Token: `POST /api/token/`.
+  A Vite dev server runs at http://127.0.0.1:5173 (proxying /api), HMR picks up your files.

@@ -1,0 +1,21 @@
+export default {
+  greeting: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },
+  intro: '{{people}} people across {{families}} families.',
+  homePerson: {
+    title: 'Your starting point',
+    empty: 'Choose the person the family tree should start from, usually yourself.',
+    choose: 'Choose home person',
+    change: 'Change',
+    openTree: 'Family tree',
+    openPerson: 'Profile',
+  },
+  onThisDay: 'On this day',
+  onThisDayEmpty: 'No birthdays, weddings or anniversaries fall on today’s date.',
+  yearsAgo_one: '{{count}} year ago',
+  yearsAgo_other: '{{count}} years ago',
+  recentlyChanged: 'Recently changed',
+  recentlyChangedEmpty: 'No changes yet.',
+  latestPost: 'From the blog',
+  readPost: 'Read',
+  inArchive: 'In the archive',
+}

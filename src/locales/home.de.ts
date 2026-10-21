@@ -1,0 +1,21 @@
+export default {
+  greeting: { morning: 'Guten Morgen', afternoon: 'Guten Tag', evening: 'Guten Abend' },
+  intro: '{{people}} Personen in {{families}} Familien.',
+  homePerson: {
+    title: 'Dein Ausgangspunkt',
+    empty: 'Wähle die Person, bei der der Stammbaum beginnen soll – meist dich selbst.',
+    choose: 'Ausgangsperson wählen',
+    change: 'Ändern',
+    openTree: 'Stammbaum',
+    openPerson: 'Profil',
+  },
+  onThisDay: 'An diesem Tag',
+  onThisDayEmpty: 'Heute gibt es keine Geburts-, Hochzeits- oder Gedenktage.',
+  yearsAgo_one: 'vor {{count}} Jahr',
+  yearsAgo_other: 'vor {{count}} Jahren',
+  recentlyChanged: 'Zuletzt geändert',
+  recentlyChangedEmpty: 'Noch keine Änderungen.',
+  latestPost: 'Aus dem Blog',
+  readPost: 'Lesen',
+  inArchive: 'Im Archiv',
+}
