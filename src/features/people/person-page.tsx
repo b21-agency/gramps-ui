@@ -196,7 +196,7 @@ function PersonHero({
         </div>
       </div>
 
-      <Lifeline events={eventRows} birth={birth} death={death} />
+      <Lifeline events={eventRows} birth={birth} death={death} related={relatedMoments(profile, t)} />
 
       <div className="mt-5 flex flex-wrap gap-2">
         <Button asChild size="sm">
@@ -250,6 +250,19 @@ function PersonHero({
       </div>
     </header>
   )
+}
+
+function relatedMoments(profile: PersonProfile, t: (k: string, o?: Record<string, unknown>) => string) {
+  const out: Array<{ label: string; date: string; to?: string }> = []
+  for (const f of profile.families ?? []) {
+    const m = f.marriage as EventProfile | undefined
+    if (m && !isEmpty(m) && m.date) out.push({ label: m.type, date: m.date, to: `/family/${f.gramps_id}` })
+    for (const c of f.children ?? []) {
+      const b = c.birth as EventProfile | undefined
+      if (b && !isEmpty(b) && b.date) out.push({ label: t('childBorn', { name: profileName(c) }), date: b.date, to: `/person/${c.gramps_id}` })
+    }
+  }
+  return out
 }
 
 function RelationToHome({ person }: { person: Person }) {

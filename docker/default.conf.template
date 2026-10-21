@@ -1,0 +1,54 @@
+# SPA + same-origin reverse proxy to the Gramps Web API.
+# ${GRAMPSWEB_UPSTREAM} and ${CLIENT_MAX_BODY_SIZE} are substituted at container start.
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    client_max_body_size ${CLIENT_MAX_BODY_SIZE};
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript image/svg+xml;
+    gzip_min_length 1024;
+
+    # media URLs carry a short-lived token as ?jwt=, never leak it via Referer
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+
+    location = /healthz {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    location /api/ {
+        proxy_pass ${GRAMPSWEB_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_request_buffering off;
+        proxy_buffering on;
+    }
+
+    # hashed build assets
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        add_header Referrer-Policy "no-referrer" always;
+        try_files $uri =404;
+    }
+
+    location / {
+        add_header Cache-Control "no-cache" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        try_files $uri $uri/ /index.html;
+    }
+}

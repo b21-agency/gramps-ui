@@ -16,10 +16,13 @@ export function Lifeline({
   events,
   birth,
   death,
+  related = [],
 }: {
   events: Array<{ event?: GEvent; profile: EventProfile }>
   birth?: EventProfile
   death?: EventProfile
+  /** family moments (marriages, children's births) drawn as smaller marks below the line */
+  related?: Array<{ label: string; date: string; to?: string }>
 }) {
   const { t } = useTranslation('person')
   const start = yearOf(birth?.date) ?? Math.min(...events.map((e) => yearOf(e.profile.date) ?? Infinity))
@@ -39,7 +42,7 @@ export function Lifeline({
 
   return (
     <div className="mt-6" aria-label={`${start} – ${living ? t('living') : end}`}>
-      <div className="relative h-9">
+      <div className="relative h-10">
         {/* line */}
         <div
           className={cn(
@@ -55,6 +58,24 @@ export function Lifeline({
             style={{ left: `${((d - start) / span) * 100}%` }}
           />
         ))}
+        {related.map((r, i) => {
+          const y = yearOf(r.date)
+          if (y == null || y < start || y > end!) return null
+          const dot = (
+            <span
+              className="absolute top-[26px] block size-2 -translate-x-1/2 rounded-full bg-[color-mix(in_oklab,var(--brass)_70%,transparent)] transition-transform hover:scale-150"
+              style={{ left: `${((y - start) / span) * 100}%` }}
+            />
+          )
+          return (
+            <Tooltip key={`r${i}`}>
+              <TooltipTrigger asChild>{r.to ? <Link to={r.to} aria-label={`${r.label} ${r.date}`}>{dot}</Link> : dot}</TooltipTrigger>
+              <TooltipContent>
+                <span className="font-medium">{r.label}</span> · {r.date}
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
         {marks.map((m, i) => {
           const left = ((m.y - start) / span) * 100
           const isVital = vital.test(m.event ? String((m.event.type as { string?: string })?.string ?? m.event.type) : '') || vital.test(m.profile.type)

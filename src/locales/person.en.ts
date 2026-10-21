@@ -22,5 +22,6 @@ export default {
   nameType: 'Type',
   nickname: 'Nickname',
   callName: 'Call name',
+  childBorn: '{{name}} born',
   noEvents: 'No events recorded.',
 }

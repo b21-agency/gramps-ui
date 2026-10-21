@@ -22,5 +22,6 @@ export default {
   nameType: 'Art',
   nickname: 'Spitzname',
   callName: 'Rufname',
+  childBorn: 'Geburt von {{name}}',
   noEvents: 'Keine Ereignisse eingetragen.',
 }

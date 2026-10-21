@@ -227,6 +227,16 @@ export function CitationsList({ handles }: { handles: string[] }) {
 
 /* ---------------- attributes / urls / addresses ---------------- */
 
+/** Only http(s)/mailto links are rendered as anchors (no javascript: etc.). */
+export function safeHref(p: string) {
+  try {
+    const u = new URL(p, window.location.origin)
+    return ['http:', 'https:', 'mailto:'].includes(u.protocol) ? u.href : null
+  } catch {
+    return null
+  }
+}
+
 export function FactsTable({
   attributes,
   urls,
@@ -239,14 +249,19 @@ export function FactsTable({
   const { t } = useTranslation('detail')
   const rows: Array<[string, ReactNode]> = []
   attributes?.forEach((a) => rows.push([typeStr(a.type), a.value]))
-  urls?.forEach((u) =>
+  urls?.forEach((u) => {
+    const href = safeHref(u.path)
     rows.push([
       u.desc || typeStr(u.type) || t('link'),
-      <a href={u.path} target="_blank" rel="noreferrer" className="break-all text-primary hover:underline">
-        {u.path}
-      </a>,
-    ]),
-  )
+      href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="break-all text-primary hover:underline">
+          {u.path}
+        </a>
+      ) : (
+        <span className="break-all">{u.path}</span>
+      ),
+    ])
+  })
   addresses?.forEach((a) =>
     rows.push([
       t('address'),
