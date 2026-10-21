@@ -1,0 +1,51 @@
+export default {
+  eventOf: '{{type}} von {{names}}',
+  and: ' und ',
+  noDate: 'Datum unbekannt',
+  map: 'Karte',
+  mapOf: 'Karte von {{name}}',
+  mapUnavailable: 'Die Karte konnte nicht geladen werden.',
+  openInMap: 'Auf der Karte zeigen',
+
+  familyOf: 'Familie {{name}}',
+  partner: 'Partner',
+  unknownPartner: 'Partner nicht erfasst',
+  noChildren: 'Keine Kinder erfasst.',
+  showDescendants: 'Nachkommen zeigen',
+  father: 'Vater',
+  mother: 'Mutter',
+  childRel: {
+    Birth: 'Leiblich',
+    Adopted: 'Adoptiert',
+    Stepchild: 'Stiefkind',
+    Sponsored: 'Patenkind',
+    Foster: 'Pflegekind',
+    Unknown: 'Beziehung unbekannt',
+    None: 'Keine Beziehung',
+  },
+
+  byAuthor: 'von {{author}}',
+  pubinfo: 'Veröffentlicht',
+  abbrev: 'Kürzel',
+  citedBy: 'Zitiert in',
+  andMore_one: 'und {{count}} weiteres',
+  andMore_other: 'und {{count}} weitere',
+
+  noPage: 'Fundstelle ohne Seitenangabe',
+  date: 'Datum',
+  confidence: 'Verlässlichkeit',
+  notCited: 'Noch nichts verweist auf diese Fundstelle.',
+
+  sourcesHeld: 'Quellen in diesem Archiv',
+  noSourcesHeld: 'Mit diesem Archiv sind keine Quellen verknüpft.',
+  contact: 'Adresse und Links',
+
+  unreferenced: 'Nichts verweist auf diese Notiz.',
+
+  file: 'Datei',
+  fileType: 'Typ',
+  openOriginal: 'Original öffnen',
+  regionsHint: 'Zeig auf einen Namen, um zu sehen, wo die Person im Bild ist.',
+  wholeImage: 'ganzes Bild',
+  unknownType: 'Unbekannter Dateityp',
+}

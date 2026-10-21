@@ -1,0 +1,51 @@
+export default {
+  eventOf: '{{type}} of {{names}}',
+  and: ' and ',
+  noDate: 'Date unknown',
+  map: 'Map',
+  mapOf: 'Map of {{name}}',
+  mapUnavailable: 'The map could not be loaded.',
+  openInMap: 'Show on map',
+
+  familyOf: 'The {{name}} family',
+  partner: 'Partner',
+  unknownPartner: 'Partner not recorded',
+  noChildren: 'No children recorded.',
+  showDescendants: 'Show descendants',
+  father: 'Father',
+  mother: 'Mother',
+  childRel: {
+    Birth: 'Birth',
+    Adopted: 'Adopted',
+    Stepchild: 'Stepchild',
+    Sponsored: 'Sponsored',
+    Foster: 'Foster child',
+    Unknown: 'Relation unknown',
+    None: 'No relation',
+  },
+
+  byAuthor: 'by {{author}}',
+  pubinfo: 'Published',
+  abbrev: 'Abbreviation',
+  citedBy: 'Cited by',
+  andMore_one: 'and {{count}} more',
+  andMore_other: 'and {{count}} more',
+
+  noPage: 'Citation without page',
+  date: 'Date',
+  confidence: 'Confidence',
+  notCited: 'Nothing refers to this citation yet.',
+
+  sourcesHeld: 'Sources held here',
+  noSourcesHeld: 'No sources are linked to this repository.',
+  contact: 'Address and links',
+
+  unreferenced: 'Nothing refers to this note.',
+
+  file: 'File',
+  fileType: 'Type',
+  openOriginal: 'Open original',
+  regionsHint: 'Point at a name to see where it appears in the picture.',
+  wholeImage: 'whole picture',
+  unknownType: 'Unknown file type',
+}
