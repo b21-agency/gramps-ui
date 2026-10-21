@@ -31,6 +31,7 @@ import type { EventProfile, FamilyProfile, Person, PersonProfile } from '@/lib/t
 import { usePortraits } from '@/hooks/use-portraits'
 import { useTitle } from '@/hooks/use-title'
 import { Lifeline } from './lifeline'
+import { AddRelativeMenu } from '@/features/editor/relationship-actions'
 
 export function PersonPage() {
   const { id } = useParams()
@@ -76,7 +77,7 @@ export function PersonPage() {
 
       <div className="grid gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0 space-y-10">
-          <DetailSection id="family" title={t('detail:sections.family')}>
+          <DetailSection id="family" title={t('detail:sections.family')} action={<AddRelativeMenu person={person} />}>
             <FamilyBlock profile={profile} self={person.handle} />
           </DetailSection>
 
