@@ -176,7 +176,7 @@ export function NotesList({ handles }: { handles: string[] }) {
   return (
     <div className="space-y-4">
       {notes.map((n) => (
-        <article key={n.handle} className="rounded-lg border bg-card p-4">
+        <article key={n.handle} className="min-w-0 overflow-x-auto rounded-lg border bg-card p-4 [overflow-wrap:anywhere]">
           <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
             <span>{typeStr(n.type)}</span>
             <Link to={`/note/${n.gramps_id}`} className="ml-auto tabular-nums hover:text-foreground">
@@ -186,7 +186,7 @@ export function NotesList({ handles }: { handles: string[] }) {
           <NoteHtml
             html={n.formatted?.html}
             text={n.text.string}
-            className={cn('font-serif text-[1.02rem] leading-relaxed', n.format === 1 && 'whitespace-pre font-mono text-sm')}
+            className={cn('font-serif text-[1.02rem] leading-relaxed', n.format === 1 && 'whitespace-pre-wrap font-mono text-sm')}
           />
         </article>
       ))}
@@ -326,7 +326,7 @@ export function ReferencesList({ backlinks }: { backlinks?: Record<string, any[]
 export function SectionNav({ items }: { items: Array<{ id: string; label: string; count?: number }> }) {
   if (items.length < 2) return null
   return (
-    <nav className="sticky top-14 z-20 -mx-4 mb-8 overflow-x-auto border-b bg-background/90 px-4 backdrop-blur sm:-mx-6 sm:px-6">
+    <nav className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-20 -mx-4 mb-8 overflow-x-auto border-b bg-background/90 px-4 backdrop-blur sm:-mx-6 sm:px-6">
       <ul className="flex gap-1 py-1.5">
         {items.map((i) => (
           <li key={i.id}>

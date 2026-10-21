@@ -12,7 +12,7 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
   const message =
     status === 404
       ? t('error.notFound')
-      : error instanceof TypeError
+      : error instanceof TypeError && /fetch|network|load failed/i.test(error.message)
         ? t('error.network')
         : error instanceof ApiError
           ? error.message

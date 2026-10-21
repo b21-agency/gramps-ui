@@ -23,6 +23,7 @@ export default {
     import: 'Import',
     dna: 'DNA',
     revisions: 'Änderungen',
+    more: 'Mehr',
     settings: 'Einstellungen',
     groups: { browse: 'Entdecken', research: 'Forschung', yours: 'Persönlich', tools: 'Werkzeuge' },
   },

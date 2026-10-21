@@ -48,11 +48,11 @@ export function HomePage() {
       <TreeHomeNote />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <HomePersonCard />
           <RecentlyChanged />
         </div>
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <OnThisDay />
           <LatestPost />
           <ArchiveCounts />
@@ -64,7 +64,7 @@ export function HomePage() {
 
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <section className="rounded-xl border bg-card p-5">
+    <section className="min-w-0 rounded-xl border bg-card p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-xl font-medium">{title}</h2>
         {action}
@@ -258,7 +258,7 @@ function RecentlyChanged() {
         <p className="text-sm text-muted-foreground">{t('recentlyChangedEmpty')}</p>
       ) : (
         <ul className="-mx-2">
-          {data.map((hit) => {
+          {data.filter((hit) => hit.object_type in kindIcon).map((hit) => {
             const kind = hit.object_type as ObjectKind
             const Icon = kindIcon[kind]
             const d = describeObject(kind, hit.object)

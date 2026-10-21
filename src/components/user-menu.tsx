@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -20,6 +21,8 @@ import type { UserInfo } from '@/lib/types'
 import { initials } from '@/lib/format'
 import { languages } from '@/i18n'
 import { useTheme, type Theme } from './theme'
+import { ActionSheet } from './action-sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 export function useCurrentUser() {
   return useQuery({ queryKey: ['user', 'me'], queryFn: () => api<UserInfo>('/users/-/'), staleTime: 10 * 60_000 })
@@ -31,20 +34,75 @@ export function UserMenu() {
   const navigate = useNavigate()
   const { data: me } = useCurrentUser()
   const name = me?.full_name || me?.name || ''
+  const isMobile = useIsMobile()
+  const [sheet, setSheet] = useState(false)
   const themes: Array<{ v: Theme; icon: typeof Sun }> = [
     { v: 'light', icon: Sun },
     { v: 'dark', icon: Moon },
     { v: 'system', icon: Monitor },
   ]
+  const avatar = (
+    <Avatar className="size-8">
+      <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">{initials(name || '?')}</AvatarFallback>
+    </Avatar>
+  )
+  const signOut = () => {
+    logout()
+    navigate('/login')
+  }
+
+  if (isMobile)
+    return (
+      <>
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label={name || 'Account'} onClick={() => setSheet(true)}>
+          {avatar}
+        </Button>
+        <ActionSheet
+          open={sheet}
+          onOpenChange={setSheet}
+          title={name}
+          header={
+            <div className="flex items-center gap-3">
+              <Avatar className="size-11">
+                <AvatarFallback className="bg-secondary font-serif text-secondary-foreground">{initials(name || '?')}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <div className="truncate font-serif text-xl">{name}</div>
+                {me && <div className="text-sm text-muted-foreground">{t(`role.${me.role}`)}</div>}
+              </div>
+            </div>
+          }
+          groups={[
+            themes.map(({ v, icon: Icon }) => ({
+              key: v,
+              icon: <Icon />,
+              label: t(`theme.${v}`),
+              active: theme === v,
+              hint: theme === v ? <Check className="size-4" /> : undefined,
+              onSelect: () => setTheme(v),
+            })),
+            languages.map((l) => ({
+              key: l.code,
+              icon: <Languages />,
+              label: l.label,
+              active: i18n.resolvedLanguage === l.code,
+              hint: i18n.resolvedLanguage === l.code ? <Check className="size-4" /> : undefined,
+              onSelect: () => void i18n.changeLanguage(l.code),
+            })),
+            [
+              { key: 'settings', icon: <Settings />, label: t('nav.settings'), onSelect: () => navigate('/settings') },
+              { key: 'out', icon: <LogOut />, label: t('actions.signOut'), destructive: true, onSelect: signOut },
+            ],
+          ]}
+        />
+      </>
+    )
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full" aria-label={name || 'Account'}>
-          <Avatar className="size-8">
-            <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-              {initials(name || '?')}
-            </AvatarFallback>
-          </Avatar>
+          {avatar}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
@@ -87,12 +145,7 @@ export function UserMenu() {
           {t('nav.settings')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => {
-            logout()
-            navigate('/login')
-          }}
-        >
+        <DropdownMenuItem onSelect={signOut}>
           <LogOut />
           {t('actions.signOut')}
         </DropdownMenuItem>

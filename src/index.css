@@ -54,6 +54,13 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+@layer base {
+  :root { --tabbar-h: 0px; }
+  @media (max-width: 767px) {
+    :root { --tabbar-h: calc(4rem + env(safe-area-inset-bottom, 0px)); }
+  }
+}
+
 :root {
     /* stone / ink / moss / brass / mist */
     --background: #f5f6f3;
@@ -150,13 +157,37 @@
     font-optical-sizing: auto;
     letter-spacing: -0.01em;
   }
-  html { -webkit-tap-highlight-color: transparent; }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
+  }
+  /* iOS zooms into inputs under 16px */
+  @media (pointer: coarse) {
+    input, textarea, select { font-size: 16px !important; }
+  }
+  button, a, [role="button"], [role="tab"], [role="menuitem"] {
+    touch-action: manipulation;
+  }
+  button, [role="button"], [role="tab"], [role="menuitem"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 @layer components {
   .prose-note p { margin: 0 0 0.75em; }
   .prose-note p:last-child { margin-bottom: 0; }
+  .prose-note pre { white-space: pre-wrap; }
+  .prose-note img, .prose-note table { max-width: 100%; }
   .prose-note a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
   .prose-note ul { list-style: disc; padding-left: 1.25rem; margin: 0 0 0.75em; }
   .prose-note ol { list-style: decimal; padding-left: 1.25rem; margin: 0 0 0.75em; }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
 }

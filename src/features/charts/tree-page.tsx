@@ -72,7 +72,7 @@ export function TreePage() {
   }, [params.chart, lastChart, setLastChart])
 
   return (
-    <div className="relative h-[calc(100svh-3.5rem)] w-full overflow-hidden bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-background [background-size:22px_22px]">
+    <div className="relative h-[calc(100dvh-3.5rem-var(--tabbar-h))] w-full overflow-hidden bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-background [background-size:22px_22px]">
       {id ? <TreeView chart={chart} id={id} /> : <ChooseStart chart={chart} />}
     </div>
   )

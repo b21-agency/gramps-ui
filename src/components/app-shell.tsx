@@ -2,31 +2,6 @@ import { Suspense, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
-  BookMarked,
-  BookOpen,
-  CalendarDays,
-  ChartGantt,
-  Dna,
-  FileDown,
-  FileText,
-  FileUp,
-  History,
-  House,
-  Image,
-  Landmark,
-  ListChecks,
-  Map as MapIcon,
-  MapPin,
-  Network,
-  Newspaper,
-  NotebookPen,
-  Quote,
-  Settings,
-  UsersRound,
-  UserRound,
-  GitCommitHorizontal,
-} from 'lucide-react'
-import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -50,70 +25,15 @@ import { CommandSearch } from './command-search'
 import { UserMenu } from './user-menu'
 import { AddMenu } from './add-menu'
 import { Logo } from './logo'
-
-interface NavItem {
-  to: string
-  key: string
-  icon: typeof House
-  match?: string[]
-  permission?: string
-}
-
-const groups: Array<{ key: string; items: NavItem[] }> = [
-  {
-    key: 'browse',
-    items: [
-      { to: '/', key: 'home', icon: House },
-      { to: '/tree', key: 'tree', icon: Network },
-      { to: '/people', key: 'people', icon: UserRound, match: ['/person/'] },
-      { to: '/families', key: 'families', icon: UsersRound, match: ['/family/'] },
-      { to: '/events', key: 'events', icon: CalendarDays, match: ['/event/'] },
-      { to: '/places', key: 'places', icon: MapPin, match: ['/place/'] },
-      { to: '/map', key: 'map', icon: MapIcon },
-      { to: '/timeline', key: 'timeline', icon: ChartGantt },
-      { to: '/medialist', key: 'media', icon: Image, match: ['/media/'] },
-    ],
-  },
-  {
-    key: 'research',
-    items: [
-      { to: '/sources', key: 'sources', icon: BookOpen, match: ['/source/'] },
-      { to: '/citations', key: 'citations', icon: Quote, match: ['/citation/'] },
-      { to: '/repositories', key: 'repositories', icon: Landmark, match: ['/repository/'] },
-      { to: '/notes', key: 'notes', icon: NotebookPen, match: ['/note/'] },
-      { to: '/dna-matches', key: 'dna', icon: Dna },
-    ],
-  },
-  {
-    key: 'yours',
-    items: [
-      { to: '/blog', key: 'blog', icon: Newspaper },
-      { to: '/bookmarks', key: 'bookmarks', icon: BookMarked },
-      { to: '/recent', key: 'history', icon: History },
-      { to: '/tasks', key: 'tasks', icon: ListChecks },
-    ],
-  },
-  {
-    key: 'tools',
-    items: [
-      { to: '/reports', key: 'reports', icon: FileText },
-      { to: '/export', key: 'export', icon: FileDown },
-      { to: '/import', key: 'import', icon: FileUp, permission: 'ImportFile' },
-      { to: '/revisions', key: 'revisions', icon: GitCommitHorizontal },
-      { to: '/settings', key: 'settings', icon: Settings },
-    ],
-  },
-]
+import { navGroups, isNavActive, type NavItem } from './nav-items'
+import { MobileTabBar } from './mobile-nav'
 
 function NavMenuItem({ item }: { item: NavItem }) {
   const { t } = useTranslation()
   const { pathname } = useLocation()
   const { setOpenMobile, isMobile } = useSidebar()
   const Icon = item.icon
-  const active =
-    item.to === '/'
-      ? pathname === '/'
-      : pathname === item.to || pathname.startsWith(item.to + '/') || !!item.match?.some((m) => pathname.startsWith(m))
+  const active = isNavActive(pathname, item.to, item.match)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={active} tooltip={t(`nav.${item.key}`)}>
@@ -140,7 +60,7 @@ function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        {groups.map((g) => (
+        {navGroups.map((g) => (
           <SidebarGroup key={g.key}>
             <SidebarGroupLabel>{t(`nav.groups.${g.key}`)}</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -162,24 +82,30 @@ function AppSidebar() {
 }
 
 export function AppShell() {
+  const { t } = useTranslation()
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-5" />
+        <header className="sticky top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top,0px))] pt-safe shrink-0 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:px-4">
+          <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
+          <Separator orientation="vertical" className="mr-1 hidden data-[orientation=vertical]:h-5 md:block" />
+          <Link to="/" className="flex items-center gap-2 md:hidden">
+            <Logo className="size-7" />
+            <span className="font-serif text-lg">{t('appName')}</span>
+          </Link>
           <CommandSearch />
           <div className="ml-auto flex items-center gap-1">
             <AddMenu />
             <UserMenu />
           </div>
         </header>
-        <main className="min-w-0 flex-1">
+        <main className="min-w-0 flex-1 pb-[var(--tabbar-h)]">
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />
           </Suspense>
         </main>
+        <MobileTabBar />
       </SidebarInset>
     </SidebarProvider>
   )

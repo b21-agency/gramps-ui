@@ -15,6 +15,6 @@ export function NoteHtml({ html, text, className }: { html?: string; text?: stri
       navigate(href)
     }
   }
-  if (!clean) return <div className={cn('prose-note whitespace-pre-wrap', className)}>{text}</div>
-  return <div className={cn('prose-note', className)} onClick={onClick} dangerouslySetInnerHTML={{ __html: clean }} />
+  if (!clean) return <div className={cn('prose-note whitespace-pre-wrap [overflow-wrap:anywhere]', className)}>{text}</div>
+  return <div className={cn('prose-note [overflow-wrap:anywhere]', className)} onClick={onClick} dangerouslySetInnerHTML={{ __html: clean }} />
 }

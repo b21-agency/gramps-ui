@@ -60,7 +60,7 @@ export function ObjectSearchList({
         {dq && !isFetching && data?.length === 0 && <CommandEmpty>{t('noResults')}</CommandEmpty>}
         {!!data?.length && dq && (
           <CommandGroup>
-            {data.map((hit) => {
+            {data.filter((hit) => hit.object_type in kindIcon).map((hit) => {
               const kind = hit.object_type as ObjectKind
               const Icon = kindIcon[kind]
               const d = describeObject(kind, hit.object)

@@ -128,7 +128,7 @@ export function MapPage() {
   ) : null
 
   return (
-    <div className="relative h-[calc(100svh-3.5rem)] overflow-hidden bg-muted">
+    <div className="relative h-[calc(100dvh-3.5rem-var(--tabbar-h))] overflow-hidden bg-muted">
       <MapView
         places={personMode ? [] : visiblePlaces}
         showPlaces={!personMode}

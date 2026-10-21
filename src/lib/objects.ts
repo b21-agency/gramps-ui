@@ -94,5 +94,7 @@ export function describeObject(kind: ObjectKind, o: any): { title: string; subti
     }
     case 'media':
       return { title: o.desc || o.path || o.gramps_id, subtitle: o.mime ?? '' }
+    default:
+      return { title: o.name || o.title || o.gramps_id || '', subtitle: '' }
   }
 }

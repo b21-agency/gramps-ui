@@ -8,6 +8,12 @@ server {
 
     client_max_body_size ${CLIENT_MAX_BODY_SIZE};
 
+    # ES module workers (maplibre) must be served as JavaScript
+    include /etc/nginx/mime.types;
+    types {
+        text/javascript mjs;
+    }
+
     gzip on;
     gzip_types text/plain text/css application/json application/javascript image/svg+xml;
     gzip_min_length 1024;

@@ -68,7 +68,7 @@ export function SearchPage() {
     placeholderData: keepPreviousData,
     queryFn: () =>
       apiRaw<SearchHit[]>('/search/', {
-        query: { query, type, sort, page, pagesize: PAGE_SIZE, locale, profile: 'self' },
+        query: { query, type: type ?? KINDS.join(','), sort, page, pagesize: PAGE_SIZE, locale, profile: 'self' },
       }),
   })
 
