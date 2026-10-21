@@ -3,7 +3,7 @@
 // and external (Nominatim) place search.
 import { useQuery } from '@tanstack/react-query'
 import type { Map as MapLibre, StyleSpecification } from 'maplibre-gl'
-import { api, mediaFileUrl, qs, tokens } from '@/lib/api'
+import { api, freshAccessToken, qs, tokens } from '@/lib/api'
 
 export const MAP_STYLE_OHM = 'https://www.openhistoricalmap.org/map-styles/main/main.json'
 export type BaseLayer = 'base' | 'ohm'
@@ -61,8 +61,16 @@ export function useMapOverlays() {
   })
 }
 
+/** Tile URL template (absolute: MapLibre needs it); the token goes in a header, see `authRequest`. */
 export function overlayTileUrl(o: MapOverlay) {
-  return `/api/media/${o.handle}/tile/{z}/{x}/{y}${qs({ jwt: tokens.access, checksum: o.checksum })}`
+  return `${window.location.origin}/api/media/${o.handle}/tile/{z}/{x}/{y}${qs({ checksum: o.checksum })}`
+}
+
+/** MapLibre `transformRequest`: same-origin /api/ requests carry the access token as a header. */
+export function authRequest(url: string) {
+  const token = tokens.access
+  if (!token || !url.startsWith(`${window.location.origin}/api/`)) return { url }
+  return { url, headers: { Authorization: `Bearer ${token}` } }
 }
 
 /* ---------------- vector files of a place ---------------- */
@@ -181,7 +189,8 @@ export function usePlaceVectors(placeHandle: string | null) {
         [...media.values()].map(async (m) => {
           let data: FeatureCollection | null = null
           try {
-            const res = await fetch(mediaFileUrl(m.handle))
+            const token = await freshAccessToken()
+            const res = await fetch(`/api/media/${m.handle}/file`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
             if (res.ok) data = parseVector(await res.text(), vectorFormat(m)!)
           } catch {
             /* unreadable file: listed, but nothing drawn */

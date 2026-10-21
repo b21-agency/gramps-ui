@@ -9,10 +9,12 @@ import {
   type GeoJSONSource,
   type MapLayerMouseEvent,
 } from 'maplibre-gl'
+import { freshAccessToken } from '@/lib/api'
 import { MAP_STYLE_DARK, MAP_STYLE_LIGHT } from './maplibre'
 import { cssVar, type PlacePoint } from './data'
 import {
   MAP_STYLE_OHM,
+  authRequest,
   filterOhmByYear,
   localizedStyle,
   type BaseLayer,
@@ -121,6 +123,7 @@ export function MapView({
       container: container.current,
       // the real (localized) style is set by the style effect below
       style: { version: 8, sources: {}, layers: [] },
+      transformRequest: authRequest,
       center: initialView?.center ?? [10, 30],
       zoom: initialView?.zoom ?? 1.5,
       attributionControl: false,
@@ -188,7 +191,10 @@ export function MapView({
 
     const ro = new ResizeObserver(() => map.resize())
     ro.observe(container.current)
+    // tile requests read the token synchronously (authRequest): keep it from expiring meanwhile
+    const keepFresh = setInterval(() => void freshAccessToken(), 60_000)
     return () => {
+      clearInterval(keepFresh)
       ro.disconnect()
       apiRef.current = null
       map.remove()

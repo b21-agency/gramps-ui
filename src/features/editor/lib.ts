@@ -195,7 +195,7 @@ export function invalidateAfterWrite(qc: QueryClient, kinds: Array<ObjectKind | 
   const keys = new Set<string>()
   for (const k of kinds) keys.add(endpointOf[k as ObjectKind] ?? k)
   for (const k of keys) void qc.invalidateQueries({ queryKey: [k] })
-  for (const k of ['search', 'portraits', 'tree', 'timeline', 'tags']) void qc.invalidateQueries({ queryKey: [k] })
+  for (const k of ['list', 'search', 'portraits', 'tree', 'timeline', 'tags', 'metadata']) void qc.invalidateQueries({ queryKey: [k] })
 }
 
 export function endpointsOfTx(tx: Transaction) {
