@@ -39,8 +39,8 @@ export function TimelinePage() {
           <h1 className="text-3xl font-medium tracking-tight">{t('common:nav.timeline')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{personId ? t('personIntro') : t('globalIntro')}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border bg-card p-0.5" role="group">
+        <div className="flex flex-wrap items-center gap-2 max-sm:w-full">
+          <div className="inline-flex rounded-lg border bg-card p-0.5 max-sm:grid max-sm:w-full max-sm:grid-cols-2 max-sm:[&_button]:h-10" role="group">
             <Button
               size="sm"
               variant={!personId ? 'secondary' : 'ghost'}
@@ -56,7 +56,7 @@ export function TimelinePage() {
               placeholder={t('pickPerson')}
               onChange={(o) => showPerson(o.gramps_id)}
               trigger={
-                <Button size="sm" variant={personId ? 'secondary' : 'ghost'} aria-pressed={!!personId} className="max-w-56">
+                <Button size="sm" variant={personId ? 'secondary' : 'ghost'} aria-pressed={!!personId} className="max-w-56 max-sm:max-w-none">
                   <UserRound />
                   <span className="truncate">{personId ? name || personId : t('onePerson')}</span>
                 </Button>

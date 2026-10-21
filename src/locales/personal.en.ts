@@ -4,6 +4,7 @@ export default {
     title: 'Bookmarks',
     description: 'Records you keep close at hand. Bookmarks are saved in this browser.',
     remove: 'Remove bookmark',
+    missing: 'No longer in the family tree',
     removed: '“{{title}}” removed from bookmarks',
     empty: {
       title: 'No bookmarks yet',

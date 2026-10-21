@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
+import { useQueries } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Bookmark, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -7,9 +8,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Page } from '@/components/app-shell'
 import { EmptyState } from '@/components/states'
 import { useBookmarks, type ObjectRefLite } from '@/lib/prefs'
-import { kindIcon, objectPath } from '@/lib/objects'
-import type { ObjectKind } from '@/lib/types'
+import { describeObject, kindIcon, objectPath } from '@/lib/objects'
+import { endpointOf, type ObjectKind } from '@/lib/types'
+import { api, ApiError } from '@/lib/api'
+import { apiLocale } from '@/i18n'
 import { useTitle } from '@/hooks/use-title'
+import { cn } from '@/lib/utils'
 
 const kindOrder: ObjectKind[] = ['person', 'family', 'event', 'place', 'media', 'source', 'citation', 'repository', 'note']
 
@@ -34,6 +38,23 @@ export function BookmarksPage() {
       },
     })
   }
+
+  // current title/subtitle of each bookmark (names change, objects get deleted)
+  const fresh = useQueries({
+    queries: list.map((b) => ({
+      queryKey: [endpointOf[b.kind], 'handle', b.handle, { profile: 'self', locale: apiLocale() }],
+      queryFn: () => api<Record<string, unknown>>(`/${endpointOf[b.kind]}/${b.handle}`, { query: { profile: 'self', locale: apiLocale() } }),
+      staleTime: 60_000,
+      retry: false,
+    })),
+  })
+  const info = new Map(
+    list.map((b, i) => {
+      const q = fresh[i]
+      const d = q?.data ? describeObject(b.kind, q.data) : null
+      return [b.handle, { title: d?.title, subtitle: d?.subtitle, missing: q?.error instanceof ApiError && q.error.status === 404 }]
+    }),
+  )
 
   const groups = kindOrder
     .map((kind) => ({ kind, items: list.filter((b) => b.kind === kind) }))
@@ -62,7 +83,16 @@ export function BookmarksPage() {
                         <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
                           <Icon className="size-4" />
                         </span>
-                        <span className="min-w-0 flex-1 truncate font-serif text-[1.05rem]">{b.title || b.gramps_id}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className={cn('block truncate font-serif text-[1.05rem]', info.get(b.handle)?.missing && 'text-muted-foreground line-through')}>
+                            {info.get(b.handle)?.title || b.title || b.gramps_id}
+                          </span>
+                          {(info.get(b.handle)?.missing || info.get(b.handle)?.subtitle) && (
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {info.get(b.handle)?.missing ? t('bookmarks.missing') : info.get(b.handle)?.subtitle}
+                            </span>
+                          )}
+                        </span>
                         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{b.gramps_id}</span>
                       </Link>
                       <Tooltip>

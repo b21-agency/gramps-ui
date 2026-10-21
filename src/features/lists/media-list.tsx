@@ -23,6 +23,7 @@ import {
   type ListController,
 } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
+import { useExtraFacets } from './facets'
 import { rule, yearRangeDate } from './rules'
 import { ChangedCell, Dash, IdCell } from './cells'
 
@@ -70,6 +71,7 @@ function Thumb({ m, size = 40 }: { m: MediaRow; size?: number }) {
 export function MediaListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
+  const extraFacets = useExtraFacets('media')
   useTitle(t('common:nav.media'))
 
   const config = useMemo<ListConfig<MediaRow>>(() => {
@@ -84,6 +86,7 @@ export function MediaListPage() {
           { value: 'application/pdf', label: t('media.kinds.pdf') },
           { value: 'video/', label: t('media.kinds.video') },
           { value: 'audio/', label: t('media.kinds.audio') },
+          { value: 'text/', label: t('media.kinds.text') },
         ],
         toRule: (v) => rule('HasMedia', '', v, '', ''),
       },
@@ -98,6 +101,7 @@ export function MediaListPage() {
         },
       },
       ...(tagFilter ? [tagFilter] : []),
+      ...extraFacets,
     ]
     return {
       kind: 'media',
@@ -172,7 +176,7 @@ export function MediaListPage() {
         </div>
       ),
     }
-  }, [t, tagFilter])
+  }, [t, tagFilter, extraFacets])
 
   const ctl = useListController(config)
   const view = ctl.state.params.get('view') === 'table' ? 'table' : 'grid'
@@ -186,6 +190,7 @@ export function MediaListPage() {
       <ListToolbar
         config={config}
         ctl={ctl}
+        noSelect={view !== 'table'}
         extra={
           <ToggleGroup
             type="single"
@@ -194,10 +199,10 @@ export function MediaListPage() {
             onValueChange={(v) => v && ctl.state.setParam('view', v === 'table' ? 'table' : null)}
             aria-label={t('media.view')}
           >
-            <ToggleGroupItem value="grid" aria-label={t('media.grid')} className="h-9 bg-card">
+            <ToggleGroupItem value="grid" aria-label={t('media.grid')} className="h-9 bg-card max-md:size-11">
               <LayoutGrid />
             </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label={t('media.table')} className="h-9 bg-card">
+            <ToggleGroupItem value="table" aria-label={t('media.table')} className="h-9 bg-card max-md:size-11">
               <List />
             </ToggleGroupItem>
           </ToggleGroup>
@@ -262,10 +267,7 @@ function MediaGrid({ ctl }: { ctl: ListController<MediaRow> }) {
       <ListEmpty
         kind="media"
         filtered={source.filtered}
-        onClear={() => {
-          state.clearFilters()
-          state.setQ('')
-        }}
+        onClear={() => state.setMany({ q: null, adv: null, gql: null, ...Object.fromEntries(Object.keys(state.filters).map((id) => [id, null])) })}
       />
     )
 

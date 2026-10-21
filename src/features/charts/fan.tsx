@@ -29,19 +29,25 @@ export interface FanSegment {
   /** null = unknown ancestor placeholder */
   person: GPerson | null
   d: string
-  colour: string
-  mix: number
+  /** CSS colour of the segment (tokens + color-mix, resolved for the export) */
+  fill: string
   cx: number
   cy: number
   transform: string
   lines: FanText[]
 }
 
+/** Key of a data colour mode: a colour scale (numbers) or a list of swatches. */
+export type FanLegend =
+  | { kind: 'scale'; min: number; max: number; lo: string; hi: string }
+  | { kind: 'items'; items: Array<{ label: string; fill: string }> }
+
 export interface FanGeometry {
   segments: FanSegment[]
   centre: GPerson
   radius: number
   bounds: Bounds
+  legend: FanLegend | null
 }
 
 const rad = (a: number) => (a * Math.PI) / 180
@@ -74,11 +80,115 @@ const charW = (size: number) => size * 0.52
 const LINE = ['--chart-3', '--chart-1', '--chart-2', '--chart-4']
 const GEN = ['--chart-1', '--chart-3', '--chart-2', '--chart-4', '--chart-5']
 
-export function fanGeometry(g: Graph, centre: string, gens: number, colour: FanColour, t: TFunction): FanGeometry | null {
+const tint = (c: string, mix: number) => `color-mix(in oklab, ${c} ${mix}%, var(--card))`
+const NO_VALUE = 'var(--muted)'
+/** cool -> warm scale for a share 0..1 */
+const scale = (v: number) => tint(`color-mix(in oklab, var(--destructive) ${Math.round(v * 100)}%, var(--chart-3))`, Math.round(30 + v * 45))
+const CATEGORY = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--destructive)',
+  'var(--chart-5)',
+  'color-mix(in oklab, var(--chart-1) 50%, var(--chart-3))',
+  'color-mix(in oklab, var(--chart-2) 50%, var(--destructive))',
+  'color-mix(in oklab, var(--chart-4) 50%, var(--chart-3))',
+].map((c) => tint(c, 40))
+const OTHER = tint('var(--muted-foreground)', 30)
+/** counts 1..8+ (0 = no value) */
+const count = (n: number) => (n ? scale(Math.min(n, 8) / 8) : NO_VALUE)
+
+type Value = number | string | null
+function valueOf(mode: FanColour, p: GPerson): Value {
+  switch (mode) {
+    case 'nEvents':
+      return p.nEvents
+    case 'nNotes':
+      return p.nNotes
+    case 'birthYear':
+      return p.birth
+    case 'deathYear':
+      return p.death
+    case 'age':
+      return p.age
+    case 'surname':
+      return p.surname || null
+    case 'religion':
+      return p.religion
+    default:
+      return null
+  }
+}
+
+/** Fill of every person segment for a data colour mode, and its legend. */
+function dataColours(
+  mode: FanColour,
+  segs: Array<{ seg: FanSegment; angle: number }>,
+  t: TFunction,
+): FanLegend | null {
+  const people = segs.filter((s) => s.seg.person)
+  if (mode === 'nEvents' || mode === 'nNotes' || mode === 'nPaths') {
+    const paths = new Map<string, number>()
+    for (const { seg } of people) paths.set(seg.person!.handle, (paths.get(seg.person!.handle) ?? 0) + 1)
+    for (const { seg } of people) {
+      const n = mode === 'nPaths' ? paths.get(seg.person!.handle)! : (valueOf(mode, seg.person!) as number)
+      seg.fill = count(n)
+    }
+    return {
+      kind: 'items',
+      items: [
+        { label: '0', fill: NO_VALUE },
+        ...[1, 2, 3, 4, 5, 6, 7].map((n) => ({ label: String(n), fill: count(n) })),
+        { label: '≥ 8', fill: count(8) },
+      ].slice(mode === 'nPaths' ? 1 : 0),
+    }
+  }
+  if (mode === 'birthYear' || mode === 'deathYear' || mode === 'age') {
+    const vals = people.map(({ seg }) => valueOf(mode, seg.person!) as number | null).filter((v): v is number => v != null)
+    if (!vals.length) {
+      people.forEach(({ seg }) => (seg.fill = NO_VALUE))
+      return { kind: 'items', items: [{ label: t('colour.noValue'), fill: NO_VALUE }] }
+    }
+    const min = Math.min(...vals)
+    const max = Math.max(...vals)
+    for (const { seg } of people) {
+      const v = valueOf(mode, seg.person!) as number | null
+      seg.fill = v == null ? NO_VALUE : scale(max === min ? 0.5 : (v - min) / (max - min))
+    }
+    return { kind: 'scale', min: Math.round(min), max: Math.round(max), lo: scale(0), hi: scale(1) }
+  }
+  // categories, largest share of the fan first
+  const share = new Map<string, number>()
+  for (const { seg, angle } of people) {
+    const v = valueOf(mode, seg.person!) as string | null
+    if (v) share.set(v, (share.get(v) ?? 0) + angle)
+  }
+  const cats = [...share.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c)
+  for (const { seg } of people) {
+    const v = valueOf(mode, seg.person!) as string | null
+    const i = v ? cats.indexOf(v) : -1
+    seg.fill = !v ? NO_VALUE : i < CATEGORY.length ? CATEGORY[i] : OTHER
+  }
+  const items = cats.slice(0, CATEGORY.length).map((c, i) => ({ label: c, fill: CATEGORY[i] }))
+  if (cats.length > CATEGORY.length) items.push({ label: t('colour.other'), fill: OTHER })
+  if (!items.length) items.push({ label: t('colour.noValue'), fill: NO_VALUE })
+  return { kind: 'items', items }
+}
+
+export function fanGeometry(
+  g: Graph,
+  centre: string,
+  gens: number,
+  colour: FanColour,
+  t: TFunction,
+  surnameFirst = false,
+): FanGeometry | null {
   const cp = g.people.get(centre)
   if (!cp) return null
   const radii = ringRadii(gens)
   const segments: FanSegment[] = []
+  const angles: Array<{ seg: FanSegment; angle: number }> = []
   let prev: Array<GPerson | null> = [cp]
   for (let gen = 1; gen < gens; gen++) {
     const cur: Array<GPerson | null> = []
@@ -108,8 +218,7 @@ export function fanGeometry(g: Graph, centre: string, gens: number, colour: FanC
         gen,
         person: p,
         d: sector(r0 + 1, r1 - 1, a0 + 0.15, a1 - 0.15),
-        colour: colour === 'line' ? LINE[line] : GEN[(gen - 1) % GEN.length],
-        mix: Math.max(14, 34 - (gen - 1) * 3),
+        fill: tint(`var(${colour === 'generation' ? GEN[(gen - 1) % GEN.length] : LINE[line]})`, Math.max(14, 34 - (gen - 1) * 3)),
         cx: f(cx),
         cy: f(cy),
         transform: '',
@@ -117,8 +226,8 @@ export function fanGeometry(g: Graph, centre: string, gens: number, colour: FanC
       }
       if (p) {
         const years = yearsText(p, t)
-        const given = p.given || p.name
-        const surname = p.given ? p.surname : ''
+        const given = surnameFirst && p.given && p.surname ? p.surname : p.given || p.name
+        const surname = p.given ? (surnameFirst && p.surname ? p.given : p.surname) : ''
         if (gen <= 3) {
           // text along the ring
           const flip = Math.abs(m) > 90
@@ -155,14 +264,17 @@ export function fanGeometry(g: Graph, centre: string, gens: number, colour: FanC
         }
       }
       segments.push(seg)
+      angles.push({ seg, angle: step })
     })
     prev = cur
   }
   const R = radii[gens]
+  const legend = colour === 'line' || colour === 'generation' ? null : dataColours(colour, angles, t)
   return {
     segments,
     centre: cp,
     radius: R,
+    legend,
     bounds: { x0: -R, y0: -R, x1: R, y1: Math.max(R * 0.5, FAN_R0) + 8 },
   }
 }
@@ -177,6 +289,28 @@ function stack(lines: FanText[]): FanText[] {
     y += heights[i]
     return { ...l, dy: f(dy) }
   })
+}
+
+/** Key of the data colours, shown over the canvas. */
+export function FanLegendView({ legend, className }: { legend: FanLegend; className?: string }) {
+  return legend.kind === 'scale' ? (
+    <div className={className}>
+      <div className="flex items-center gap-2 text-xs tabular-nums text-muted-foreground">
+        <span>{legend.min}</span>
+        <span className="h-2.5 w-28 rounded-full" style={{ background: `linear-gradient(to right, ${legend.lo}, ${legend.hi})` }} aria-hidden />
+        <span>{legend.max}</span>
+      </div>
+    </div>
+  ) : (
+    <ul className={className}>
+      {legend.items.map((i) => (
+        <li key={i.label} className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="size-3 shrink-0 rounded-sm border border-border/60" style={{ background: i.fill }} aria-hidden />
+          <span className="truncate">{i.label}</span>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 export const FanChart = memo(function FanChart({ geo, handlers }: { geo: FanGeometry; handlers: CardHandlers }) {
@@ -210,7 +344,7 @@ export const FanChart = memo(function FanChart({ geo, handlers }: { geo: FanGeom
               <title>{`${s.person.name}${yearsText(s.person, t) ? ` (${yearsText(s.person, t)})` : ''}`}</title>
               <path
                 d={s.d}
-                style={{ fill: `color-mix(in oklab, var(${s.colour}) ${s.mix}%, var(--card))` }}
+                style={{ fill: s.fill }}
                 className="stroke-background stroke-[1.5] transition-[filter] group-hover/seg:brightness-95 group-focus-visible/seg:stroke-ring group-focus-visible/seg:stroke-[3] dark:group-hover/seg:brightness-125"
               />
               <g transform={s.transform} className="pointer-events-none" textAnchor="middle">
@@ -280,11 +414,11 @@ export const FanChart = memo(function FanChart({ geo, handlers }: { geo: FanGeom
         )}
         <text textAnchor="middle" className="pointer-events-none">
           <tspan x={0} y={20} fontSize={13.5} fontWeight={600} className="fill-foreground font-serif">
-            {clip(c.given || c.name, 16)}
+            {clip(c.given ? (c.surname && c.name.startsWith(`${c.surname}, `) ? c.surname : c.given) : c.name, 16)}
           </tspan>
           {c.given && c.surname && (
             <tspan x={0} y={36} fontSize={13.5} fontWeight={600} className="fill-foreground font-serif">
-              {clip(c.surname, 16)}
+              {clip(c.name.startsWith(`${c.surname}, `) ? c.given : c.surname, 16)}
             </tspan>
           )}
           {years && (

@@ -1,8 +1,11 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import { CalendarX2, MapPin } from 'lucide-react'
+import { CalendarX2, Filter, Loader2, MapPin, X } from 'lucide-react'
+import { ObjectPicker } from '@/components/object-picker'
+import { useObjectById } from '@/lib/queries'
+import type { Person, Place } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
@@ -10,7 +13,16 @@ import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { profileName } from '@/lib/format'
 import { usePref } from '@/lib/prefs'
 import { cn } from '@/lib/utils'
-import { typeTone, useAllEvents, useEventDetails, useTypeLabels, type DatedEvent, type EventDetail } from './data'
+import {
+  typeTone,
+  useAllEvents,
+  useEventDetails,
+  useTimelineScope,
+  useTypeLabels,
+  type DatedEvent,
+  type EventDetail,
+  type ScopeMode,
+} from './data'
 
 type Row =
   | { kind: 'decade'; decade: number; count: number }
@@ -21,9 +33,39 @@ const MAX_CHIPS = 8
 export function GlobalTimeline() {
   const { t } = useTranslation(['timeline', 'common'])
   const q = useAllEvents()
-  const all = useMemo(() => q.data ?? [], [q.data])
+  const [params, setParams] = useSearchParams()
+  const scopeKind = (['person', 'place'] as const).find((k) => k === params.get('ofk')) ?? null
+  const scopeId = scopeKind ? params.get('of') : null
+  const scopeModes: ScopeMode[] = scopeKind === 'place' ? ['exact', 'enclosed'] : ['self', 'ancestors', 'descendants']
+  const scopeMode = scopeModes.find((m) => m === params.get('mode')) ?? scopeModes[0]
+  const scope = useTimelineScope(scopeKind, scopeId, scopeMode)
+  const setScope = (kind: 'person' | 'place' | null, id: string | null, mode?: ScopeMode) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('event')
+        if (kind && id) {
+          next.set('ofk', kind)
+          next.set('of', id)
+          if (mode) next.set('mode', mode)
+          else next.delete('mode')
+        } else ['ofk', 'of', 'mode'].forEach((k) => next.delete(k))
+        return next
+      },
+      { replace: true },
+    )
+  const all = useMemo(() => {
+    const list = q.data ?? []
+    if (!scopeKind) return list
+    const s = scope.data
+    if (!s) return []
+    if (s.events) return list.filter((e) => s.events!.has(e.handle))
+    return list.filter((e) => !!e.place && s.places!.has(e.place))
+  }, [q.data, scopeKind, scope.data])
   const [types, setTypes] = usePref<string[]>('timeline.types', [])
   const [range, setRange] = useState<[number, number] | null>(null)
+  // a new person/place scope has its own year extent
+  useEffect(() => setRange(null), [scopeKind, scopeId, scopeMode])
 
   const typeCounts = useMemo(() => {
     const m = new Map<string, number>()
@@ -138,6 +180,17 @@ export function GlobalTimeline() {
     }
   }
 
+  // ?event=E0001 ("show on timeline" from an event): scroll there once the rows exist
+  const focusEvent = params.get('event')
+  const focused = useRef<string | null>(null)
+  useEffect(() => {
+    if (!focusEvent || focused.current === focusEvent || !rows.length) return
+    const idx = rows.findIndex((r) => r.kind === 'event' && r.ev.gramps_id === focusEvent)
+    if (idx < 0) return
+    focused.current = focusEvent
+    v.scrollToIndex(idx, { align: 'center' })
+  }, [focusEvent, rows, v])
+
   const jumpTo = (decade: number) => {
     const idx = rows.findIndex((r) => r.kind === 'decade' && r.decade === decade)
     if (idx >= 0) v.scrollToIndex(idx, { align: 'start' })
@@ -153,6 +206,14 @@ export function GlobalTimeline() {
     <div>
       {/* filters */}
       <div className="space-y-4">
+        <ScopeFilter
+          kind={scopeKind}
+          id={scopeId}
+          mode={scopeMode}
+          modes={scopeModes}
+          loading={!!scopeKind && scope.isLoading}
+          onChange={setScope}
+        />
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('eventTypes')}>
           <Chip active={activeTypes.length === 0} onClick={() => setTypes([])}>
             {t('allTypes')}
@@ -232,7 +293,7 @@ export function GlobalTimeline() {
 
       {/* sticky "where am I" bar */}
       {current && rows.length > 0 && (
-        <div className="sticky top-14 z-20 -mx-4 mt-4 border-b bg-background/90 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="sticky top-[var(--header-h)] z-20 -mx-4 mt-4 border-b bg-background/90 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
           <div className="flex items-baseline gap-3">
             <span className="font-serif text-xl">{t('decade', { decade: Math.floor(current.year / 10) * 10 })}</span>
             <span className="text-sm tabular-nums text-brass">{current.year}</span>
@@ -286,7 +347,13 @@ export function GlobalTimeline() {
                   <span className="text-sm tabular-nums text-muted-foreground">{t('eventsCount', { count: r.count })}</span>
                 </div>
               ) : (
-                <EventRow ev={r.ev} firstOfYear={r.firstOfYear} detail={detail(r.ev.handle)} typeLabel={label(r.ev.type)} />
+                <EventRow
+                  ev={r.ev}
+                  firstOfYear={r.firstOfYear}
+                  detail={detail(r.ev.handle)}
+                  typeLabel={label(r.ev.type)}
+                  highlight={r.ev.gramps_id === focusEvent}
+                />
               )}
             </div>
           )
@@ -303,7 +370,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 max-md:h-9 max-md:px-3.5',
         active ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:bg-accent',
       )}
     >
@@ -312,16 +379,80 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   )
 }
 
+/** "Only events of …": a person (self/ancestors/descendants) or a place (exact/enclosed). */
+function ScopeFilter({
+  kind,
+  id,
+  mode,
+  modes,
+  loading,
+  onChange,
+}: {
+  kind: 'person' | 'place' | null
+  id: string | null
+  mode: ScopeMode
+  modes: ScopeMode[]
+  loading: boolean
+  onChange: (kind: 'person' | 'place' | null, id: string | null, mode?: ScopeMode) => void
+}) {
+  const { t } = useTranslation(['timeline', 'common'])
+  const person = useObjectById<Person>('person', kind === 'person' ? (id ?? undefined) : undefined, { keys: 'handle,gramps_id,profile', profile: 'self' })
+  const place = useObjectById<Place>('place', kind === 'place' ? (id ?? undefined) : undefined, { keys: 'handle,gramps_id,profile', profile: 'self' })
+  const name = kind === 'person' ? profileName(person.data?.profile) : kind === 'place' ? place.data?.profile?.name : ''
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <ObjectPicker
+        kinds={['person', 'place']}
+        placeholder={t('scope.pick')}
+        onChange={(o) => onChange(o.kind === 'place' ? 'place' : 'person', o.gramps_id)}
+        trigger={
+          <Button variant="outline" size="sm" className={cn('max-w-72 bg-card', kind && 'border-primary/40')}>
+            <Filter />
+            <span className="truncate">{kind ? name || id : t('scope.pick')}</span>
+          </Button>
+        }
+      />
+      {kind && (
+        <>
+          <div className="inline-flex rounded-lg border bg-muted p-0.5" role="radiogroup" aria-label={t('scope.mode')}>
+            {modes.map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={mode === m}
+                onClick={() => onChange(kind, id, m)}
+                className={cn(
+                  'h-7 rounded-md px-2.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 max-md:h-8',
+                  mode === m ? 'bg-card font-medium shadow-xs' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {t(`scope.${m}`)}
+              </button>
+            ))}
+          </div>
+          <Button variant="ghost" size="icon-sm" aria-label={t('scope.clear')} onClick={() => onChange(null, null)}>
+            <X />
+          </Button>
+          {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+        </>
+      )}
+    </div>
+  )
+}
+
 function EventRow({
   ev,
   firstOfYear,
   detail,
   typeLabel,
+  highlight,
 }: {
   ev: DatedEvent
   firstOfYear: boolean
   detail?: EventDetail
   typeLabel: string
+  highlight?: boolean
 }) {
   const p = detail?.profile
   const people = p?.participants?.people ?? []
@@ -346,7 +477,7 @@ function EventRow({
         <span className="absolute inset-y-0 w-px bg-border" />
         <span className={cn('relative mt-3 size-2.5 rounded-full ring-4 ring-background', typeTone(ev.type))} />
       </div>
-      <div className="min-w-0 py-2 pl-1">
+      <div className={cn('min-w-0 py-2 pl-1', highlight && '-ml-1 rounded-lg bg-brass/10 pl-2')}>
         <div className="flex items-baseline gap-2">
           <Link to={`/event/${ev.gramps_id}`} className="font-medium hover:underline">
             {p?.type || typeLabel}

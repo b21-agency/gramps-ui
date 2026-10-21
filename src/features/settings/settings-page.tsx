@@ -1,7 +1,6 @@
-import { Link, Navigate, useNavigate, useParams } from 'react-router'
+import { Link, Navigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Info, ShieldCheck, SlidersHorizontal, UserRound, UsersRound } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Page } from '@/components/app-shell'
 import { useAuth } from '@/lib/auth'
 import { useTitle } from '@/hooks/use-title'
@@ -36,11 +35,19 @@ const sections: Array<{ key: SectionKey; icon: typeof UserRound; permission?: (c
   { key: 'info', icon: Info },
 ]
 
+/** Brings the active tab into view in the sideways-scrolling phone tab row. */
+const scrollIntoTabs = (el: HTMLAnchorElement | null) => {
+  const row = el?.closest('nav')
+  if (!el || !row) return
+  const l = el.offsetLeft - 16
+  const r = el.offsetLeft + el.offsetWidth + 16
+  if (l < row.scrollLeft || r > row.scrollLeft + row.clientWidth) row.scrollLeft = Math.max(0, l - (row.clientWidth - el.offsetWidth) / 2)
+}
+
 export function SettingsPage() {
   const { section } = useParams()
   const { t } = useTranslation('settings')
   const { can } = useAuth()
-  const navigate = useNavigate()
   const visible = sections.filter((s) => !s.permission || s.permission(can))
   const requested = section ? aliases[section.toLowerCase()] : 'user'
   const current = visible.find((s) => s.key === requested)
@@ -51,23 +58,35 @@ export function SettingsPage() {
 
   return (
     <Page title={t('title')} description={t('description')}>
-      <div className="grid gap-8 md:grid-cols-[13rem_minmax(0,1fr)] lg:gap-12">
-        {/* mobile: compact select */}
-        <div className="md:hidden">
-          <Select value={current.key} onValueChange={(v) => navigate(`/settings/${v}`)}>
-            <SelectTrigger className="w-full" aria-label={t('title')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {visible.map((s) => (
-                <SelectItem key={s.key} value={s.key}>
-                  <s.icon />
-                  {t(`nav.${s.key}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-8 lg:gap-12">
+        {/* mobile: sideways-scrolling tabs under the header */}
+        <nav
+          aria-label={t('title')}
+          className="sticky top-[var(--header-h)] z-20 -mx-4 -mt-2 overflow-x-auto border-b bg-background/90 px-4 py-2 backdrop-blur [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden"
+        >
+          <ul className="flex gap-1.5">
+            {visible.map((s) => {
+              const active = s.key === current.key
+              return (
+                <li key={s.key} className="shrink-0">
+                  <Link
+                    ref={active ? scrollIntoTabs : undefined}
+                    to={`/settings/${s.key}`}
+                    replace
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'flex h-10 items-center gap-2 rounded-full border px-3.5 text-[15px] transition-colors active:scale-[0.97] motion-reduce:active:scale-100',
+                      active ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-foreground',
+                    )}
+                  >
+                    <s.icon className="size-4" />
+                    {t(`nav.${s.key}`)}
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
 
         {/* desktop: side nav */}
         <nav aria-label={t('title')} className="hidden md:block">

@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Dices, Loader2, Pencil, Trash2, UserPlus, UsersRound } from 'lucide-react'
+import { Dices, Download, Loader2, Pencil, Trash2, Upload, UserPlus, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -34,11 +34,12 @@ import { initials } from '@/lib/format'
 import type { UserInfo } from '@/lib/types'
 import { Field, SettingsBlock } from './parts'
 
-type User = UserInfo & { user_id?: string }
+type User = UserInfo & { user_id?: string; account_source?: string }
 
 function useRoles() {
   const { can } = useAuth()
-  return can('MakeAdmin') ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3, 4]
+  // -1 disables an account, -2 marks it unconfirmed (as in the classic UI)
+  return can('MakeAdmin') ? [-2, -1, 0, 1, 2, 3, 4, 5] : [-2, -1, 0, 1, 2, 3, 4]
 }
 
 export function UsersSection() {
@@ -51,24 +52,59 @@ export function UsersSection() {
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
   const [deleting, setDeleting] = useState<User | null>(null)
+  const [filterText, setFilterText] = useState('')
+  const [filterRole, setFilterRole] = useState('all')
 
   const users = [...(q.data ?? [])].sort(
     (a, b) => b.role - a.role || (a.full_name || a.name).localeCompare(b.full_name || b.name),
   )
   // a disabled (-1) or unconfirmed (-2) account is shown, but sorted last
   users.sort((a, b) => Number(a.role < 0) - Number(b.role < 0))
+  const ft = filterText.trim().toLowerCase()
+  const shown = users.filter(
+    (u) =>
+      (filterRole === 'all' || String(u.role) === filterRole) &&
+      (!ft || [u.name, u.full_name, u.email].some((v) => (v ?? '').toLowerCase().includes(ft))),
+  )
 
   return (
     <SettingsBlock
       title={t('users.title')}
       description={t('users.description')}
       action={
-        <Button onClick={() => setCreating(true)}>
-          <UserPlus />
-          {t('users.add')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <UsersTransfer users={q.data ?? []} />
+          <Button onClick={() => setCreating(true)}>
+            <UserPlus />
+            {t('users.add')}
+          </Button>
+        </div>
       }
     >
+      {users.length > 3 && (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            placeholder={t('users.filter')}
+            aria-label={t('users.filter')}
+            className="sm:max-w-xs"
+          />
+          <Select value={filterRole} onValueChange={setFilterRole}>
+            <SelectTrigger className="sm:w-48" aria-label={t('users.role')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('users.allRoles')}</SelectItem>
+              {[...new Set(users.map((u) => u.role))].sort((a, b) => a - b).map((r) => (
+                <SelectItem key={r} value={String(r)}>
+                  {roleLabel(t, r)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       {q.isError ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       ) : q.isLoading ? (
@@ -77,7 +113,8 @@ export function UsersSection() {
         <EmptyState icon={UsersRound} title={t('users.empty')} />
       ) : (
         <ul className="divide-y rounded-xl border bg-card">
-          {users.map((u) => {
+          {!shown.length && <li className="p-4 text-sm text-muted-foreground">{t('users.noMatch')}</li>}
+          {shown.map((u) => {
             const self = me?.name === u.name
             return (
               <li key={u.name} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
@@ -93,7 +130,7 @@ export function UsersSection() {
                       {self && <span className="text-xs text-muted-foreground">{t('users.you')}</span>}
                     </div>
                     <div className="truncate text-sm text-muted-foreground">
-                      {[u.name, u.email].filter(Boolean).join(' · ')}
+                      {[u.name, u.email, u.account_source].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                 </div>
@@ -340,5 +377,101 @@ function DeleteUserDialog({ user, onClose }: { user: User | null; onClose: () =>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  )
+}
+
+/** Export all accounts as JSON / import accounts from such a file (POST /users/ batch). */
+function UsersTransfer({ users }: { users: User[] }) {
+  const { t } = useTranslation('settings')
+  const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [pending, setPending] = useState<Array<Pick<User, 'name' | 'full_name' | 'email' | 'role'>> | null>(null)
+  const [busy, setBusy] = useState(false)
+  const exportUsers = () => {
+    const blob = new Blob([JSON.stringify(users)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'grampsweb-export-users.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  const pick = async (file: File) => {
+    try {
+      const data = JSON.parse(await file.text())
+      if (!Array.isArray(data)) throw new Error()
+      const list = data
+        .map((u: User) => ({ name: u.name, full_name: u.full_name, email: u.email, role: u.role }))
+        .filter((u) => !!u.name)
+      if (!list.length) throw new Error()
+      setPending(list)
+    } catch {
+      toast.error(t('users.importInvalid'))
+    }
+  }
+  const run = async () => {
+    if (!pending) return
+    setBusy(true)
+    try {
+      await api('/users/', { method: 'POST', json: pending })
+      await qc.invalidateQueries({ queryKey: ['users'] })
+      toast.success(t('users.imported', { count: pending.length }))
+      setPending(null)
+    } catch (err) {
+      toast.error(t('users.importFailed'), { description: err instanceof Error ? err.message : undefined })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <>
+      <Button variant="outline" onClick={exportUsers} disabled={!users.length}>
+        <Download />
+        {t('users.export')}
+      </Button>
+      <Button variant="outline" onClick={() => fileRef.current?.click()}>
+        <Upload />
+        {t('users.import')}
+      </Button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ''
+          if (f) void pick(f)
+        }}
+      />
+      <AlertDialog open={!!pending} onOpenChange={(o) => !o && setPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('users.importTitle', { count: pending?.length ?? 0 })}</AlertDialogTitle>
+            <AlertDialogDescription>{t('users.importDescription')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="max-h-48 overflow-auto text-sm">
+            {pending?.map((u) => (
+              <li key={u.name}>
+                {u.full_name || u.name} <span className="text-muted-foreground">({u.name})</span>
+              </li>
+            ))}
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>{t('common:actions.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy}
+              onClick={(e) => {
+                e.preventDefault()
+                void run()
+              }}
+            >
+              {busy && <Loader2 className="animate-spin" />}
+              {t('users.import')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

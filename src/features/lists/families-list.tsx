@@ -5,6 +5,7 @@ import { profileName } from '@/lib/format'
 import type { EventProfile, FamilyProfile, PersonProfile } from '@/lib/types'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
+import { useExtraFacets } from './facets'
 import { or, rule, yearRangeDate } from './rules'
 import { ChangedCell, Dash, EventCell, HandlePortrait, IdCell } from './cells'
 import { useTypeOptions } from './use-types'
@@ -42,6 +43,7 @@ function Partners({ f, size = 32 }: { f: FamilyProfile; size?: number }) {
 export function FamiliesListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
+  const extraFacets = useExtraFacets('family')
   const relTypes = useTypeOptions('family_relation_types')
 
   const config = useMemo<ListConfig<FamilyRow>>(() => {
@@ -65,6 +67,7 @@ export function FamiliesListPage() {
         },
       },
       ...(tagFilter ? [tagFilter] : []),
+      ...extraFacets,
     ]
     const children = (f: FamilyRow) => f.profile.children?.length ?? 0
     return {
@@ -136,7 +139,7 @@ export function FamiliesListPage() {
         )
       },
     }
-  }, [t, tagFilter, relTypes])
+  }, [t, tagFilter, relTypes, extraFacets])
 
   return <DataListPage title={t('common:nav.families')} config={config} />
 }

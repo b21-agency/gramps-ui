@@ -4,6 +4,7 @@ import { CalendarDays, MapPin, UsersRound } from 'lucide-react'
 import { PersonChip } from '@/components/person-chip'
 import { Portrait } from '@/components/portrait'
 import { ErrorState } from '@/components/states'
+import { ObjectHistory } from '@/components/detail/object-history'
 import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
 import { CitationsList, DetailSection, FactsTable, Gallery, NotesList, SectionNav } from '@/components/detail/sections'
 import { isEmpty, profileName, typeStr } from '@/lib/format'
@@ -148,6 +149,7 @@ export function EventPage() {
                 <RichReferences groups={refs} />
               </DetailSection>
             )}
+            <ObjectHistory objClass="Event" handle={event.handle} lastChange={event.change} />
           </>
         }
       />

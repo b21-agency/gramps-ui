@@ -23,4 +23,14 @@ export default {
   anchorAge: '{{name}} was {{age}}',
   noPersonEvents: 'No dated events for {{name}}',
   noPersonEventsHint: 'Add dates to their events, or include relatives above.',
+  scope: {
+    pick: 'Only events of a person or place…',
+    mode: 'Whose events',
+    self: 'Person',
+    ancestors: 'Ancestors',
+    descendants: 'Descendants',
+    exact: 'Exact place',
+    enclosed: 'With enclosed places',
+    clear: 'Show all events',
+  },
 }

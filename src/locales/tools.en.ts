@@ -24,6 +24,8 @@ export default {
     again: 'Change options',
     moreOptions: 'More options',
     layout: 'Page layout',
+    authors: 'By {{list}}',
+    version: 'Version {{version}}',
     defaultHint: 'Leave the defaults if you are unsure – they work well.',
     category: {
       0: 'Text reports',
@@ -88,6 +90,7 @@ export default {
   export: {
     title: 'Export',
     description: 'Download your family tree to keep a backup or to use it in another program.',
+    incomplete: 'You cannot see private records, so they are missing from the export and the media archive.',
     format: 'Format',
     recommended: 'Recommended',
     options: 'What to include',
@@ -153,6 +156,9 @@ export default {
   import: {
     title: 'Import',
     description: 'Add people and records from a file, for example a GEDCOM from another program.',
+    gpkg: 'Gramps packages (.gpkg) cannot be imported. Export a Gramps XML file (.gramps) without media instead and upload the media files separately as a ZIP archive.',
+    syncHint: 'If you want to keep this family tree in sync with Gramps on your computer, import a Gramps XML file (.gramps) instead.',
+    previewMessages: 'Problems found in this file',
     noPermission: 'Only owners of the family tree can import files.',
     drop: 'Drop a file here',
     dropActive: 'Drop to choose this file',

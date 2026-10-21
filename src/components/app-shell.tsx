@@ -25,6 +25,8 @@ import { CommandSearch } from './command-search'
 import { UserMenu } from './user-menu'
 import { AddMenu } from './add-menu'
 import { Logo } from './logo'
+import { TreeBranding, useAppTitle } from '@/lib/tree-config'
+import { KeyboardShortcuts } from './keyboard-shortcuts'
 import { navGroups, isNavActive, type NavItem } from './nav-items'
 import { MobileTabBar } from './mobile-nav'
 
@@ -48,6 +50,7 @@ function NavMenuItem({ item }: { item: NavItem }) {
 
 function AppSidebar() {
   const { t } = useTranslation()
+  const appTitle = useAppTitle()
   const { can } = useAuth()
   return (
     <Sidebar collapsible="icon" variant="sidebar">
@@ -55,7 +58,7 @@ function AppSidebar() {
         <Link to="/" className="flex items-center gap-2.5 rounded-md px-1.5 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Logo className="size-7 shrink-0" />
           <span className="truncate font-serif text-[1.05rem] font-medium group-data-[collapsible=icon]:hidden">
-            {t('appName')}
+            {appTitle}
           </span>
         </Link>
       </SidebarHeader>
@@ -82,7 +85,7 @@ function AppSidebar() {
 }
 
 export function AppShell() {
-  const { t } = useTranslation()
+  const appTitle = useAppTitle()
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -92,7 +95,7 @@ export function AppShell() {
           <Separator orientation="vertical" className="mr-1 hidden data-[orientation=vertical]:h-5 md:block" />
           <Link to="/" className="flex items-center gap-2 md:hidden">
             <Logo className="size-7" />
-            <span className="font-serif text-lg">{t('appName')}</span>
+            <span className="font-serif text-lg">{appTitle}</span>
           </Link>
           <CommandSearch />
           <div className="ml-auto flex items-center gap-1">
@@ -106,6 +109,8 @@ export function AppShell() {
           </Suspense>
         </main>
         <MobileTabBar />
+        <TreeBranding />
+        <KeyboardShortcuts />
       </SidebarInset>
     </SidebarProvider>
   )

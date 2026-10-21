@@ -17,14 +17,16 @@ export function ResetPasswordDialog({ defaultUser }: { defaultUser: string }) {
   const { t } = useTranslation('auth')
   const [open, setOpen] = useState(false)
   const [user, setUser] = useState(defaultUser)
-  const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'error'>('idle')
+  const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'error' | 'notFound' | 'mailFailed' | 'rateLimited'>('idle')
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setState('busy')
     try {
       const res = await fetch(`/api/users/${encodeURIComponent(user.trim())}/password/reset/trigger/`, { method: 'POST' })
-      setState(res.ok ? 'sent' : 'error')
+      setState(
+        res.ok ? 'sent' : res.status === 404 ? 'notFound' : res.status === 500 ? 'mailFailed' : res.status === 429 ? 'rateLimited' : 'error',
+      )
     } catch {
       setState('error')
     }
@@ -59,6 +61,9 @@ export function ResetPasswordDialog({ defaultUser }: { defaultUser: string }) {
               <Label htmlFor="reset-user">{t('username')}</Label>
               <Input id="reset-user" required value={user} onChange={(e) => setUser(e.target.value)} />
               {state === 'error' && <p className="text-sm text-destructive">{t('reset.error')}</p>}
+              {state === 'notFound' && <p className="text-sm text-destructive">{t('reset.notFound')}</p>}
+              {state === 'mailFailed' && <p className="text-sm text-destructive">{t('reset.mailFailed')}</p>}
+              {state === 'rateLimited' && <p className="text-sm text-destructive">{t('errors.rate_limited')}</p>}
             </div>
           )}
           <DialogFooter>

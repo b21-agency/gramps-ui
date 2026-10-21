@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarHeart, Network, Pencil, UserRound } from 'lucide-react'
+import { CalendarHeart, FileUp, Network, Pencil, UserPlus, UserRound, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Page } from '@/components/app-shell'
@@ -10,7 +10,9 @@ import { ObjectPicker } from '@/components/object-picker'
 import { EmptyState } from '@/components/states'
 import { NoteHtml } from '@/components/note-html'
 import { useCurrentUser } from '@/components/user-menu'
-import { api } from '@/lib/api'
+import { api, mediaThumbUrl } from '@/lib/api'
+import { useAccessToken, useAuth } from '@/lib/auth'
+import { TREE_CONFIG, configString, useTreeConfig } from '@/lib/tree-config'
 import { apiLocale } from '@/i18n'
 import { useMetadata, useObjectById } from '@/lib/queries'
 import { useHomePerson } from '@/lib/prefs'
@@ -27,6 +29,8 @@ export function HomePage() {
   const hour = new Date().getHours()
   const greeting = hour < 11 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'
   const first = (me?.full_name || me?.name || '').split(' ')[0]
+  // an empty tree hides the panels that would only show blanks
+  const treeEmpty = !!meta && Object.values(meta.object_counts).every((n) => !n)
 
   return (
     <Page>
@@ -49,13 +53,14 @@ export function HomePage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-6">
-          <HomePersonCard />
-          <RecentlyChanged />
+          <GetStarted />
+          {(!meta || meta.object_counts.people > 0) && <HomePersonCard />}
+          {!treeEmpty && <RecentlyChanged />}
         </div>
         <div className="min-w-0 space-y-6">
-          <OnThisDay />
-          <LatestPost />
-          <ArchiveCounts />
+          {(!meta || meta.object_counts.events > 0) && <OnThisDay />}
+          {!treeEmpty && <LatestPost />}
+          {!treeEmpty && <ArchiveCounts />}
         </div>
       </div>
     </Page>
@@ -74,13 +79,12 @@ function Section({ title, children, action }: { title: string; children: React.R
   )
 }
 
+/** Welcome note and picture an owner can set for everyone (Settings → Administration). */
 function TreeHomeNote() {
-  const { data: config } = useQuery({
-    queryKey: ['tree-config'],
-    queryFn: () => api<Record<string, unknown>>('/trees/-/config'),
-    staleTime: 10 * 60_000,
-  })
-  const noteHandle = (config?.frontend as { homePageNote?: string } | undefined)?.homePageNote
+  const { data: config } = useTreeConfig()
+  useAccessToken() // re-render when the token in the image URL rotates
+  const noteHandle = configString(config, TREE_CONFIG.homePageNote)
+  const imageHandle = configString(config, TREE_CONFIG.homePageImage)
   const { data: note } = useQuery({
     queryKey: ['notes', 'handle', noteHandle, 'html'],
     enabled: !!noteHandle,
@@ -89,18 +93,73 @@ function TreeHomeNote() {
         query: { formats: 'html', format_options: JSON.stringify({ link_format: '/{obj_class}/{gramps_id}' }) },
       }),
   })
-  if (!note) return null
+  if (!imageHandle && !note) return null
+  const image = imageHandle ? (
+    <img
+      src={mediaThumbUrl(imageHandle, 800)}
+      alt=""
+      className={noteHandle ? 'max-h-56 w-full rounded-lg object-cover sm:w-64' : 'max-h-72 w-full rounded-xl object-cover'}
+    />
+  ) : null
+  if (!note) return <div className="mb-6">{image}</div>
   return (
-    <div className="mb-6 rounded-xl border bg-card p-5 font-serif text-[1.05rem] leading-relaxed">
-      <NoteHtml html={note.formatted?.html} text={note.text.string} />
+    <div className="mb-6 flex flex-col gap-5 rounded-xl border bg-card p-5 sm:flex-row sm:items-start">
+      {image && <div className="shrink-0">{image}</div>}
+      <div className="min-w-0 flex-1 font-serif text-[1.05rem] leading-relaxed">
+        <NoteHtml html={note.formatted?.html} text={note.text.string} />
+      </div>
     </div>
+  )
+}
+
+/** Guidance for a new, (almost) empty tree: add the first person, then a family. */
+function GetStarted() {
+  const { t } = useTranslation('home')
+  const { can } = useAuth()
+  const { data: meta } = useMetadata()
+  if (!meta || !can('AddObject')) return null
+  const c = meta.object_counts
+  if (c.people > 0 && c.families > 0) return null
+  return (
+    <Section title={t('getStarted.title')}>
+      <p className="mb-4 text-muted-foreground">{c.people === 0 ? t('getStarted.noPeople') : t('getStarted.noFamilies')}</p>
+      <div className="flex flex-wrap gap-2">
+        {c.people === 0 ? (
+          <>
+            <Button asChild>
+              <Link to="/new_person">
+                <UserPlus />
+                {t('getStarted.newPerson')}
+              </Link>
+            </Button>
+            {can('ImportFile') && (
+              <Button asChild variant="outline">
+                <Link to="/import">
+                  <FileUp />
+                  {t('getStarted.import')}
+                </Link>
+              </Button>
+            )}
+          </>
+        ) : (
+          can('EditObject') && (
+            <Button asChild>
+              <Link to="/new_family">
+                <UsersRound />
+                {t('getStarted.newFamily')}
+              </Link>
+            </Button>
+          )
+        )}
+      </div>
+    </Section>
   )
 }
 
 function HomePersonCard() {
   const { t } = useTranslation('home')
   const [homeId, setHomeId] = useHomePerson()
-  const { data: person, isLoading } = useObjectById<{
+  const { data: person, isLoading, isError } = useObjectById<{
     handle: string
     gramps_id: string
     media_list: MediaRef[]
@@ -125,6 +184,14 @@ function HomePersonCard() {
     return (
       <Section title={t('homePerson.title')}>
         <p className="mb-4 text-muted-foreground">{t('homePerson.empty')}</p>
+        {picker(t('homePerson.choose'))}
+      </Section>
+    )
+
+  if (isError && !person)
+    return (
+      <Section title={t('homePerson.title')}>
+        <p className="mb-4 text-muted-foreground">{t('homePerson.missing', { id: homeId })}</p>
         {picker(t('homePerson.choose'))}
       </Section>
     )

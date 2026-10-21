@@ -33,6 +33,7 @@ export interface Name {
   first_name: string
   call: string
   nick: string
+  famnick?: string
   title: string
   suffix: string
   surname_list: Surname[]

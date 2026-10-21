@@ -12,32 +12,40 @@ import { Link, useLocation, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import { ArrowDown, ArrowDownUp, ArrowUp, Loader2, Plus, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowDownUp, ArrowUp, Check, Columns3, FlaskConical, Loader2, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
 import { Page } from '@/components/app-shell'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { searchQuery, useDebounced } from '@/components/command-search'
 import { ApiError, apiRaw, type Query } from '@/lib/api'
 import { apiLocale } from '@/i18n'
 import { useAuth } from '@/lib/auth'
 import { useMetadata } from '@/lib/queries'
+import { usePref } from '@/lib/prefs'
+import { Checkbox } from '@/components/ui/checkbox'
 import { kindIcon, objectPath } from '@/lib/objects'
 import { endpointOf, type ObjectKind, type SearchHit } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
-import { FilterChips, type FilterDef } from './filters'
-import { and, textFilter, type Rule } from './rules'
+import { ActiveFilterPills, FilterChips, FilterSheetSections, activeFilterCount, type FilterDef } from './filters'
+import { and, setRuleDateLang, textFilter, type Rule } from './rules'
+import { SelectionBar, SelectToggle, useCanSelect, useSelection, type Selection } from './selection'
+import { AdvancedChip, AdvancedFilterDialog, advancedRule, parseAdvanced } from './advanced-filter'
 
 /* ------------------------------------------------------------------ types */
 
@@ -57,6 +65,8 @@ export interface Column<T> {
   /** only shown when the list is at least this wide (px) */
   minWidth?: number
   align?: 'end'
+  /** hidden until switched on in the column menu */
+  defaultHidden?: boolean
   cell: (item: T) => ReactNode
 }
 
@@ -89,6 +99,8 @@ export interface ListConfig<T extends ListItem> {
   /** path to the "new object" page (shown with AddObject permission) */
   addPath?: string
   addNeedsEdit?: boolean
+  /** offer "merge two" in selection mode (default true) */
+  merge?: boolean
 }
 
 /* ------------------------------------------------------------------ URL state */
@@ -102,6 +114,8 @@ export interface ListState {
   setSort: (sort: string | null) => void
   setFilter: (id: string, value: string | null) => void
   setParam: (id: string, value: string | null) => void
+  /** several params in one history entry (separate setters would overwrite each other) */
+  setMany: (values: Record<string, string | null>) => void
   clearFilters: () => void
 }
 
@@ -132,8 +146,17 @@ export function useListState(filters: FilterDef[]): ListState {
     setSort: useCallback((s: string | null) => update((p) => set(p, 'sort', s)), [update]),
     setFilter: useCallback((id: string, v: string | null) => update((p) => set(p, id, v)), [update]),
     setParam: useCallback((id: string, v: string | null) => update((p) => set(p, id, v), true), [update]),
+    setMany: useCallback(
+      (vals: Record<string, string | null>) => update((p) => Object.entries(vals).forEach(([k, v]) => set(p, k, v))),
+      [update],
+    ),
     clearFilters: useCallback(
-      () => update((p) => ids.split(',').forEach((id) => p.delete(id))),
+      () =>
+        update((p) => {
+          ids.split(',').forEach((id) => p.delete(id))
+          p.delete('adv')
+          p.delete('gql')
+        }),
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [update, ids],
     ),
@@ -164,14 +187,17 @@ export function useListSource<T extends ListItem>(config: ListConfig<T>, state: 
   const filterRules = config.filters
     .map((f) => (state.filters[f.id] ? f.toRule(state.filters[f.id]!) : null))
     .filter((r): r is Rule => !!r)
+  const adv = advancedRule(parseAdvanced(state.params.get('adv')))
+  if (adv) filterRules.push(adv)
+  const gql = state.params.get('gql')?.trim() || undefined
   const q = state.q.trim()
-  const useSearch = !!q && filterRules.length === 0 && !state.sort
+  const useSearch = !!q && filterRules.length === 0 && !gql && !state.sort
   const effectiveSort = useSearch ? null : (state.sort ?? config.defaultSort)
 
   const text = q ? textFilter(q, config.textRule) : null
   const allRules = [...(text ? [text] : []), ...filterRules]
   const rules = allRules.length ? JSON.stringify(and(...allRules)) : undefined
-  const listQuery: Query = { ...config.query, locale, sort: effectiveSort, rules, pagesize: pageSize }
+  const listQuery: Query = { ...config.query, locale, sort: effectiveSort, rules, gql, pagesize: pageSize }
 
   const fetchRules = async (page: number) => {
     const r = await apiRaw<T[]>(`/${endpoint}/`, { query: { ...listQuery, page } })
@@ -203,7 +229,7 @@ export function useListSource<T extends ListItem>(config: ListConfig<T>, state: 
       : ['list', endpoint, 'rules', listQuery],
     pageSize,
     mode: useSearch ? 'search' : 'rules',
-    filtered: !!q || filterRules.length > 0,
+    filtered: !!q || filterRules.length > 0 || !!gql,
     effectiveSort,
     fetchPage: useSearch ? fetchSearch : fetchRules,
   }
@@ -461,27 +487,122 @@ export interface ListController<T extends ListItem> {
   first: ReturnType<typeof useFirstPage<T>>
   total: number | undefined
   countLabel: string | null
+  selection: Selection<T>
+  /** user's column choice: id -> visible */
+  columnPrefs: Record<string, boolean>
+  setColumnPrefs: (v: Record<string, boolean>) => void
 }
 
 export function useListController<T extends ListItem>(config: ListConfig<T>): ListController<T> {
+  const { data: meta } = useMetadata()
+  // year filters must be written in the tree's date language
+  setRuleDateLang(meta?.locale?.language)
   const state = useListState(config.filters)
   const source = useListSource(config, state)
   const first = useFirstPage(source)
   const total = first.data?.total
   const countLabel = useCountLabel(config.kind, total, source.filtered)
-  return { state, source, first, total, countLabel }
+  const selection = useSelection<T>(source.key)
+  const [columnPrefs, setColumnPrefs] = usePref<Record<string, boolean>>(`listColumns.${config.kind}`, {})
+  return { state, source, first, total, countLabel, selection, columnPrefs, setColumnPrefs }
+}
+
+/** Columns the user wants (column menu), before the width-based responsive hiding. */
+function chosenColumns<T>(columns: Column<T>[], prefs: Record<string, boolean>) {
+  return columns.filter((c, i) => i === 0 || (prefs[c.id] ?? !c.defaultHidden))
+}
+
+function ColumnsMenu<T extends ListItem>({ config, ctl }: { config: ListConfig<T>; ctl: ListController<T> }) {
+  const { t } = useTranslation('lists')
+  const { columnPrefs, setColumnPrefs } = ctl
+  const named = config.columns.slice(1).filter((c) => typeof c.header === 'string')
+  if (!named.length) return null
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" className="size-9 bg-card" aria-label={t('columns.label')} title={t('columns.label')}>
+          <Columns3 />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>{t('columns.label')}</DropdownMenuLabel>
+        {named.map((c) => (
+          <DropdownMenuCheckboxItem
+            key={c.id}
+            checked={columnPrefs[c.id] ?? !c.defaultHidden}
+            onSelect={(e) => e.preventDefault()}
+            onCheckedChange={(on) => setColumnPrefs({ ...columnPrefs, [c.id]: !!on })}
+          >
+            {c.header}
+          </DropdownMenuCheckboxItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled={!Object.keys(columnPrefs).length} onSelect={() => setColumnPrefs({})}>
+          {t('columns.reset')}
+        </DropdownMenuItem>
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">{t('columns.hint')}</p>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** "Advanced filter" button + dialog + active chip, sharing one open state. */
+function useAdvanced<T extends ListItem>(config: ListConfig<T>, ctl: ListController<T>) {
+  const { t } = useTranslation('lists')
+  const [open, setOpen] = useState(false)
+  const { state } = ctl
+  const adv = parseAdvanced(state.params.get('adv'))
+  const gql = state.params.get('gql') ?? ''
+  const active = !!adv || !!gql
+  const dialog = (
+    <AdvancedFilterDialog
+      kind={config.kind}
+      open={open}
+      onOpenChange={setOpen}
+      value={adv}
+      gql={gql}
+      onApply={(a, g) => state.setMany({ adv: a ? JSON.stringify(a) : null, gql: g || null })}
+    />
+  )
+  const chip = active ? (
+    <AdvancedChip
+      count={adv?.conds.length ?? 0}
+      gql={!!gql}
+      onEdit={() => setOpen(true)}
+      onClear={() => state.setMany({ adv: null, gql: null })}
+    />
+  ) : null
+  const button = (
+    <Button
+      variant="outline"
+      size="icon"
+      className={cn('size-9 bg-card', active && 'border-primary/40 text-primary')}
+      aria-label={t('adv.title')}
+      title={t('adv.title')}
+      onClick={() => setOpen(true)}
+    >
+      <FlaskConical />
+    </Button>
+  )
+  return { open: () => setOpen(true), dialog, chip, button, active }
 }
 
 export function ListToolbar<T extends ListItem>({
   config,
   ctl,
   extra,
+  noSelect,
 }: {
   config: ListConfig<T>
   ctl: ListController<T>
   extra?: ReactNode
+  /** hide the "Select" button (e.g. media grid view) */
+  noSelect?: boolean
 }) {
   const { state, source } = ctl
+  const isMobile = useIsMobile()
+  const advanced = useAdvanced(config, ctl)
+  if (isMobile) return <MobileListToolbar config={config} ctl={ctl} extra={extra} noSelect={noSelect} advanced={advanced} />
   return (
     <div className="mb-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -495,8 +616,157 @@ export function ListToolbar<T extends ListItem>({
           onChange={(s) => state.setSort(s)}
         />
         {extra}
+        {advanced.button}
+        {!noSelect && <ColumnsMenu config={config} ctl={ctl} />}
+        {!noSelect && <SelectToggle selection={ctl.selection as unknown as Selection<ListItem>} className="h-9" />}
       </div>
-      <FilterChips filters={config.filters} values={state.filters} onChange={state.setFilter} onClear={state.clearFilters} />
+      {(config.filters.length > 0 || advanced.chip) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {advanced.chip}
+          <FilterChips filters={config.filters} values={state.filters} onChange={state.setFilter} onClear={state.clearFilters} />
+        </div>
+      )}
+      {advanced.dialog}
+    </div>
+  )
+}
+
+/** Phones: search field + one "Filters" button (sort and every filter in a bottom drawer). */
+function MobileListToolbar<T extends ListItem>({
+  config,
+  ctl,
+  extra,
+  noSelect,
+  advanced,
+}: {
+  config: ListConfig<T>
+  ctl: ListController<T>
+  extra?: ReactNode
+  noSelect?: boolean
+  advanced: ReturnType<typeof useAdvanced>
+}) {
+  const { t } = useTranslation('lists')
+  const { state, source, countLabel } = ctl
+  const [open, setOpen] = useState(false)
+  const count = activeFilterCount(config.filters, state.filters) + (advanced.active ? 1 : 0)
+  const current = source.effectiveSort
+  const field = current?.replace(/^-/, '') ?? 'relevance'
+  const desc = !!current?.startsWith('-')
+  const relevance = !!state.q
+  const sortOptions = [...(relevance ? [{ key: 'relevance', label: t('sort.relevance') }] : []), ...config.sorts]
+  const pill = (on: boolean) =>
+    cn(
+      'inline-flex min-h-10 items-center rounded-full border px-3.5 text-[15px] transition-transform active:scale-[0.97] motion-reduce:active:scale-100',
+      on ? 'border-primary bg-primary text-primary-foreground' : 'bg-card',
+    )
+  return (
+    <div className="mb-3 space-y-2.5">
+      <div className="flex items-center gap-2 [&_[data-slot=input-group]]:h-11">
+        <div className="min-w-0 flex-1">
+          <QuickFilter value={state.q} onChange={state.setQ} placeholder={config.placeholder} />
+        </div>
+        <Drawer open={open} onOpenChange={setOpen}>
+          <DrawerTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn('relative size-11 shrink-0 bg-card', count > 0 && 'border-primary/40 text-primary')}
+              aria-label={count ? `${t('filters.title')} (${count})` : t('filters.title')}
+            >
+              <SlidersHorizontal className="size-5" />
+              {count > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground tabular-nums">
+                  {count}
+                </span>
+              )}
+            </Button>
+          </DrawerTrigger>
+          <DrawerContent className="max-h-[90dvh]">
+            <DrawerHeader className="flex-row items-center justify-between pb-1 text-left">
+              <DrawerTitle className="font-serif text-2xl font-medium">{t('filters.title')}</DrawerTitle>
+              <DrawerDescription className="sr-only">{config.placeholder}</DrawerDescription>
+              {count > 0 && (
+                <Button variant="ghost" className="-mr-2 h-10 text-muted-foreground" onClick={state.clearFilters}>
+                  {t('filters.clear')}
+                </Button>
+              )}
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">
+              <section className="py-4">
+                <h3 className="mb-3 flex items-center gap-2 font-sans text-sm font-medium text-muted-foreground">
+                  <ArrowDownUp className="size-4" />
+                  {t('sort.label')}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {sortOptions.map((o) => (
+                    <button
+                      key={o.key}
+                      type="button"
+                      aria-pressed={field === o.key}
+                      className={pill(field === o.key)}
+                      onClick={() => state.setSort(o.key === 'relevance' ? null : desc ? `-${o.key}` : o.key)}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+                {current && (
+                  <div className="mt-3 grid grid-cols-2 rounded-xl border bg-muted p-1" role="radiogroup" aria-label={t('sort.label')}>
+                    {(['asc', 'desc'] as const).map((dir) => {
+                      const on = (dir === 'desc') === desc
+                      const Icon = dir === 'desc' ? ArrowDown : ArrowUp
+                      return (
+                        <button
+                          key={dir}
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          className={cn(
+                            'flex h-10 items-center justify-center gap-2 rounded-lg text-[15px] transition-colors',
+                            on ? 'bg-card font-medium shadow-sm' : 'text-muted-foreground',
+                          )}
+                          onClick={() => state.setSort(dir === 'desc' ? `-${field}` : field)}
+                        >
+                          <Icon className="size-4" />
+                          {t(`sort.${dir}`)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+              {config.filters.length > 0 && (
+                <div className="border-t">
+                  <FilterSheetSections filters={config.filters} values={state.filters} onChange={state.setFilter} />
+                </div>
+              )}
+              <div className="border-t py-4">
+                <Button
+                  variant="outline"
+                  className={cn('h-11 w-full justify-start bg-card text-base', advanced.active && 'border-primary/40 text-primary')}
+                  onClick={() => {
+                    setOpen(false)
+                    advanced.open()
+                  }}
+                >
+                  <FlaskConical />
+                  {t('adv.title')}
+                </Button>
+              </div>
+            </div>
+            <div className="border-t bg-popover px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+              <Button className="h-12 w-full text-base" onClick={() => setOpen(false)}>
+                {ctl.first.isFetching ? <Loader2 className="animate-spin" /> : null}
+                {countLabel ? t('filters.show', { label: countLabel }) : t('filters.done')}
+              </Button>
+            </div>
+          </DrawerContent>
+        </Drawer>
+        {extra}
+        {!noSelect && <SelectToggle selection={ctl.selection as unknown as Selection<ListItem>} className="size-11 shrink-0" />}
+      </div>
+      {advanced.chip && <div className="flex">{advanced.chip}</div>}
+      <ActiveFilterPills filters={config.filters} values={state.filters} onChange={state.setFilter} />
+      {advanced.dialog}
     </div>
   )
 }
@@ -551,13 +821,15 @@ const COMPACT_BELOW = 640
 
 export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListConfig<T>; ctl: ListController<T> }) {
   const { t } = useTranslation('lists')
-  const { first, source, state } = ctl
+  const { first, source, state, selection } = ctl
+  const canSelect = useCanSelect()
+  const selecting = selection.active && canSelect
   const wrapRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const width = useElementWidth(wrapRef)
   const compact = width > 0 && width < COMPACT_BELOW
-  const columns = config.columns.filter((c) => !c.minWidth || width >= c.minWidth)
-  const grid = columns.map((c) => c.width).join(' ')
+  const columns = chosenColumns(config.columns, ctl.columnPrefs).filter((c) => !c.minWidth || width >= c.minWidth)
+  const grid = (selecting ? '1.25rem ' : '') + columns.map((c) => c.width).join(' ')
   const total = first.data?.total ?? 0
   const scrollMargin = useDocumentTop(listRef)
   const sortField = source.effectiveSort?.replace(/^-/, '') ?? ''
@@ -581,6 +853,16 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
   }, [items.length ? items[0].index : -1, items.length ? items[items.length - 1].index : -1, source.pageSize])
   // while a new filter loads we still show the old first page; don't fetch deeper pages yet
   const { getItem } = usePages(source, first.data, first.isPlaceholderData ? [] : pageIdx)
+  // "select all" covers the rows loaded so far
+  const loadedItems = () => {
+    const out: T[] = []
+    for (let i = 0; i < total; i++) {
+      const it = getItem(i)
+      if (it) out.push(it)
+      else if (i % source.pageSize === 0) i += source.pageSize - 1
+    }
+    return out
+  }
 
   // re-measure when the layout mode changes
   useEffect(() => {
@@ -598,9 +880,16 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
     <div ref={wrapRef} className="min-w-0">
       {!compact && width > 0 && (
         <div
-          className="sticky top-14 z-10 grid items-center gap-x-4 border-b bg-background/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80"
+          className="sticky top-[var(--header-h)] z-10 grid items-center gap-x-4 border-b bg-background/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80"
           style={{ gridTemplateColumns: grid }}
         >
+          {selecting && (
+            <Checkbox
+              aria-label={t('select.all')}
+              checked={selection.items.size > 0 && loadedItems().every((it) => selection.has(it.handle))}
+              onCheckedChange={(on) => selection.setMany(loadedItems(), !!on)}
+            />
+          )}
           {columns.map((c) => (
             <HeaderCell key={c.id} column={c} current={source.effectiveSort} onSort={state.setSort} />
           ))}
@@ -614,10 +903,7 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
         <ListEmpty
           kind={config.kind}
           filtered={source.filtered}
-          onClear={() => {
-            state.clearFilters()
-            state.setQ('')
-          }}
+          onClear={() => state.setMany({ q: null, adv: null, gql: null, ...Object.fromEntries(config.filters.map((f) => [f.id, null])) })}
         />
       ) : (
         <ul
@@ -644,11 +930,33 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
                     {config.group!.label(item)}
                   </div>
                 )}
-                {item ? (
+                {item && selecting ? (
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={selection.has(item.handle)}
+                    onClick={() => selection.toggle(item)}
+                    className={cn(
+                      'w-full rounded-md px-3 text-left outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+                      selection.has(item.handle) && 'bg-primary/8 hover:bg-primary/12',
+                      compact ? 'flex items-center gap-3 py-2.5' : 'grid items-center gap-x-4 py-2',
+                    )}
+                    style={compact ? { minHeight: config.compactRowHeight } : { gridTemplateColumns: grid, minHeight: config.rowHeight }}
+                  >
+                    <CheckMark on={selection.has(item.handle)} />
+                    {compact
+                      ? config.compact(item)
+                      : columns.map((c) => (
+                          <div key={c.id} className={cn('min-w-0', c.align === 'end' && 'text-right')}>
+                            {c.cell(item)}
+                          </div>
+                        ))}
+                  </button>
+                ) : item ? (
                   <Link
                     to={objectPath(config.kind, item.gramps_id)}
                     className={cn(
-                      'rounded-md px-3 outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+                      'rounded-md px-3 outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 active:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50',
                       compact ? 'flex items-center gap-3 py-2.5' : 'grid items-center gap-x-4 py-2',
                     )}
                     style={compact ? { minHeight: config.compactRowHeight } : { gridTemplateColumns: grid, minHeight: config.rowHeight }}
@@ -671,7 +979,23 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
           })}
         </ul>
       )}
+      {selecting && <SelectionBar kind={config.kind} selection={selection} merge={config.merge !== false} />}
     </div>
+  )
+}
+
+/** Visual checkbox inside a row button (a real checkbox would nest buttons). */
+function CheckMark({ on }: { on: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input',
+        on && 'border-primary bg-primary text-primary-foreground',
+      )}
+    >
+      {on && <Check className="size-3.5" />}
+    </span>
   )
 }
 

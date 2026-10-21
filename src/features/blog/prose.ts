@@ -1,3 +1,5 @@
+import { mediaThumbUrl } from '@/lib/api'
+
 export const BLOG_TAG = 'Blog'
 
 /** Long-form reading typography for blog posts (serif, ~65ch, generous leading). */
@@ -6,7 +8,7 @@ export const blogProse =
 
 /** First characters of a note as plain text, cut at a word boundary. */
 export function excerpt(text: string | undefined, max = 220) {
-  const s = (text ?? '').replace(/\s+/g, ' ').trim()
+  const s = (text ?? '').replace(/\uFFFC/g, '').replace(/\s+/g, ' ').trim()
   if (s.length <= max) return s
   const cut = s.slice(0, max)
   return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), max - 30)).replace(/[,;:.\s]+$/, '')}…`
@@ -28,6 +30,7 @@ export function markdownishToHtml(src: string) {
     .filter(Boolean)
     .map((para) => {
       const html = escapeHtml(para)
+        .replace(/!\[[^\]\n]*\]\(gramps:\/\/Media\/handle\/([^)\s/#?]+)\)/g, (_m, h: string) => `<img src="${mediaThumbUrl(h, 1000)}" alt="">`)
         .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
         .replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_m, text: string, href: string) =>
@@ -37,4 +40,27 @@ export function markdownishToHtml(src: string) {
       return `<p>${html}</p>`
     })
     .join('')
+}
+
+/**
+ * Server HTML renders an inline image as a link whose text is U+FFFC; swap in the images
+ * (handles in text order, from the note's StyledText).
+ */
+export function withInlineImages(html: string | undefined, handles: string[]) {
+  if (!html || !handles.length || !html.includes('￼')) return html
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html')
+  let i = 0
+  for (const a of Array.from(doc.querySelectorAll('a'))) {
+    if (a.textContent !== '￼') continue
+    const h = handles[i++]
+    if (!h) break
+    const img = doc.createElement('img')
+    img.src = mediaThumbUrl(h, 1000)
+    img.alt = ''
+    img.loading = 'lazy'
+    img.className = 'my-4 max-h-[70vh] rounded-lg border'
+    a.textContent = ''
+    a.append(img)
+  }
+  return doc.body.firstElementChild!.innerHTML
 }

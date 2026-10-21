@@ -24,6 +24,8 @@ export default {
     again: 'Optionen ändern',
     moreOptions: 'Weitere Optionen',
     layout: 'Seitenlayout',
+    authors: 'Von {{list}}',
+    version: 'Version {{version}}',
     defaultHint: 'Wenn du unsicher bist, lass die Voreinstellungen – sie passen meistens.',
     category: {
       0: 'Textberichte',
@@ -114,6 +116,7 @@ export default {
   export: {
     title: 'Export',
     description: 'Lade deinen Stammbaum herunter – als Sicherung oder für ein anderes Programm.',
+    incomplete: 'Du kannst private Einträge nicht sehen, deshalb fehlen sie im Export und im Medienarchiv.',
     format: 'Format',
     recommended: 'Empfohlen',
     options: 'Was soll enthalten sein',
@@ -179,6 +182,9 @@ export default {
   import: {
     title: 'Import',
     description: 'Füge Personen und Einträge aus einer Datei hinzu, zum Beispiel ein GEDCOM aus einem anderen Programm.',
+    gpkg: 'Gramps-Pakete (.gpkg) können nicht importiert werden. Exportiere stattdessen eine Gramps-XML-Datei (.gramps) ohne Medien und lade die Mediendateien separat als ZIP-Archiv hoch.',
+    syncHint: 'Wenn du diesen Stammbaum mit Gramps auf deinem Computer abgleichen willst, importiere stattdessen eine Gramps-XML-Datei (.gramps).',
+    previewMessages: 'Probleme in dieser Datei',
     noPermission: 'Nur Eigentümer:innen des Stammbaums können Dateien importieren.',
     drop: 'Datei hierher ziehen',
     dropActive: 'Loslassen, um diese Datei zu wählen',

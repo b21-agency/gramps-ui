@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowLeft, CalendarRange, List, Loader2, MapPinOff, Route, Search, X } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/components/ui/drawer'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ObjectPicker } from '@/components/object-picker'
@@ -22,7 +23,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
 import {
-  hasYearIn,
+  filterPlacesByEvents,
   useIsDark,
   usePlaceCoordinates,
   usePlaceYears,
@@ -30,11 +31,24 @@ import {
   type PlacePoint,
   type TimelineItem,
 } from './data'
-import { MapView, type LifeStop, type MapApi, type Viewport } from './map-view'
+import { MapView, type LifeStop, type MapApi, type MapRasterOverlay, type MapVectorOverlay, type Viewport } from './map-view'
 import { PlaceDetails } from './place-panel'
+import { BuildingPanel, EventTypeChips, ExternalSearch, LayersMenu, useWikidataBuildings, type LayerPrefs } from './controls'
+import {
+  WIKIDATA_MIN_ZOOM,
+  existedIn,
+  findPlaceAt,
+  overlayTileUrl,
+  useMapOverlays,
+  usePlaceVectors,
+  vectorBounds,
+  type Bounds,
+} from './layers'
+
+const SNAPS = [0.45, 1]
 
 export function MapPage() {
-  const { t } = useTranslation(['map', 'common'])
+  const { t, i18n } = useTranslation(['map', 'common'])
   useTitle(t('common:nav.map'))
   const [params, setParams] = useSearchParams()
   const personId = params.get('person')
@@ -50,21 +64,75 @@ export function MapPage() {
   const [initialView] = useState(() => getPref<Viewport | null>('map.viewport', null))
   const [selected, setSelected] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [snap, setSnap] = useState<number | string | null>(SNAPS[0])
+  // every newly opened sheet starts at the peek height
+  useEffect(() => {
+    if (sheetOpen) setSnap(SNAPS[0])
+  }, [sheetOpen, selected])
 
-  /* ---------- time filter ---------- */
+  /* ---------- filters: time range + event types ---------- */
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [timeOn, setTimeOn] = useState(false)
-  const years = usePlaceYears(timeOn)
+  const [eventTypes, setEventTypes] = useState<string[]>([])
+  const years = usePlaceYears(filtersOpen || timeOn || eventTypes.length > 0)
   const [range, setRange] = useState<[number, number] | null>(null)
   const activeRange = timeOn && years.data && range ? range : null
   useEffect(() => {
     if (timeOn && years.data && !range) setRange([years.data.min, years.data.max])
   }, [timeOn, years.data, range])
 
-  const visiblePlaces = useMemo<PlacePoint[]>(() => {
-    const all = coords.data ?? []
-    if (!activeRange || !years.data) return all
-    return all.filter((p) => hasYearIn(years.data.byPlace.get(p.handle), activeRange[0], activeRange[1]))
-  }, [coords.data, activeRange, years.data])
+  const visiblePlaces = useMemo<PlacePoint[]>(
+    () => filterPlacesByEvents(coords.data ?? [], years.data, activeRange, eventTypes),
+    [coords.data, activeRange, years.data, eventTypes],
+  )
+  const filtering = !!activeRange || eventTypes.length > 0
+
+  /* ---------- layers: base map, historic maps, files of the selected place ---------- */
+  const [layerPrefs, setLayerPrefs] = usePref<LayerPrefs>('map.layers', { base: 'base', hidden: [] })
+  const [ohmYear, setOhmYear] = useState(() => new Date().getFullYear() - 100)
+  const overlaysQ = useMapOverlays()
+  const rasterOverlays = useMemo<MapRasterOverlay[]>(
+    () =>
+      (overlaysQ.data ?? [])
+        .filter((o) => !layerPrefs.hidden.includes(o.handle))
+        .map((o) => ({ handle: o.handle, tiles: overlayTileUrl(o), bounds: o.bounds })),
+    [overlaysQ.data, layerPrefs.hidden],
+  )
+  const vectorsQ = usePlaceVectors(selected)
+  const vectorOverlays = useMemo<MapVectorOverlay[]>(
+    () =>
+      (vectorsQ.data ?? [])
+        .filter((v) => v.data && !layerPrefs.hidden.includes(v.handle))
+        .map((v) => ({ handle: v.handle, data: v.data! })),
+    [vectorsQ.data, layerPrefs.hidden],
+  )
+  /* ---------- Wikidata buildings ---------- */
+  const [view, setView] = useState<{ b: Bounds; zoom: number } | null>(null)
+  const [building, setBuilding] = useState<string | null>(null)
+  const wd = useWikidataBuildings(!!layerPrefs.buildings, view?.b ?? null, view?.zoom ?? 0, i18n.language)
+  const shownBuildings = useMemo(
+    () => (!layerPrefs.buildings ? [] : activeRange ? wd.buildings.filter((b) => existedIn(b, activeRange[0], activeRange[1])) : wd.buildings),
+    [layerPrefs.buildings, wd.buildings, activeRange],
+  )
+  const buildingObj = building ? wd.buildings.find((b) => b.qid === building) : undefined
+  const buildingsStatus = !view
+    ? undefined
+    : view.zoom < WIKIDATA_MIN_ZOOM
+      ? t('layers.zoomIn')
+      : wd.loading
+        ? t('layers.loadingShort')
+        : wd.error
+          ? t('layers.buildingsFailed')
+          : shownBuildings.some((b) => b.long >= view.b.west && b.long <= view.b.east && b.lat >= view.b.south && b.lat <= view.b.north)
+            ? undefined
+            : t('layers.noBuildings')
+
+  // a place without coordinates: show its files instead
+  useEffect(() => {
+    if (!selected || byHandle.has(selected) || !vectorOverlays.length) return
+    const b = vectorBounds(vectorOverlays.map((v) => v.data))
+    if (b) apiRef.current?.fit([b[0], b[1]])
+  }, [selected, byHandle, vectorOverlays])
 
   /* ---------- ?place= ---------- */
   const placeQ = useObjectById<Place>('place', placeId ?? undefined, { keys: 'handle,gramps_id,lat,long', profile: '' })
@@ -94,6 +162,7 @@ export function MapPage() {
   }, [coords.data, initialView, personId, placeId])
 
   const select = (handle: string | null) => {
+    setBuilding(null)
     setSelected(handle)
     if (handle) setSheetOpen(true)
   }
@@ -113,7 +182,13 @@ export function MapPage() {
   }
 
   const personMode = !!personId
-  const panelBody: ReactNode = selected ? (
+  const panelBody: ReactNode = buildingObj ? (
+    <BuildingPanel
+      building={buildingObj}
+      placeHandle={findPlaceAt(coords.data ?? [], buildingObj.lat, buildingObj.long)}
+      onOpenPlace={(h) => select(h)}
+    />
+  ) : selected ? (
     <div>
       {personMode && (
         <Button variant="ghost" size="sm" className="-ml-2 mb-2" onClick={() => setSelected(null)}>
@@ -131,6 +206,19 @@ export function MapPage() {
     <div className="relative h-[calc(100dvh-3.5rem-var(--tabbar-h))] overflow-hidden bg-muted">
       <MapView
         places={personMode ? [] : visiblePlaces}
+        base={layerPrefs.base}
+        year={ohmYear}
+        lang={i18n.language}
+        overlays={rasterOverlays}
+        vectors={vectorOverlays}
+        buildings={shownBuildings}
+        selectedBuilding={building}
+        onBuildingClick={(qid) => {
+          setSelected(null)
+          setBuilding(qid)
+          setSheetOpen(true)
+        }}
+        onBoundsChange={(b, zoom) => setView({ b, zoom })}
         showPlaces={!personMode}
         selected={selected}
         onSelect={select}
@@ -184,21 +272,26 @@ export function MapPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={timeOn ? 'secondary' : 'ghost'}
+                  variant={filtersOpen || filtering ? 'secondary' : 'ghost'}
                   size="icon"
-                  aria-pressed={timeOn}
-                  aria-label={t('timeFilter')}
-                  onClick={() => {
-                    setTimeOn((v) => !v)
-                    setRange(null)
-                  }}
+                  aria-pressed={filtersOpen}
+                  aria-label={t('filterPlaces')}
+                  onClick={() => setFiltersOpen((v) => !v)}
                 >
                   <CalendarRange />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{t('timeFilter')}</TooltipContent>
+              <TooltipContent>{t('filterPlaces')}</TooltipContent>
             </Tooltip>
           )}
+          <LayersMenu
+            prefs={layerPrefs}
+            onChange={setLayerPrefs}
+            overlays={overlaysQ.data ?? []}
+            vectors={vectorsQ.data ?? []}
+            buildingsStatus={buildingsStatus}
+          />
+          <ExternalSearch onPick={(h) => apiRef.current?.flyTo(h.long, h.lat, 11)} />
         </div>
         {(coords.isLoading || life.loading) && (
           <div className="pointer-events-auto flex h-10 items-center gap-2 rounded-xl border bg-card/95 px-3 text-sm text-muted-foreground shadow-sm">
@@ -231,24 +324,55 @@ export function MapPage() {
       {/* side panel (desktop) / bottom sheet (mobile) */}
       {panelBody &&
         (isMobile ? (
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetContent side="bottom" className="max-h-[75svh] gap-0 overflow-y-auto rounded-t-2xl px-4 pb-6">
-              <SheetHeader className="px-0">
-                <SheetTitle className="sr-only">{selected ? t('placeDetails') : t('lifePlaces')}</SheetTitle>
-                <SheetDescription className="sr-only">{t('panelDescription')}</SheetDescription>
-              </SheetHeader>
-              {panelBody}
-            </SheetContent>
-          </Sheet>
+          // phones: a non-modal sheet with two stops (peek / full) so the map stays usable
+          <Drawer
+            open={sheetOpen}
+            onOpenChange={setSheetOpen}
+            modal={false}
+            snapPoints={SNAPS}
+            activeSnapPoint={snap}
+            setActiveSnapPoint={setSnap}
+          >
+            <DrawerContent
+              className="h-[calc(100dvh-var(--header-h)-0.5rem)] max-h-none! rounded-t-2xl shadow-[0_-8px_30px_-12px_rgb(0_0_0/0.25)]"
+              onInteractOutside={(e) => e.preventDefault()}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+              <DrawerTitle className="sr-only">{selected ? t('placeDetails') : t('lifePlaces')}</DrawerTitle>
+              <DrawerDescription className="sr-only">{t('panelDescription')}</DrawerDescription>
+              {(selected || buildingObj) && !personMode && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 z-10 size-10"
+                  aria-label={t('common:actions.close')}
+                  onClick={() => setSheetOpen(false)}
+                >
+                  <X className="size-5" />
+                </Button>
+              )}
+              <div
+                className={cn(
+                  'min-h-0 flex-1 overscroll-contain px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]',
+                  snap === 1 ? 'overflow-y-auto' : 'overflow-hidden',
+                )}
+              >
+                {panelBody}
+              </div>
+            </DrawerContent>
+          </Drawer>
         ) : (
           <aside className="absolute bottom-3 left-3 top-[4.25rem] z-10 flex w-[22rem] flex-col overflow-hidden rounded-xl border bg-card/97 shadow-md backdrop-blur">
-            {selected && !personMode && (
+            {(selected || buildingObj) && !personMode && (
               <Button
                 variant="ghost"
                 size="icon-sm"
                 className="absolute right-2 top-2 z-10"
                 aria-label={t('common:actions.close')}
-                onClick={() => setSelected(null)}
+                onClick={() => {
+                  setSelected(null)
+                  setBuilding(null)
+                }}
               >
                 <X />
               </Button>
@@ -257,51 +381,105 @@ export function MapPage() {
           </aside>
         ))}
 
-      {/* time range */}
-      {timeOn && !personMode && (
+      {/* filters (time range, event types) and the year of the historic map */}
+      {((filtersOpen && !personMode) || layerPrefs.base === 'ohm') && (
         <div
           className={cn(
-            'absolute bottom-3 z-10 rounded-xl border bg-card/95 p-3 shadow-md backdrop-blur',
-            isMobile ? 'inset-x-3 bottom-10' : selected ? 'left-[23.5rem] right-16' : 'left-1/2 w-[min(36rem,calc(100%-8rem))] -translate-x-1/2',
+            'absolute bottom-3 z-10 max-h-[45dvh] space-y-3 overflow-y-auto rounded-xl border bg-card/95 p-3 shadow-md backdrop-blur',
+            isMobile ? 'inset-x-3 bottom-10' : selected || personMode ? 'left-[23.5rem] right-16' : 'left-1/2 w-[min(36rem,calc(100%-8rem))] -translate-x-1/2',
           )}
         >
-          {years.isLoading || !range || !years.data ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              {t('loadingEvents')}
-            </div>
-          ) : (
-            <>
-              <div className="mb-3 flex items-baseline gap-2 text-sm">
-                <span className="font-serif text-lg tabular-nums text-brass">
-                  {range[0]} – {range[1]}
-                </span>
-                <span className="text-muted-foreground">{t('placesShown', { count: visiblePlaces.length })}</span>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className="ml-auto"
-                  onClick={() => {
-                    setTimeOn(false)
-                    setRange(null)
-                  }}
-                >
-                  {t('common:actions.clear')}
+          {layerPrefs.base === 'ohm' && (
+            <div>
+              <div className="mb-2 flex items-baseline gap-2 text-sm">
+                <span className="text-muted-foreground">{t('layers.mapYear')}</span>
+                <span className="font-serif text-lg tabular-nums text-brass">{ohmYear}</span>
+                <Button variant="ghost" size="xs" className="ml-auto" onClick={() => setLayerPrefs({ ...layerPrefs, base: 'base' })}>
+                  {t('layers.backToToday')}
                 </Button>
               </div>
               <Slider
-                min={years.data.min}
-                max={years.data.max}
+                min={Math.min(years.data?.min ?? 1500, 1500)}
+                max={new Date().getFullYear()}
                 step={1}
-                minStepsBetweenThumbs={0}
-                value={range}
-                onValueChange={(v) => setRange([v[0], v[1]] as [number, number])}
-                aria-label={t('timeFilter')}
+                value={[ohmYear]}
+                onValueChange={(v) => setOhmYear(v[0])}
+                aria-label={t('layers.mapYear')}
               />
-              <div className="mt-1.5 flex justify-between text-xs tabular-nums text-muted-foreground">
-                <span>{years.data.min}</span>
-                <span>{years.data.max}</span>
+            </div>
+          )}
+          {filtersOpen && !personMode && (
+            <>
+              <div className="flex items-baseline gap-2 text-sm">
+                <span className="font-medium">{t('filterPlaces')}</span>
+                <span className="text-muted-foreground">
+                  {filtering ? t('placesShown', { count: visiblePlaces.length }) : t('allPlaces', { count: coords.data?.length ?? 0 })}
+                </span>
+                {filtering && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    className="ml-auto"
+                    onClick={() => {
+                      setTimeOn(false)
+                      setRange(null)
+                      setEventTypes([])
+                    }}
+                  >
+                    {t('common:actions.clear')}
+                  </Button>
+                )}
               </div>
+              {years.isLoading || !years.data ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  {t('loadingEvents')}
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={timeOn}
+                        onCheckedChange={(on) => {
+                          setTimeOn(on)
+                          setRange(null)
+                        }}
+                      />
+                      {t('timeFilter')}
+                      {timeOn && range && (
+                        <span className="ml-auto font-serif text-lg tabular-nums text-brass">
+                          {range[0]} – {range[1]}
+                        </span>
+                      )}
+                    </label>
+                    {timeOn && range && (
+                      <>
+                        <Slider
+                          className="mt-3"
+                          min={years.data.min}
+                          max={years.data.max}
+                          step={1}
+                          minStepsBetweenThumbs={0}
+                          value={range}
+                          onValueChange={(v) => setRange([v[0], v[1]] as [number, number])}
+                          aria-label={t('timeFilter')}
+                        />
+                        <div className="mt-1.5 flex justify-between text-xs tabular-nums text-muted-foreground">
+                          <span>{years.data.min}</span>
+                          <span>{years.data.max}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {years.data.typeCounts.length > 0 && (
+                    <div>
+                      <div className="mb-1.5 text-sm text-muted-foreground">{t('eventTypes')}</div>
+                      <EventTypeChips counts={years.data.typeCounts} value={eventTypes} onChange={setEventTypes} />
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
         </div>

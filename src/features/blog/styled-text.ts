@@ -39,7 +39,14 @@ export function writableTags(tags: StyledTag[]) {
   })
 }
 
-const pattern = /\*\*([^*\n]+?)\*\*|\*([^*\n]+?)\*|\[([^\]\n]+)\]\(([^)\s]+)\)/g
+// inline images (as in Gramps Web): one U+FFFC covered by a link to gramps://Media/handle/<h>,
+// written here as ![caption](gramps://Media/handle/<h>)
+export const IMAGE_PLACEHOLDER = '\uFFFC'
+const MEDIA_LINK = /^gramps:\/\/Media\/handle\/([^/#?\s)]+)/
+export const mediaLinkHandle = (v?: string | null) => MEDIA_LINK.exec(v ?? '')?.[1] ?? null
+
+const pattern =
+  /!\[[^\]\n]*\]\((gramps:\/\/Media\/handle\/[^)\s]+)\)|\*\*([^*\n]+?)\*\*|\*([^*\n]+?)\*|\[([^\]\n]+)\]\(([^)\s]+)\)/g
 
 /** markdown-ish → StyledText */
 export function parseMarkdownish(src: string): { string: string; tags: ReturnType<typeof writableTags> } {
@@ -52,14 +59,17 @@ export function parseMarkdownish(src: string): { string: string; tags: ReturnTyp
     out += src.slice(last, m.index)
     const start = out.length
     if (m[1] != null) {
-      out += m[1]
-      bold.push([start, out.length])
+      out += IMAGE_PLACEHOLDER
+      links.set(m[1], [...(links.get(m[1]) ?? []), [start, out.length]])
     } else if (m[2] != null) {
       out += m[2]
+      bold.push([start, out.length])
+    } else if (m[3] != null) {
+      out += m[3]
       italic.push([start, out.length])
     } else {
-      out += m[3]
-      const href = m[4]
+      out += m[4]
+      const href = m[5]
       links.set(href, [...(links.get(href) ?? []), [start, out.length]])
     }
     last = m.index + m[0].length
@@ -84,6 +94,9 @@ export function toMarkdownish(text: { string: string; tags?: StyledTag[] }): str
         inserts.push({ at: a, str: '**', order: 0 }, { at: b, str: '**', order: 10 })
       } else if (name === 'italic') {
         inserts.push({ at: a, str: '*', order: 1 }, { at: b, str: '*', order: 11 })
+      } else if (name === 'link' && mediaLinkHandle(t.value) && b - a === 1 && s[a] === IMAGE_PLACEHOLDER) {
+        // the placeholder itself is dropped below; the image token replaces it
+        inserts.push({ at: a, str: `![image](${t.value}`, order: 2 }, { at: b, str: ')', order: 12 })
       } else if (name === 'link' && t.value) {
         inserts.push({ at: a, str: '[', order: 2 }, { at: b, str: `](${t.value})`, order: 12 })
       }
@@ -94,7 +107,21 @@ export function toMarkdownish(text: { string: string; tags?: StyledTag[] }): str
   inserts.sort((x, y) => y.at - x.at || x.order - y.order)
   let out = s
   for (const ins of inserts) out = out.slice(0, ins.at) + ins.str + out.slice(ins.at)
-  return out
+  // `![image](gramps://…<U+FFFC>)` → `![image](gramps://…)`
+  return out.replace(/(!\[image\]\(gramps:\/\/Media\/handle\/[^)\s\uFFFC]+)\uFFFC\)/g, '$1)')
+}
+
+/** Media handles of the inline images, in text order (repeats kept). */
+export function inlineImageHandles(text?: { string?: string; tags?: StyledTag[] }) {
+  const s = text?.string ?? ''
+  const found: Array<[number, string]> = []
+  for (const t of text?.tags ?? []) {
+    if (tagName(t.name) !== 'link') continue
+    const h = mediaLinkHandle(t.value)
+    if (!h) continue
+    for (const [a, b] of t.ranges) if (b - a === 1 && s[a] === IMAGE_PLACEHOLDER) found.push([a, h])
+  }
+  return found.sort((x, y) => x[0] - y[0]).map(([, h]) => h)
 }
 
 /** True when the note uses styling the markdown-ish editor cannot keep. */

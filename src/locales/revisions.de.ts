@@ -59,6 +59,15 @@ export default {
     estimated: 'geschätzt {{date}}',
     calculated: 'errechnet {{date}}',
   },
+  object: {
+    title: 'Verlauf dieses Eintrags',
+    description: 'Alle gespeicherten Änderungen an diesem Eintrag ({{object}}), die neueste zuerst.',
+    lastChanged: 'Zuletzt geändert {{when}}',
+    empty: 'Noch keine Änderungen erfasst',
+    unknownUser: 'Unbekannt',
+    onlyRecent: 'Es werden nur die neuesten Änderungen angezeigt.',
+    showMore: 'Mehr anzeigen',
+  },
   undo: {
     button: 'Änderung rückgängig machen',
     title: 'Änderung rückgängig machen?',
@@ -154,5 +163,10 @@ export default {
     birth_ref_index: 'Geburtsereignis',
     death_ref_index: 'Sterbeereignis',
     lang: 'Sprache',
+  },
+  objectHistory: {
+    lastChanged: 'Zuletzt geändert {{when}}',
+    onlyRecent: 'Es werden nur die neuesten Änderungen angezeigt.',
+    showMore: 'Mehr anzeigen',
   },
 }

@@ -5,14 +5,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowLeft, BookOpen, ChevronDown, CircleCheck, Ellipsis, Loader2, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ResponsiveMenu } from '@/components/responsive-menu'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +24,8 @@ import { useAuth } from '@/lib/auth'
 import { useObjectById } from '@/lib/queries'
 import { useRecordVisit } from '@/lib/prefs'
 import { useTitle } from '@/hooks/use-title'
+import { TagList } from '@/components/tag-list'
+import type { Tag } from '@/lib/types'
 import { invalidateSources } from '@/features/blog/tagged-source'
 import { PriorityBadge, StatusIcon, taskPriority, taskStatus, useUpdateTask, type Task } from './task-model'
 import { StatusMenu } from './tasks-page'
@@ -116,30 +112,20 @@ export function TaskPage() {
               {t('edit')}
             </Button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label={t('more')}>
+          <ResponsiveMenu
+            title={t('more')}
+            trigger={
+              <Button variant="ghost" size="icon-sm" className="max-md:size-10" aria-label={t('more')}>
                 <Ellipsis />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link to={`/source/${task.gramps_id}`}>
-                  <BookOpen />
-                  {t('openSource')}
-                </Link>
-              </DropdownMenuItem>
-              {can('DeleteObject') && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
-                    <Trash2 />
-                    {t('delete.action')}
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            }
+            groups={[
+              [{ key: 'source', icon: <BookOpen />, label: t('openSource'), onSelect: () => navigate(`/source/${task.gramps_id}`) }],
+              can('DeleteObject')
+                ? [{ key: 'delete', icon: <Trash2 />, label: t('delete.action'), destructive: true, onSelect: () => setConfirmDelete(true) }]
+                : [],
+            ]}
+          />
         </div>
       </div>
 
@@ -173,6 +159,7 @@ export function TaskPage() {
           )}
           <PriorityBadge priority={taskPriority(task)} className="h-7 px-2.5 text-sm" />
           {task.author && <span className="text-sm text-muted-foreground">· {task.author}</span>}
+          <TagList tags={((task.extended as { tags?: Tag[] } | undefined)?.tags ?? []).filter((x) => x.name !== 'ToDo')} />
           {can('EditObject') && (
             <Button variant={done ? 'ghost' : 'default'} size="sm" className="sm:ml-auto" onClick={toggleDone} disabled={busy}>
               {busy ? <Loader2 className="animate-spin" /> : done ? <RotateCcw /> : <CircleCheck />}

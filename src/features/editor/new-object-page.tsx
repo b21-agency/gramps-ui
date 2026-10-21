@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, type ComponentType } from 'react'
+import { lazy, Suspense, useMemo, useState, type ComponentType } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -16,6 +16,7 @@ import { emptyName, emptyObject, endpointsOfTx, errorMessage, invalidateAfterWri
 import { ObjectEditor } from './object-editor'
 import { addChild, addChildToFamily, addEventRef, addParent, addPartner, addSibling } from './relations'
 import { MediaUpload } from './media-upload'
+import { ParticipantsField, type Participant } from './participants-field'
 
 const BlogPostEditor = lazy(async () => ({
   default: (await import('@/features/blog/blog-post-editor')).BlogPostEditor as unknown as ComponentType<{ onCancel?: () => void }>,
@@ -83,6 +84,13 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
       }),
   })
 
+  // participants of a new event: the person/family it was started from, plus any added in the form
+  const [participants, setParticipants] = useState<Participant[]>(() =>
+    eventOwner && eventOwnerHandle
+      ? [{ kind: eventOwner, handle: eventOwnerHandle, role: params.get('role') ?? (eventOwner === 'family' ? 'Family' : 'Primary') }]
+      : [],
+  )
+
   const initial = useMemo(() => {
     const o = emptyObject(kind)
     const r = related.data
@@ -103,7 +111,7 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
       o.mother_handle = params.get('mother') ?? ''
       const child = params.get('child')
       if (child) o.child_ref_list = [{ _class: 'ChildRef', ref: child, frel: 'Birth', mrel: 'Birth', private: false, citation_list: [], note_list: [] }]
-      o.type = 'Married'
+      o.type = 'Unknown'
     }
     if (kind === 'event') {
       o.type = params.get('type') ?? (eventOwner === 'family' ? 'Marriage' : 'Birth')
@@ -137,10 +145,7 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
         if (relation === 'partnerOf') extra.push(...(await addPartner(relHandle, obj.handle)))
         if (relation === 'siblingOf') extra.push(...(await addSibling(relHandle, obj.handle)))
       }
-      if (eventOwner && eventOwnerHandle)
-        extra.push(
-          ...(await addEventRef(eventOwner, eventOwnerHandle, obj.handle, params.get('role') ?? (eventOwner === 'family' ? 'Family' : 'Primary'))),
-        )
+      if (kind === 'event') for (const p of participants) extra.push(...(await addEventRef(p.kind, p.handle, obj.handle, p.role || 'Primary')))
     } catch (e) {
       toast.error(t('editor:linkFailed'), { description: errorMessage(e) })
     }
@@ -173,9 +178,10 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
               </p>
             ) : null
           }
+          footer={kind === 'event' && can('EditObject') ? <div className="mt-6"><ParticipantsField value={participants} onChange={setParticipants} /></div> : null}
           onCancel={() => navigate(-1)}
           onSaved={afterCreate}
-          footerClassName="sticky bottom-0 mt-8 -mx-4 px-4 sm:-mx-6 sm:px-6"
+          footerClassName="sticky bottom-[var(--tabbar-h)] mt-8 -mx-4 px-4 sm:-mx-6 sm:px-6"
         />
       </div>
     </Page>

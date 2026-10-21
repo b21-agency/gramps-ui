@@ -4,6 +4,7 @@ export default {
     title: 'Lesezeichen',
     description: 'Einträge, die du schnell wiederfinden willst. Lesezeichen werden in diesem Browser gespeichert.',
     remove: 'Lesezeichen entfernen',
+    missing: 'Nicht mehr im Stammbaum',
     removed: '„{{title}}“ aus den Lesezeichen entfernt',
     empty: {
       title: 'Noch keine Lesezeichen',

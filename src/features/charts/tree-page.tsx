@@ -18,6 +18,7 @@ import { EmptyState, ErrorState } from '@/components/states'
 import { ObjectPicker, type PickedObject } from '@/components/object-picker'
 import { useHomePerson, usePref } from '@/lib/prefs'
 import { useTitle } from '@/hooks/use-title'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import {
   childrenOf,
@@ -26,17 +27,23 @@ import {
   LIMITS,
   useChartData,
   usePrefetchChart,
+  useNameOrder,
+  withNameOrder,
   type ChartKind,
   type ChartSettings,
   type GPerson,
   type Graph,
 } from './graph'
 import { DIMS, layoutAncestors, layoutDescendants, layoutHourglass, layoutRelationship, type Bounds, type Layout } from './layout'
-import { fanGeometry, FanChart, type FanGeometry } from './fan'
+import { fanGeometry, FanChart, FanLegendView, type FanGeometry } from './fan'
 import { reducedMotion, ZoomCanvas, type CanvasApi, type View } from './canvas'
-import { BoxChart, yearsText, type CardHandlers } from './person-card'
-import { ChartSwitcher, DepthControls, ExportMenu, JumpTo, Pill, ZoomControls } from './controls'
+import { BoxChart, datesText, yearsText, type CardHandlers } from './person-card'
+import { ChartSwitcher, DepthControls, DisplayMenu, ExportMenu, HomeButton, JumpTo, Pill, ZoomControls } from './controls'
+import { AddRelativeMenu } from '@/features/editor/relationship-actions'
+import { useObjectById } from '@/lib/queries'
+import type { Person } from '@/lib/types'
 import { boxChartSvg, downloadPng, downloadSvg, fanChartSvg } from './export'
+import { MobileChartActions, MobileChartSwitcher, MobileDepth, MobileZoom, PersonPanel } from './mobile-controls'
 
 const GRAMPS_ID = /^[A-Za-z]*\d+$/
 
@@ -125,11 +132,16 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
   const withId = chart === 'relationship' ? search.get('with') || undefined : undefined
   const q = useChartData(chart, id, settings, withId)
   const prefetch = usePrefetchChart(chart, settings)
-  const graph = q.data
+  const [nameOrder] = useNameOrder()
+  const graph = useMemo(() => withNameOrder(q.data, nameOrder), [q.data, nameOrder])
   const centre = graph?.centre ? graph.people.get(graph.centre) ?? null : null
   const canvas = useRef<CanvasApi>(null)
   const anchor = useRef<Anchor | null>(null)
   const [home, setHome] = useHomePerson()
+  const isMobile = useIsMobile()
+  // phones: tapping a card selects it (bottom panel) instead of re-centring right away
+  const [selected, setSelected] = useState<string | null>(null)
+  useEffect(() => setSelected(null), [graph?.centre, chart])
 
   useTitle(centre ? `${centre.name} · ${t(`charts.${chart}`)}` : t('title'))
 
@@ -156,8 +168,11 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
   const target = graph?.target ? graph.people.get(graph.target) ?? null : null
 
   const fan: FanGeometry | null = useMemo(
-    () => (graph?.centre && chart === 'fan' ? fanGeometry(graph, graph.centre, settings.fan.gens, settings.fan.colour, t) : null),
-    [graph, chart, settings.fan.gens, settings.fan.colour, t],
+    () =>
+      graph?.centre && chart === 'fan'
+        ? fanGeometry(graph, graph.centre, settings.fan.gens, settings.fan.colour, t, nameOrder === 'surname')
+        : null,
+    [graph, chart, settings.fan.gens, settings.fan.colour, t, nameOrder],
   )
 
   const bounds: Bounds | null = layout?.bounds ?? fan?.bounds ?? null
@@ -206,9 +221,9 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
 
   /* ----- interactions ----- */
 
-  const handleRef = useRef({ graph, chart, centreHandle: graph?.centre })
+  const handleRef = useRef({ graph, chart, centreHandle: graph?.centre, isMobile, selected })
   useLayoutEffect(() => {
-    handleRef.current = { graph, chart, centreHandle: graph?.centre }
+    handleRef.current = { graph, chart, centreHandle: graph?.centre, isMobile, selected }
   })
 
   const goTo = useCallback(
@@ -232,9 +247,15 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
     () => ({
       onActivate: (handle, el) => {
         if (suppressClick.current) return
-        const { graph: g, centreHandle } = handleRef.current
+        const { graph: g, centreHandle, isMobile: mobile, selected: sel } = handleRef.current
         const p = g?.people.get(handle)
         if (!p) return
+        if (mobile) {
+          // second tap on the selected card moves it to the centre
+          if (sel === handle && handle !== centreHandle) goTo(p, el)
+          else setSelected(handle)
+          return
+        }
         if (handle === centreHandle) openProfile(p)
         else goTo(p, el)
       },
@@ -408,7 +429,8 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
 
   const switchChart = (c: ChartKind) => {
     if (c === chart) return
-    navigate(`/tree/${c}/${centre?.id ?? id}`)
+    // the URL id, not the shown centre: while a recentre is loading, the old chart is still on screen
+    navigate(`/tree/${c}/${id ?? centre?.id}`)
   }
 
   const failed = q.isError && !graph
@@ -458,7 +480,43 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
         </div>
       )}
 
-      {/* top toolbar */}
+      {selected && (
+        <style>{`[data-handle="${CSS.escape(selected)}"]:is(button){outline:3px solid var(--primary);outline-offset:3px}path[data-handle="${CSS.escape(selected)}"]{stroke:var(--primary);stroke-width:3px}`}</style>
+      )}
+
+      {isMobile ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-start gap-2 p-2 [&>*:first-child]:max-w-[calc(100%-6.75rem)]">
+          <MobileChartSwitcher value={chart} onChange={switchChart} loading={loading && !!graph}>
+            {!withId && chart !== 'hourglass' && <MobileDepth chart={chart} settings={settings} update={update} />}
+          </MobileChartSwitcher>
+          <div className="ml-auto flex items-start gap-2">
+            <MobileChartActions
+              chart={chart}
+              settings={settings}
+              update={update}
+              onPick={(o) => navigate(`/tree/${chart}/${o.gramps_id}`)}
+              onExport={doExport}
+            />
+          </div>
+          {withId && (
+            <Pill className="w-full min-w-0 gap-1 pl-3">
+              <Route className="size-4 shrink-0 text-brass" aria-hidden />
+              <span className="ml-1 min-w-0 flex-1 truncate text-sm">
+                {target && centre ? t('path.title', { a: centre.name, b: target.name }) : t('path.short')}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-11"
+                aria-label={t('path.clear')}
+                onClick={() => navigate(`/tree/relationship/${centre?.id ?? id}`)}
+              >
+                <X />
+              </Button>
+            </Pill>
+          )}
+        </div>
+      ) : (
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-start gap-2 p-2 sm:p-3">
         <ChartSwitcher value={chart} onChange={switchChart} />
         {withId ? (
@@ -490,13 +548,60 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
           )}
           <JumpTo onPick={(o) => navigate(`/tree/${chart}/${o.gramps_id}`)} />
           <Pill>
+            {home && <HomeButton disabled={home === centre?.id} onClick={() => navigate(`/tree/${chart}/${home}`)} />}
+            <DisplayMenu />
             <ExportMenu onExport={doExport} />
           </Pill>
         </div>
       </div>
+      )}
+
+      {fan?.legend && (
+        <div
+          data-no-pan
+          className={cn(
+            'pointer-events-auto absolute left-2 max-w-[11rem] rounded-xl border bg-background/92 p-2.5 shadow-sm backdrop-blur sm:left-3',
+            isMobile ? 'top-[4.5rem]' : 'top-[4.25rem]',
+          )}
+          aria-label={t(`colour.${settings.fan.colour}`)}
+        >
+          <div className="mb-1.5 text-xs font-medium">{t(`colour.${settings.fan.colour}`)}</div>
+          <FanLegendView legend={fan.legend} className="space-y-1" />
+        </div>
+      )}
+
+      {isMobile && centre && graph && (
+        <MobileBottom
+          graph={graph}
+          centre={centre}
+          chart={chart}
+          selected={selected}
+          home={home}
+          alone={!!alone}
+          onClose={() => setSelected(null)}
+          onSelect={setSelected}
+          onGo={(p) => {
+            const el = canvas.current?.element()?.querySelector(`[data-handle="${CSS.escape(p.handle)}"]`)
+            goTo(p, el)
+          }}
+          onProfile={openProfile}
+          onHome={(p) => {
+            setHome(p.id)
+            toast.success(t('homeSet', { name: p.name }))
+          }}
+          onFit={() => {
+            const api = canvas.current
+            if (api && bounds) api.set(api.fitView(bounds, 1.2))
+          }}
+          onRecentre={() => {
+            const v = homeView()
+            if (v) canvas.current?.set(v)
+          }}
+        />
+      )}
 
       {/* bottom: centre person + zoom */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-2 p-2 sm:p-3">
+      <div className={cn('pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-2 p-2 sm:p-3', isMobile && 'hidden')}>
         {centre && graph && (
           <CentrePanel
             person={centre}
@@ -531,6 +636,74 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
   )
 }
 
+function MobileBottom({
+  graph,
+  centre,
+  chart,
+  selected,
+  home,
+  alone,
+  onClose,
+  onSelect,
+  onGo,
+  onProfile,
+  onHome,
+  onFit,
+  onRecentre,
+}: {
+  graph: Graph
+  centre: GPerson
+  chart: ChartKind
+  selected: string | null
+  home: string | null | undefined
+  alone: boolean
+  onClose: () => void
+  onSelect: (handle: string) => void
+  onGo: (p: GPerson) => void
+  onProfile: (p: GPerson) => void
+  onHome: (p: GPerson) => void
+  onFit: () => void
+  onRecentre: () => void
+}) {
+  const { t } = useTranslation('charts')
+  const [hintDismissed, setHintDismissed] = usePref('chart.hintDismissed', false)
+  const person = (selected && graph.people.get(selected)) || centre
+  const expanded = !!selected && person === graph.people.get(selected)
+  const isCentre = person.handle === centre.handle
+  const kids = (chart === 'ancestor' || chart === 'fan' ? childrenOf(graph, centre.handle) : [])
+    .map((h) => graph.people.get(h))
+    .filter((p): p is GPerson => !!p)
+  const hint = !hintDismissed ? (
+    <Pill className="items-start gap-2 py-2 pr-1 pl-3 text-xs text-muted-foreground">
+      <span className="flex-1 pt-1">{alone ? t('alone', { name: centre.given || centre.name }) : t('hints.touchSelect')}</span>
+      <Button variant="ghost" size="icon" className="size-8" aria-label={t('common:actions.close')} onClick={() => setHintDismissed(true)}>
+        <X />
+      </Button>
+    </Pill>
+  ) : null
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-stretch gap-2 p-2">
+      <div className="flex justify-end">
+        <MobileZoom centreName={centre.name} onFit={onFit} onRecentre={onRecentre} />
+      </div>
+      <PersonPanel
+        key={expanded ? person.handle : 'centre'}
+        person={person}
+        isCentre={isCentre}
+        isHome={home === person.id}
+        expanded={expanded}
+        hint={hint}
+        relatives={kids}
+        onClose={onClose}
+        onCentre={() => (expanded ? onGo(person) : onSelect(person.handle))}
+        onProfile={() => onProfile(person)}
+        onHome={() => onHome(person)}
+        onGo={onGo}
+      />
+    </div>
+  )
+}
+
 function CentrePanel({
   person,
   graph,
@@ -549,7 +722,9 @@ function CentrePanel({
   alone: boolean
 }) {
   const { t } = useTranslation('charts')
-  const years = yearsText(person, t)
+  const years = datesText(person) || yearsText(person, t)
+  // full person (families, gender) for the "add relative" menu, as in the classic chart edit mode
+  const full = useObjectById<Person>('person', person.id, { profile: 'self,families', keys: 'handle,gramps_id,gender,family_list,profile' })
   const children = (chart === 'ancestor' || chart === 'fan' ? childrenOf(graph, person.handle) : [])
     .map((h) => graph.people.get(h))
     .filter((p): p is GPerson => !!p)
@@ -594,6 +769,7 @@ function CentrePanel({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        {full.data && <AddRelativeMenu person={full.data} className="h-9 border-0 bg-transparent px-2.5 shadow-none" />}
         {!isHome && (
           <Button variant="ghost" size="icon" className="size-9" aria-label={t('setHome')} title={t('setHome')} onClick={onHome}>
             <House />

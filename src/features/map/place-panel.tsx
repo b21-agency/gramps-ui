@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUpRight, MapPin } from 'lucide-react'
+import { ArrowUpRight, FileText, MapPin, MapPinOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/states'
-import { api } from '@/lib/api'
+import { api, mediaCroppedUrl, mediaThumbUrl } from '@/lib/api'
 import { apiLocale } from '@/i18n'
 import { useObjectByHandle } from '@/lib/queries'
 import { profileName } from '@/lib/format'
-import type { GEvent, Place } from '@/lib/types'
+import type { GEvent, Media, Place } from '@/lib/types'
+import { validCoords } from './data'
 import { cn } from '@/lib/utils'
 
 const PAGE = 40
@@ -18,7 +19,7 @@ const PAGE = 40
 /** Place summary + the events that happened there (from backlinks). */
 export function PlaceDetails({ handle, range }: { handle: string; range?: [number, number] | null }) {
   const { t } = useTranslation(['map', 'common'])
-  const q = useObjectByHandle<Place>('place', handle, { profile: 'self', backlinks: true })
+  const q = useObjectByHandle<Place>('place', handle, { profile: 'self', backlinks: true, extend: 'media_list' })
   const place = q.data
   const eventHandles = place?.backlinks?.event ?? []
   const [limit, setLimit] = useState(PAGE)
@@ -76,6 +77,35 @@ export function PlaceDetails({ handle, range }: { handle: string; range?: [numbe
           </p>
         </div>
       </div>
+      {!validCoords(place.lat, place.long) && (
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+          <MapPinOff className="size-4" />
+          {t('noCoordsShort')}
+        </p>
+      )}
+      {(place.media_list?.length ?? 0) > 0 && (
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          {(place.media_list ?? []).map((ref, i) => {
+            const m = (place.extended?.media as Media[] | undefined)?.[i]
+            return (
+              <Link key={`${ref.ref}-${i}`} to={m ? `/media/${m.gramps_id}` : '#'} className="shrink-0" title={m?.desc}>
+                {m && !m.mime?.startsWith('image') ? (
+                  <span className="flex size-16 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                    <FileText className="size-6" />
+                  </span>
+                ) : (
+                  <img
+                    src={ref.rect ? mediaCroppedUrl(ref.ref, ref.rect, 120, { square: true }) : mediaThumbUrl(ref.ref, 120, { square: true })}
+                    alt={m?.desc ?? ''}
+                    className="size-16 rounded-md border object-cover"
+                    loading="lazy"
+                  />
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         <Button asChild size="sm" variant="outline">
           <Link to={`/place/${place.gramps_id}`}>

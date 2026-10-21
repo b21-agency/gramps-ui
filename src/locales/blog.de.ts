@@ -47,6 +47,7 @@ export default {
     addPhotos: 'Fotos hochladen',
     pickMedia: 'Aus dem Archiv wählen',
     pickMediaPlaceholder: 'Medienarchiv durchsuchen…',
+    insertImage: 'Bild in den Text einfügen',
     removePhoto: 'Foto entfernen',
     makeCover: 'Als Titelbild verwenden',
     cover: 'Titelbild',

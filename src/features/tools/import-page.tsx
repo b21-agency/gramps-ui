@@ -173,8 +173,11 @@ export function ImportPage() {
 
                 {ext && !known && (
                   <p className="mt-4 text-sm text-destructive">
-                    {t('import.unsupported', { ext, list: supported })}
+                    {ext === 'gpkg' ? t('import.gpkg') : t('import.unsupported', { ext, list: supported })}
                   </p>
+                )}
+                {known && ext !== 'gramps' && !run.result && (
+                  <p className="mt-4 text-sm text-muted-foreground">{t('import.syncHint')}</p>
                 )}
 
                 {!ext && (
@@ -213,6 +216,7 @@ export function ImportPage() {
                           runningLabel={t('import.checking')}
                         />
                         {check.result && <CountsList title={t('import.preview')} counts={check.result} />}
+                        {check.result && <Messages title={t('import.previewMessages')} messages={check.result.messages} />}
                         {check.result && <p className="text-sm text-muted-foreground">{t('import.willAdd')}</p>}
                         <TaskStatusLine
                           phase={run.phase}
@@ -259,6 +263,21 @@ function CountsList({ title, counts }: { title: string; counts: Counts }) {
           ))}
         </dl>
       )}
+    </div>
+  )
+}
+
+function Messages({ title, messages }: { title: string; messages?: string[] }) {
+  const list = (messages ?? []).filter(Boolean)
+  if (!list.length) return null
+  return (
+    <div>
+      <p className="mb-1 text-sm font-medium">{title}</p>
+      <ul className="list-disc space-y-1 pl-5 text-sm whitespace-pre-line text-muted-foreground">
+        {list.map((m, i) => (
+          <li key={i}>{m}</li>
+        ))}
+      </ul>
     </div>
   )
 }

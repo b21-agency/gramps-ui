@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { CalendarRange, Quote, Tag } from 'lucide-react'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
+import { useExtraFacets } from './facets'
 import { or, rule, yearRangeDate } from './rules'
 import { ChangedCell, Dash, IconTile, IdCell } from './cells'
 
@@ -31,6 +32,7 @@ export function ConfidenceDots({ level }: { level: number }) {
 export function CitationsListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
+  const extraFacets = useExtraFacets('citation')
 
   const config = useMemo<ListConfig<CitationRow>>(() => {
     const filters: FilterDef[] = [
@@ -45,6 +47,7 @@ export function CitationsListPage() {
         },
       },
       ...(tagFilter ? [tagFilter] : []),
+      ...extraFacets,
     ]
     const title = (c: CitationRow) => c.profile?.source?.title
     return {
@@ -117,7 +120,7 @@ export function CitationsListPage() {
         </div>
       ),
     }
-  }, [t, tagFilter])
+  }, [t, tagFilter, extraFacets])
 
   return <DataListPage title={t('common:nav.citations')} config={config} />
 }

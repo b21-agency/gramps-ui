@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { AdaptivePopover } from '@/components/adaptive-popover'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Command,
@@ -150,13 +150,14 @@ export function RowActions({
     <div className={cn('flex shrink-0 items-center', className)}>
       {onMove && length > 1 && (
         <>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t('moveUp')} disabled={index === 0} onClick={() => onMove(-1)}>
+          <Button type="button" variant="ghost" size="icon-sm" className="pointer-coarse:size-9" aria-label={t('moveUp')} disabled={index === 0} onClick={() => onMove(-1)}>
             <ArrowUp />
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
+            className="pointer-coarse:size-9"
             aria-label={t('moveDown')}
             disabled={index === length - 1}
             onClick={() => onMove(1)}
@@ -166,7 +167,7 @@ export function RowActions({
         </>
       )}
       {onRemove && (
-        <Button type="button" variant="ghost" size="icon-sm" aria-label={t('remove')} onClick={onRemove}>
+        <Button type="button" variant="ghost" size="icon-sm" className="pointer-coarse:size-9" aria-label={t('remove')} onClick={onRemove}>
           <X />
         </Button>
       )}
@@ -254,8 +255,13 @@ export function TypeCombobox({
     setQ('')
   }
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <AdaptivePopover
+      open={open}
+      onOpenChange={setOpen}
+      title={ariaLabel ?? placeholder ?? t('choose')}
+      size="tall"
+      className="w-[min(20rem,calc(100vw-2rem))] p-0"
+      trigger={
         <Button
           type="button"
           variant="outline"
@@ -266,8 +272,8 @@ export function TypeCombobox({
           <span className={cn('truncate', !current && 'text-muted-foreground')}>{current ? label(current) : placeholder ?? t('choose')}</span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[min(20rem,calc(100vw-2rem))] p-0" align="start">
+      }
+    >
         <Command shouldFilter={false}>
           <CommandInput value={q} onValueChange={setQ} placeholder={t('typeSearch')} autoFocus />
           <CommandList>
@@ -301,8 +307,7 @@ export function TypeCombobox({
             </CommandGroup>
           </CommandList>
         </Command>
-      </PopoverContent>
-    </Popover>
+    </AdaptivePopover>
   )
 }
 
@@ -356,13 +361,17 @@ export function TagsField({ value, onChange }: { value: string[]; onChange: (v: 
             </button>
           </span>
         ))}
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
+        <AdaptivePopover
+          open={open}
+          onOpenChange={setOpen}
+          title={t('addTag')}
+          className="w-64 p-0"
+          trigger={
             <Button type="button" variant="outline" size="sm">
               <Plus /> {t('addTag')}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-0" align="start">
+          }
+        >
             <Command shouldFilter={false}>
               <CommandInput value={q} onValueChange={setQ} placeholder={t('tagSearch')} autoFocus />
               <CommandList>
@@ -388,8 +397,7 @@ export function TagsField({ value, onChange }: { value: string[]; onChange: (v: 
                 {!all.length && !ql && <div className="p-3 text-sm text-muted-foreground">{t('noTags')}</div>}
               </CommandList>
             </Command>
-          </PopoverContent>
-        </Popover>
+        </AdaptivePopover>
       </div>
     </Field>
   )
@@ -473,8 +481,13 @@ export function RefPicker({
   const Icon = kindIcon[kind]
   return (
     <div className="flex min-w-0 items-center gap-1">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
+      <AdaptivePopover
+        open={open}
+        onOpenChange={setOpen}
+        title={ariaLabel ?? placeholder ?? t('choose')}
+        size="tall"
+        className="w-[min(26rem,calc(100vw-2rem))] p-0"
+        trigger={
           <Button type="button" variant="outline" role="combobox" aria-label={ariaLabel} className="min-w-0 flex-1 justify-between font-normal">
             <span className="flex min-w-0 items-center gap-2">
               <Icon className="text-muted-foreground" />
@@ -482,8 +495,8 @@ export function RefPicker({
             </span>
             <ChevronsUpDown className="opacity-50" />
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[min(26rem,calc(100vw-2rem))] p-0" align="start">
+        }
+      >
           <ObjectSearchList
             kinds={[kind]}
             selected={value}
@@ -510,8 +523,7 @@ export function RefPicker({
               </Button>
             </div>
           )}
-        </PopoverContent>
-      </Popover>
+      </AdaptivePopover>
       {clearable && value && (
         <Button type="button" variant="ghost" size="icon" aria-label={t('clear')} onClick={() => onChange('')}>
           <X />
@@ -989,7 +1001,7 @@ export function CommonFields({
 /** Delete-confirm icon button used inside lists. */
 export function RemoveButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
-    <Button type="button" variant="ghost" size="icon-sm" aria-label={label} onClick={onClick}>
+    <Button type="button" variant="ghost" size="icon-sm" className="pointer-coarse:size-9" aria-label={label} onClick={onClick}>
       <Trash2 />
     </Button>
   )

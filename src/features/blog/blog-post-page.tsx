@@ -5,14 +5,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowLeft, BookOpen, Ellipsis, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ResponsiveMenu } from '@/components/responsive-menu'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +28,8 @@ import { useRecordVisit } from '@/lib/prefs'
 import type { Note, Source } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
 import { BlogPostEditor } from './blog-post-editor'
-import { blogProse, postDate } from './prose'
+import { blogProse, postDate, withInlineImages } from './prose'
+import { inlineImageHandles, type StyledTag } from './styled-text'
 import { invalidateSources } from './tagged-source'
 
 type Post = Source & { extended?: Source['extended'] & { notes?: Note[] } }
@@ -112,30 +107,20 @@ export function BlogPostPage() {
               {t('edit')}
             </Button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label={t('more')}>
+          <ResponsiveMenu
+            title={t('more')}
+            trigger={
+              <Button variant="ghost" size="icon-sm" className="max-md:size-10" aria-label={t('more')}>
                 <Ellipsis />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link to={`/source/${post.gramps_id}`}>
-                  <BookOpen />
-                  {t('openSource')}
-                </Link>
-              </DropdownMenuItem>
-              {can('DeleteObject') && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
-                    <Trash2 />
-                    {t('delete.action')}
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            }
+            groups={[
+              [{ key: 'source', icon: <BookOpen />, label: t('openSource'), onSelect: () => navigate(`/source/${post.gramps_id}`) }],
+              can('DeleteObject')
+                ? [{ key: 'delete', icon: <Trash2 />, label: t('delete.action'), destructive: true, onSelect: () => setConfirmDelete(true) }]
+                : [],
+            ]}
+          />
         </div>
       </div>
 
@@ -166,7 +151,11 @@ export function BlogPostPage() {
             ))}
           </div>
         ) : body ? (
-          <NoteHtml html={body.formatted?.html} text={body.text.string} className={blogProse} />
+          <NoteHtml
+            html={withInlineImages(body.formatted?.html, inlineImageHandles(body.text as { string: string; tags?: StyledTag[] }))}
+            text={body.text.string.replace(/\uFFFC/g, '')}
+            className={blogProse}
+          />
         ) : (
           <p className="text-muted-foreground">{t('noBody')}</p>
         )}

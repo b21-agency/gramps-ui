@@ -47,6 +47,7 @@ export default {
     addPhotos: 'Upload photos',
     pickMedia: 'Choose from archive',
     pickMediaPlaceholder: 'Search the media archive…',
+    insertImage: 'Insert image into the text',
     removePhoto: 'Remove photo',
     makeCover: 'Use as cover',
     cover: 'Cover',

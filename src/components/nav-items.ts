@@ -1,5 +1,7 @@
 import {
+  Bell,
   BookMarked,
+  CircleHelp,
   BookOpen,
   CalendarDays,
   ChartGantt,
@@ -54,7 +56,7 @@ export const navGroups: Array<{ key: string; items: NavItem[] }> = [
       { to: '/citations', key: 'citations', icon: Quote, match: ['/citation/'] },
       { to: '/repositories', key: 'repositories', icon: Landmark, match: ['/repository/'] },
       { to: '/notes', key: 'notes', icon: NotebookPen, match: ['/note/'] },
-      { to: '/dna-matches', key: 'dna', icon: Dna },
+      { to: '/dna-matches', key: 'dna', icon: Dna, match: ['/ydna', '/dna-chromosome'] },
     ],
   },
   {
@@ -73,7 +75,9 @@ export const navGroups: Array<{ key: string; items: NavItem[] }> = [
       { to: '/export', key: 'export', icon: FileDown },
       { to: '/import', key: 'import', icon: FileUp, permission: 'ImportFile' },
       { to: '/revisions', key: 'revisions', icon: GitCommitHorizontal, permission: 'ViewPrivate' },
+      { to: '/notifications', key: 'notifications', icon: Bell },
       { to: '/settings', key: 'settings', icon: Settings },
+      { to: '/help', key: 'help', icon: CircleHelp },
     ],
   },
 ]

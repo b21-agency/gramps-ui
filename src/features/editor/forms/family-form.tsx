@@ -10,6 +10,7 @@ import { useEditorSession } from '../session'
 import { useGrampsTypes } from '../gramps-types'
 import { emptyName, emptyObject, type AnyObj } from '../lib'
 import { EventsField } from '../events-field'
+import { MediaRefsField } from '../media-field'
 import {
   AttributesField,
   CommonFields,
@@ -273,6 +274,7 @@ export function FamilyForm({ value, onChange }: { value: AnyObj; onChange: (o: A
         defaultRole="Family"
         suggestType={() => (!types.includes('Marriage') ? 'Marriage' : 'Divorce')}
       />
+      <MediaRefsField value={value.media_list ?? []} onChange={(v) => onChange({ ...value, media_list: v })} />
       <AttributesField value={value.attribute_list ?? []} onChange={(v) => onChange({ ...value, attribute_list: v })} />
       <CommonFields value={value} onChange={onChange} />
     </div>

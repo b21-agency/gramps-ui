@@ -6,8 +6,9 @@ import { lifespan, profileName } from '@/lib/format'
 import type { EventProfile, MediaRef, PersonProfile } from '@/lib/types'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
+import { useExtraFacets } from './facets'
 import { rule, yearRangeDate } from './rules'
-import { ChangedCell, EventCell, IdCell } from './cells'
+import { ChangedCell, Dash, EventCell, IdCell } from './cells'
 
 export interface PersonRow {
   handle: string
@@ -18,6 +19,15 @@ export interface PersonRow {
 }
 
 const ev = (e: PersonProfile['birth']) => (e && 'date' in e ? (e as EventProfile) : undefined)
+
+/** Age at death in years from the birth and death years (as the classic list computes it). */
+function ageAtDeath(p: PersonProfile): number | null {
+  const by = ev(p.birth)?.date?.match(/\b(\d{4})\b/)
+  const dy = ev(p.death)?.date?.match(/\b(\d{4})\b/)
+  if (!by || !dy) return null
+  const age = Number(dy[1]) - Number(by[1])
+  return age >= 0 ? age : null
+}
 
 function PersonName({ p, media, size = 36 }: { p: PersonProfile; media?: MediaRef[]; size?: number }) {
   const name = profileName(p)
@@ -36,6 +46,7 @@ function PersonName({ p, media, size = 36 }: { p: PersonProfile; media?: MediaRe
 export function PeopleListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
+  const extraFacets = useExtraFacets('person')
 
   const config = useMemo<ListConfig<PersonRow>>(() => {
     const filters: FilterDef[] = [
@@ -73,6 +84,7 @@ export function PeopleListPage() {
       },
       { id: 'photo', type: 'toggle', label: t('people.hasPhoto'), icon: Camera, toRule: () => rule('HavePhotos', '0', 'greater than') },
       ...(tagFilter ? [tagFilter] : []),
+      ...extraFacets,
     ]
     return {
       kind: 'person',
@@ -121,6 +133,15 @@ export function PeopleListPage() {
           minWidth: 720,
           cell: (p) => <EventCell date={ev(p.profile.death)?.date} place={ev(p.profile.death)?.place_name} />,
         },
+        {
+          id: 'age',
+          header: t('people.col.age'),
+          width: '4.5rem',
+          minWidth: 800,
+          align: 'end',
+          defaultHidden: true,
+          cell: (p) => <span className="font-serif tabular-nums">{ageAtDeath(p.profile) ?? <Dash />}</span>,
+        },
         { id: 'id', header: t('col.id'), sort: 'gramps_id', width: '4.5rem', minWidth: 880, cell: (p) => <IdCell id={p.gramps_id} /> },
         {
           id: 'change',
@@ -150,7 +171,7 @@ export function PeopleListPage() {
         )
       },
     }
-  }, [t, tagFilter])
+  }, [t, tagFilter, extraFacets])
 
   return <DataListPage title={t('common:nav.people')} config={config} />
 }

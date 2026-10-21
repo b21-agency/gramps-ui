@@ -71,32 +71,70 @@ export function usePlaceCoordinates() {
 interface EventLite {
   handle: string
   place?: string
-  type: string
+  type: string | { string?: string }
   date?: Pick<DateVal, 'sortval' | 'year' | 'dateval'>
+}
+
+export interface PlaceEvent {
+  /** null = undated */
+  year: number | null
+  type: string
 }
 
 export interface PlaceYears {
   /** place handle -> sorted distinct years of events that happened there */
   byPlace: Map<string, number[]>
+  /** place handle -> every event there (year + English type name) */
+  events: Map<string, PlaceEvent[]>
+  /** event types of events with a place, most frequent first */
+  typeCounts: Array<[string, number]>
   min: number
   max: number
+}
+
+/**
+ * Places with at least one event matching all active filters (year range, event types); without
+ * active filters every place, also those without events (same rule as the classic map).
+ */
+export function filterPlacesByEvents(
+  places: PlacePoint[],
+  data: PlaceYears | undefined,
+  range: [number, number] | null,
+  types: string[],
+): PlacePoint[] {
+  if (!data || (!range && !types.length)) return places
+  const set = new Set(types)
+  return places.filter((p) =>
+    (data.events.get(p.handle) ?? []).some(
+      (e) =>
+        (!range || (e.year != null && e.year >= range[0] && e.year <= range[1])) && (!set.size || set.has(e.type)),
+    ),
+  )
 }
 
 /** Years of all dated events per place, for the time filter. Fetched only when needed. */
 export function usePlaceYears(enabled: boolean) {
   return useQuery({
-    queryKey: ['events', 'place-years'],
+    queryKey: ['events', 'place-events'],
     enabled,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<PlaceYears> => {
       const events = await api<EventLite[]>('/events/', { query: { keys: 'date,handle,place,type' } })
       const byPlace = new Map<string, Set<number>>()
+      const all = new Map<string, PlaceEvent[]>()
+      const counts = new Map<string, number>()
       let min = Infinity
       let max = -Infinity
       for (const e of events) {
         if (!e.place) continue
+        const type = typeof e.type === 'string' ? e.type : (e.type?.string ?? '')
         const y = e.date?.year || e.date?.dateval?.[2]
-        if (!y || !e.date?.sortval) continue
+        const dated = !!y && !!e.date?.sortval
+        let list = all.get(e.place)
+        if (!list) all.set(e.place, (list = []))
+        list.push({ year: dated ? y! : null, type })
+        if (type) counts.set(type, (counts.get(type) ?? 0) + 1)
+        if (!dated) continue
         let s = byPlace.get(e.place)
         if (!s) byPlace.set(e.place, (s = new Set()))
         s.add(y)
@@ -105,11 +143,12 @@ export function usePlaceYears(enabled: boolean) {
       }
       const out = new Map<string, number[]>()
       byPlace.forEach((s, k) => out.set(k, [...s].sort((a, b) => a - b)))
+      const typeCounts = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       if (!Number.isFinite(min)) {
         const now = new Date().getFullYear()
-        return { byPlace: out, min: now - 100, max: now }
+        return { byPlace: out, events: all, typeCounts, min: now - 100, max: now }
       }
-      return { byPlace: out, min, max }
+      return { byPlace: out, events: all, typeCounts, min, max }
     },
   })
 }

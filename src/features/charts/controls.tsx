@@ -6,6 +6,7 @@ import {
   ArrowRightLeft,
   ArrowUp,
   Download,
+  House,
   Hourglass,
   LocateFixed,
   Maximize,
@@ -15,6 +16,7 @@ import {
   Plus,
   Rainbow,
   Search,
+  Settings2,
   Waypoints,
   ZoomIn,
   ZoomOut,
@@ -28,11 +30,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ObjectPicker, type PickedObject } from '@/components/object-picker'
 import { cn } from '@/lib/utils'
-import { CHARTS, LIMITS, type ChartKind, type ChartSettings, type FanColour, type Orientation } from './graph'
+import { CHARTS, FAN_COLOURS, LIMITS, useNameOrder, type ChartKind, type ChartSettings, type FanColour, type NameOrder, type Orientation } from './graph'
 
 export const chartIcon: Record<ChartKind, typeof Network> = {
   ancestor: Network,
@@ -263,8 +266,12 @@ export function DepthControls({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{t('colour.label')}</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={s.colour} onValueChange={(v) => update('fan', { colour: v as FanColour })}>
-                <DropdownMenuRadioItem value="line">{t('colour.line')}</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="generation">{t('colour.generation')}</DropdownMenuRadioItem>
+                {FAN_COLOURS.map((c, i) => (
+                  <div key={c}>
+                    {i === 2 && <DropdownMenuSeparator />}
+                    <DropdownMenuRadioItem value={c}>{t(`colour.${c}`)}</DropdownMenuRadioItem>
+                  </div>
+                ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -305,6 +312,43 @@ export function JumpTo({ onPick }: { onPick: (o: PickedObject) => void }) {
         }
       />
     </Pill>
+  )
+}
+
+/** Chart-wide display options (name order), as in the classic chart preferences. */
+export function DisplayMenu() {
+  const { t } = useTranslation('charts')
+  const [order, setOrder] = useNameOrder()
+  return (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-9" aria-label={t('display')}>
+              <Settings2 />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{t('display')}</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>{t('nameOrder.label')}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={order} onValueChange={(v) => setOrder(v as NameOrder)}>
+          <DropdownMenuRadioItem value="given">{t('nameOrder.given')}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="surname">{t('nameOrder.surname')}</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** Back to the home person (shown when the chart is centred on someone else). */
+export function HomeButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
+  const { t } = useTranslation('charts')
+  return (
+    <IconButton label={t('goHome')} onClick={onClick} disabled={disabled}>
+      <House />
+    </IconButton>
   )
 }
 

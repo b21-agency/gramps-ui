@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { api } from '@/lib/api'
 import { apiLocale } from '@/i18n'
@@ -11,6 +10,7 @@ import { describeObject, kindIcon } from '@/lib/objects'
 import type { ObjectKind, SearchHit } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { searchQuery, useDebounced } from './command-search'
+import { AdaptivePopover } from './adaptive-popover'
 
 export interface PickedObject {
   kind: ObjectKind
@@ -105,29 +105,34 @@ export function ObjectPicker({
   className?: string
   trigger?: ReactNode
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {trigger ?? (
+    <AdaptivePopover
+      open={open}
+      onOpenChange={setOpen}
+      title={placeholder ?? t('actions.search')}
+      size="tall"
+      className="w-[min(26rem,calc(100vw-2rem))] p-0"
+      trigger={
+        trigger ?? (
           <Button variant="outline" role="combobox" className={cn('w-full justify-between font-normal', className)}>
             <span className={cn('truncate', !value && 'text-muted-foreground')}>{value?.title ?? placeholder}</span>
             <ChevronsUpDown className="opacity-50" />
           </Button>
-        )}
-      </PopoverTrigger>
-      <PopoverContent className="w-[min(26rem,calc(100vw-2rem))] p-0" align="start">
-        <ObjectSearchList
-          kinds={kinds}
-          selected={value?.handle}
-          placeholder={placeholder}
-          autoFocus
-          onPick={(o) => {
-            onChange(o)
-            setOpen(false)
-          }}
-        />
-      </PopoverContent>
-    </Popover>
+        )
+      }
+    >
+      <ObjectSearchList
+        kinds={kinds}
+        selected={value?.handle}
+        placeholder={placeholder}
+        autoFocus
+        onPick={(o) => {
+          onChange(o)
+          setOpen(false)
+        }}
+      />
+    </AdaptivePopover>
   )
 }

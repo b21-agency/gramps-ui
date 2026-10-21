@@ -27,6 +27,8 @@ import { ErrorState } from '@/components/states'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { describeObject, objectPath } from '@/lib/objects'
+import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { endpointOf, type ObjectKind } from '@/lib/types'
 import {
   deleteObject,
@@ -46,7 +48,20 @@ const ObjectEditor = lazy(async () => ({ default: (await import('./object-editor
  * Edit entry point placed on every object page header.
  * Renders nothing for users without EditObject.
  */
-export function EditButton({ kind, object, onSaved }: { kind: ObjectKind; object: unknown; onSaved?: () => void }) {
+export function EditButton({
+  kind,
+  object,
+  onSaved,
+  menu = true,
+  className,
+}: {
+  kind: ObjectKind
+  object: unknown
+  onSaved?: () => void
+  /** false: no "more" menu with Delete (the caller offers it, e.g. in a phone action sheet) */
+  menu?: boolean
+  className?: string
+}) {
   const { t } = useTranslation(['editor', 'common'])
   const { can } = useAuth()
   const [open, setOpen] = useState(false)
@@ -55,11 +70,11 @@ export function EditButton({ kind, object, onSaved }: { kind: ObjectKind; object
   if (!can('EditObject') || !obj?.handle) return null
   return (
     <>
-      <Button variant="outline" size="sm" className="ml-1" onClick={() => setOpen(true)}>
+      <Button variant="outline" size="sm" className={cn('ml-1', className)} onClick={() => setOpen(true)} data-shortcut="edit">
         <Pencil />
         <span className="max-sm:sr-only">{t('common:actions.edit')}</span>
       </Button>
-      {can('DeleteObject') && (
+      {menu && can('DeleteObject') && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label={t('editor:more')}>
@@ -97,6 +112,7 @@ export function EditSheet({
   const { t } = useTranslation(['editor', 'common'])
   const [dirty, setDirty] = useState(false)
   const [confirmClose, setConfirmClose] = useState(false)
+  const isMobile = useIsMobile()
   const close = useCallback(() => {
     setDirty(false)
     onOpenChange(false)
@@ -107,8 +123,13 @@ export function EditSheet({
     <>
       <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : requestClose())}>
         <SheetContent
-          side="right"
-          className="w-full gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl"
+          side={isMobile ? 'bottom' : 'right'}
+          className={cn(
+            'w-full gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl',
+            // phones: a page sheet that rises from the bottom, leaving a sliver of the page above
+            'data-[side=bottom]:h-[calc(100dvh-env(safe-area-inset-top,0px)-0.75rem)] data-[side=bottom]:overflow-hidden data-[side=bottom]:rounded-t-2xl data-[side=bottom]:data-open:slide-in-from-bottom data-[side=bottom]:data-closed:slide-out-to-bottom',
+            'max-md:[&>[data-slot=sheet-close]]:top-2.5 max-md:[&>[data-slot=sheet-close]]:right-2.5 max-md:[&>[data-slot=sheet-close]]:size-10',
+          )}
           onEscapeKeyDown={(e) => {
             // let inner popovers close first; then guard unsaved changes
             if (dirty) {
@@ -181,7 +202,7 @@ function EditSheetBody({
   const title = q.data ? describeObject(kind, q.data).title : ''
   return (
     <>
-      <SheetHeader className="border-b px-4 py-3 pr-12 sm:px-6">
+      <SheetHeader className="border-b px-4 py-3 pr-14 sm:px-6 sm:pr-12">
         <SheetTitle className="font-serif text-xl font-medium">{t('editor:editTitle', { what: t(`common:object.${kind}`) })}</SheetTitle>
         <SheetDescription className="truncate">
           {title}
@@ -201,8 +222,8 @@ function EditSheetBody({
           seeds={[q.data, ...extendedObjects(q.data)]}
           onDirtyChange={onDirtyChange}
           onCancel={onCancel}
-          bodyClassName="overflow-y-auto px-4 py-5 sm:px-6"
-          footerClassName="bg-popover px-4 sm:px-6"
+          bodyClassName="overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
+          footerClassName="bg-popover px-4 sm:px-6 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
           onSaved={onSaved}
         />
         </Suspense>
@@ -241,6 +262,15 @@ export function DeleteDialog({
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const title = describeObject(kind, object).title || object.gramps_id
+  // a place that still encloses other places can't be deleted (they would point nowhere)
+  const encloses = useQuery({
+    queryKey: ['places', 'encloses', object.handle],
+    enabled: open && kind === 'place',
+    staleTime: 0,
+    queryFn: async () =>
+      ((await api<AnyObj>(`/places/${object.handle}`, { query: { backlinks: true, keys: 'backlinks' } })).backlinks?.place ?? []).length > 0,
+  })
+  const blocked = kind === 'place' && !!encloses.data
   const run = async () => {
     setBusy(true)
     try {
@@ -275,13 +305,15 @@ export function DeleteDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{t('editor:delete.title', { name: title })}</AlertDialogTitle>
-          <AlertDialogDescription>{t(`editor:delete.description`, { what: t(`common:object.${kind}`) })}</AlertDialogDescription>
+          <AlertDialogDescription>
+            {blocked ? t('editor:delete.placeEncloses') : t(`editor:delete.description`, { what: t(`common:object.${kind}`) })}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>{t('common:actions.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            disabled={busy}
+            disabled={busy || blocked || (kind === 'place' && encloses.isLoading)}
             onClick={(e) => {
               e.preventDefault()
               void run()

@@ -13,8 +13,9 @@ import { api } from '@/lib/api'
 import { useAccessToken } from '@/lib/auth'
 import { useHomePerson } from '@/lib/prefs'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { useTitle } from '@/hooks/use-title'
-import { OptionInput, reportFields, type OptionField, type ReportDef } from './report-options'
+import { OptionInput, reportFields, reportStrings, useGrampsText, type OptionField, type ReportDef } from './report-options'
 import { TaskStatusLine, taskErrorText } from './task-status'
 import { useTask, withJwt } from './use-task'
 
@@ -35,13 +36,14 @@ function useReports() {
   })
 }
 
-function useReportText() {
+function useReportText(strings: string[] = []) {
   const { t, i18n } = useTranslation('tools')
+  const tr = useGrampsText(strings)
   return (r: ReportDef) => {
     const key = `tools:reports.names.${r.id}`
     return i18n.exists(key)
       ? { name: t(`reports.names.${r.id}.name`), description: t(`reports.names.${r.id}.description`) }
-      : { name: r.name, description: r.description }
+      : { name: tr(r.name), description: tr(r.description) }
   }
 }
 
@@ -49,9 +51,10 @@ export function ReportsPage() {
   const { t } = useTranslation('tools')
   useTitle(t('reports.title'))
   const q = useReports()
-  const text = useReportText()
+  const text = useReportText((q.data ?? []).flatMap((r) => [r.name, r.description]))
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState<ReportDef | null>(null)
+  const isMobile = useIsMobile()
 
   const groups = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -65,7 +68,7 @@ export function ReportsPage() {
       ([a], [b]) => (CATEGORY_ORDER.indexOf(a) + 100) % 100 - ((CATEGORY_ORDER.indexOf(b) + 100) % 100),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q.data, search, t])
+  }, [q.data, search, t, text])
 
   return (
     <Page title={t('reports.title')} description={t('reports.description')}>
@@ -123,7 +126,14 @@ export function ReportsPage() {
       </div>
 
       <Sheet open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
-        <SheetContent className="w-full gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
+        <SheetContent
+          side={isMobile ? 'bottom' : 'right'}
+          className={cn(
+            'w-full gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-lg',
+            'data-[side=bottom]:h-[calc(100dvh-env(safe-area-inset-top,0px)-0.75rem)] data-[side=bottom]:overflow-hidden data-[side=bottom]:rounded-t-2xl data-[side=bottom]:data-open:slide-in-from-bottom data-[side=bottom]:data-closed:slide-out-to-bottom',
+            'max-md:[&>[data-slot=sheet-close]]:top-2.5 max-md:[&>[data-slot=sheet-close]]:right-2.5 max-md:[&>[data-slot=sheet-close]]:size-10',
+          )}
+        >
           {open && <ReportForm key={open.id} report={open} />}
         </SheetContent>
       </Sheet>
@@ -133,7 +143,6 @@ export function ReportsPage() {
 
 function ReportForm({ report }: { report: ReportDef }) {
   const { t, i18n } = useTranslation('tools')
-  const text = useReportText()(report)
   const [homePerson] = useHomePerson()
   useAccessToken()
   const fields = useMemo(
@@ -141,6 +150,9 @@ function ReportForm({ report }: { report: ReportDef }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report],
   )
+  const strings = useMemo(() => reportStrings(report, fields), [report, fields])
+  const tr = useGrampsText(strings)
+  const text = useReportText(strings)(report)
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((f) => [f.key, f.defaultValue])),
   )
@@ -167,6 +179,13 @@ function ReportForm({ report }: { report: ReportDef }) {
       <SheetHeader className="border-b">
         <SheetTitle className="font-serif text-2xl font-medium">{text.name}</SheetTitle>
         <SheetDescription>{text.description}</SheetDescription>
+        {(!!report.authors?.length || report.version) && (
+          <p className="text-xs text-muted-foreground">
+            {[report.authors?.length && t('reports.authors', { list: report.authors.join(', ') }), report.version && t('reports.version', { version: report.version })]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        )}
       </SheetHeader>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5">
@@ -206,24 +225,24 @@ function ReportForm({ report }: { report: ReportDef }) {
             <p className="text-sm text-muted-foreground">{t('reports.defaultHint')}</p>
             <div className="space-y-4">
               {byGroup('main').map((f) => (
-                <OptionInput key={f.key} field={f} value={values[f.key]} onChange={set(f.key)} />
+                <OptionInput key={f.key} field={f} value={values[f.key]} onChange={set(f.key)} tr={tr} />
               ))}
             </div>
-            <MoreGroup title={t('reports.moreOptions')} fields={byGroup('more')} values={values} set={set} />
-            <MoreGroup title={t('reports.layout')} fields={byGroup('layout')} values={values} set={set} />
+            <MoreGroup title={t('reports.moreOptions')} fields={byGroup('more')} values={values} set={set} tr={tr} />
+            <MoreGroup title={t('reports.layout')} fields={byGroup('layout')} values={values} set={set} tr={tr} />
           </>
         )}
       </div>
 
       {!result && (
-        <SheetFooter className="border-t">
+        <SheetFooter className="border-t max-md:pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
           <TaskStatusLine
             phase={task.phase === 'failure' ? 'failure' : task.running ? 'running' : 'idle'}
             progress={task.progress}
             error={task.error}
             runningLabel={t('reports.creating')}
           />
-          <Button onClick={run} disabled={task.running}>
+          <Button onClick={run} disabled={task.running} className="max-md:h-11 max-md:text-base">
             {task.running && <Loader2 className="animate-spin" />}
             {task.running ? t('reports.creating') : t('reports.createReport')}
           </Button>
@@ -238,11 +257,13 @@ function MoreGroup({
   fields,
   values,
   set,
+  tr,
 }: {
   title: string
   fields: OptionField[]
   values: Record<string, string>
   set: (k: string) => (v: string) => void
+  tr: (s: string) => string
 }) {
   const [open, setOpen] = useState(false)
   if (!fields.length) return null
@@ -256,7 +277,7 @@ function MoreGroup({
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-4 pt-3">
         {fields.map((f) => (
-          <OptionInput key={f.key} field={f} value={values[f.key]} onChange={set(f.key)} />
+          <OptionInput key={f.key} field={f} value={values[f.key]} onChange={set(f.key)} tr={tr} />
         ))}
       </CollapsibleContent>
     </Collapsible>

@@ -25,6 +25,8 @@ export default {
     revisions: 'Revisions',
     more: 'More',
     settings: 'Settings',
+    notifications: 'Notifications',
+    help: 'Help',
     groups: { browse: 'Browse', research: 'Research', yours: 'Yours', tools: 'Tools' },
   },
   object: {
@@ -66,6 +68,8 @@ export default {
     signOut: 'Sign out',
     copyLink: 'Copy link',
     linkCopied: 'Link copied',
+    share: 'Share',
+    moreActions: 'More actions',
     bookmark: 'Bookmark',
     unbookmark: 'Remove bookmark',
     download: 'Download',
@@ -103,4 +107,12 @@ export default {
   tags: 'Tags',
   homePerson: 'Home person',
   setHomePerson: 'Set as home person',
+  gallery: {
+    label: 'Photos',
+    prev: 'Previous',
+    next: 'Next',
+    position: '{{i}} of {{n}}',
+    openMedia: 'Open media page',
+    original: 'Open original file',
+  },
 }

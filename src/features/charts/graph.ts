@@ -4,6 +4,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { api } from '@/lib/api'
+import { usePref } from '@/lib/prefs'
 import { apiLocale } from '@/i18n'
 import { profileName, yearOf } from '@/lib/format'
 import type { ChildRef, Handle, MediaRef, PersonProfile } from '@/lib/types'
@@ -13,7 +14,25 @@ export type ChartKind = (typeof CHARTS)[number]
 export const isChart = (s: string | undefined): s is ChartKind => !!s && (CHARTS as readonly string[]).includes(s)
 
 export type Orientation = 'horizontal' | 'vertical'
-export type FanColour = 'generation' | 'line'
+/** Pattern modes colour by position; the others by a value of each person (as in Gramps Web). */
+export const FAN_COLOURS = ['line', 'generation', 'nEvents', 'nNotes', 'birthYear', 'deathYear', 'age', 'surname', 'religion', 'nPaths'] as const
+export type FanColour = (typeof FAN_COLOURS)[number]
+
+/** How names are written on the charts. */
+export type NameOrder = 'given' | 'surname'
+export function useNameOrder() {
+  return usePref<NameOrder>('chart.nameOrder', 'given')
+}
+
+/** The graph with every name written in `order` (cards, fan, export all read `name`). */
+export function withNameOrder(g: Graph | undefined, order: NameOrder): Graph | undefined {
+  if (!g || order === 'given') return g
+  const people = new Map<Handle, GPerson>()
+  for (const [h, p] of g.people) {
+    people.set(h, p.surname && p.given ? { ...p, name: `${p.surname}, ${p.given}` } : p)
+  }
+  return { ...g, people }
+}
 
 /** Per-chart settings, persisted per tree. Ancestor counts include the centre person. */
 export interface ChartSettings {
@@ -53,7 +72,16 @@ export interface GPerson {
   birth: number | null
   death: number | null
   dead: boolean
+  /** Full birth / death dates as displayed by the API (locale aware). */
+  birthDate: string
+  deathDate: string
   media: MediaRef | null
+  /** Values for the fan chart colours. */
+  nEvents: number
+  nNotes: number
+  religion: string | null
+  /** Age at death in years (regular, non-estimated dates only). */
+  age: number | null
   /** Primary parent family handle (or null). */
   parentFamily: Handle | null
   parentFamilies: Handle[]
@@ -83,10 +111,25 @@ interface RawFamily {
   child_ref_list: ChildRef[]
 }
 
+interface RawDate {
+  modifier?: number
+  quality?: number
+  sortval?: number
+}
+interface RawEvent {
+  type?: string | { string?: string }
+  description?: string
+  date?: RawDate
+}
+
 interface RawPerson {
   handle: Handle
   gramps_id: string
   gender: number
+  event_ref_list?: unknown[]
+  note_list?: unknown[]
+  birth_ref_index?: number
+  death_ref_index?: number
   media_list?: MediaRef[]
   family_list?: Handle[]
   parent_family_list?: Handle[]
@@ -95,7 +138,22 @@ interface RawPerson {
     primary_parent_family?: RawFamily | Record<string, never>
     families?: RawFamily[]
     parent_families?: RawFamily[]
+    events?: RawEvent[]
   }
+}
+
+function ageOf(p: RawPerson): number | null {
+  const ev = p.extended?.events
+  if (!ev) return null
+  const regular = (d?: RawDate) => (d && d.modifier === 0 && d.quality !== 1 && d.sortval ? d.sortval : null)
+  const b = regular(ev[p.birth_ref_index ?? -1]?.date)
+  const d = regular(ev[p.death_ref_index ?? -1]?.date)
+  return b != null && d != null ? (d - b) / 365.25 : null
+}
+
+function religionOf(p: RawPerson): string | null {
+  const ev = p.extended?.events?.find((e) => (typeof e.type === 'string' ? e.type : e.type?.string) === 'Religion')
+  return ev?.description || null
 }
 
 function addFamily(g: Graph, f: RawFamily | Record<string, never> | undefined) {
@@ -124,7 +182,13 @@ function addPerson(g: Graph, p: RawPerson) {
     birth,
     death,
     dead: !!deathEv && Object.keys(deathEv).length > 0,
+    birthDate: (pr?.birth as { date?: string } | undefined)?.date ?? '',
+    deathDate: deathEv?.date ?? '',
     media: p.media_list?.[0] ?? null,
+    nEvents: p.event_ref_list?.length ?? 0,
+    nNotes: p.note_list?.length ?? 0,
+    religion: religionOf(p),
+    age: ageOf(p),
     parentFamily: ppf && 'handle' in ppf ? ppf.handle : null,
     parentFamilies: p.parent_family_list ?? [],
     families: p.family_list ?? [],
@@ -225,7 +289,8 @@ function dataKey(chart: ChartKind, s: ChartSettings) {
   }
 }
 
-const KEYS = 'handle,gramps_id,gender,media_list,profile,extended,family_list,parent_family_list'
+const KEYS =
+  'handle,gramps_id,gender,media_list,profile,extended,family_list,parent_family_list,event_ref_list,note_list,birth_ref_index,death_ref_index'
 
 async function fetchChart(chart: ChartKind, id: string, s: ChartSettings, locale: string, withId?: string): Promise<Graph> {
   const people = await api<RawPerson[]>('/people/', {
@@ -233,7 +298,8 @@ async function fetchChart(chart: ChartKind, id: string, s: ChartSettings, locale
       rules: JSON.stringify(chartRules(chart, id, s, withId)),
       profile: 'self',
       locale,
-      extend: 'primary_parent_family,family_list,parent_family_list',
+      // the fan chart colours people by values of their events (religion, age)
+      extend: `primary_parent_family,family_list,parent_family_list${chart === 'fan' ? ',event_ref_list' : ''}`,
       keys: KEYS,
     },
   })

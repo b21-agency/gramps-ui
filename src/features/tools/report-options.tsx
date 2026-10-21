@@ -1,6 +1,8 @@
 // Turns the Gramps report option definitions (options_dict + options_help from
 // GET /reports/?include_help=1) into form fields.
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -11,6 +13,8 @@ export interface ReportDef {
   id: string
   name: string
   description: string
+  authors?: string[]
+  version?: string
   category: number
   options_dict: Record<string, unknown>
   options_help: Record<string, [string, string, string[] | string]>
@@ -27,6 +31,8 @@ export interface OptionField {
   choices: Array<{ value: string; label: string }>
   defaultValue: string
   group: 'main' | 'more' | 'layout'
+  /** input hint from options_help for free-text options ("A number", "Size in cm", …) */
+  hint?: string
 }
 
 const HIDDEN = new Set(['of', 'css', 'sections', 'gidlist'])
@@ -93,11 +99,49 @@ export function reportFields(def: ReportDef, prefs: { lang: string; homePerson?:
       help: text.trim(),
       choices,
       defaultValue,
+      // "A number"/"Any text" only restate the input type; other hints (e.g. "Size in cm") help
+      hint: typeof spec === 'string' && spec.trim() && !/^(a number|any text)$/i.test(spec.trim()) ? spec.trim() : undefined,
       group: MAIN.includes(key) ? 'main' : LAYOUT.has(key) || key.startsWith('paper') ? 'layout' : 'more',
     })
   }
   const rank = (f: OptionField) => (f.group === 'main' ? MAIN.indexOf(f.key) : 100)
   return out.sort((a, b) => rank(a) - rank(b))
+}
+
+/**
+ * Gramps report texts (names, option labels, choices) are English; like the classic UI, translate
+ * them with the backend's Gramps translations (POST /translations/{lang}).
+ */
+export function useGrampsText(strings: string[]) {
+  const { i18n } = useTranslation()
+  const lang = (i18n.resolvedLanguage ?? i18n.language ?? 'en').slice(0, 2)
+  const unique = [...new Set(strings.filter(Boolean))].sort()
+  const q = useQuery({
+    queryKey: ['translations', lang, 'reports', unique],
+    enabled: lang !== 'en' && unique.length > 0,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const res = await api<Array<{ original: string; translation: string }>>(`/translations/${lang}`, {
+        method: 'POST',
+        json: { strings: unique },
+      })
+      return new Map(res.map((r) => [r.original, r.translation]))
+    },
+  })
+  return (s: string) => q.data?.get(s) || s
+}
+
+/** All Gramps strings a report form shows, for useGrampsText. */
+export function reportStrings(def: ReportDef, fields: OptionField[]) {
+  return [
+    def.name,
+    def.description,
+    ...fields.flatMap((f) => [
+      f.help.split('\n')[0].replace(/\.$/, ''),
+      f.hint ?? '',
+      ...(f.kind === 'select' ? f.choices.map((c) => c.label) : []),
+    ]),
+  ]
 }
 
 function humanize(key: string) {
@@ -109,16 +153,20 @@ export function OptionInput({
   field,
   value,
   onChange,
+  tr = (s) => s,
 }: {
   field: OptionField
   value: string
   onChange: (v: string) => void
+  /** translates Gramps strings (see useGrampsText) */
+  tr?: (s: string) => string
 }) {
   const { t, i18n } = useTranslation('tools')
   const id = `opt-${field.key}`
+  const helpLine = field.help.split('\n')[0].replace(/\.$/, '')
   const label = i18n.exists(`tools:reports.options.${field.key}`)
     ? t(`reports.options.${field.key}`)
-    : field.help.split('\n')[0].replace(/\.$/, '') || humanize(field.key)
+    : (helpLine && tr(helpLine)) || humanize(field.key)
 
   if (field.kind === 'bool')
     return (
@@ -143,7 +191,7 @@ export function OptionInput({
     )
   } else if (field.kind === 'select') {
     const label = (c: { value: string; label: string }) =>
-      field.key === 'off' ? t(`reports.formats.${c.value}`, { defaultValue: c.label }) : c.label
+      field.key === 'off' ? t(`reports.formats.${c.value}`, { defaultValue: c.label }) : tr(c.label)
     control = (
       <Select value={value || '_empty'} onValueChange={(v) => onChange(v === '_empty' ? '' : v)}>
         <SelectTrigger id={id} className="w-full">
@@ -167,6 +215,7 @@ export function OptionInput({
         inputMode={field.kind === 'number' ? 'decimal' : undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-describedby={field.hint ? `${id}-hint` : undefined}
       />
     )
   }
@@ -176,6 +225,11 @@ export function OptionInput({
         {label}
       </Label>
       {control}
+      {field.hint && (field.kind === 'text' || field.kind === 'number') && (
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+          {tr(field.hint)}
+        </p>
+      )}
     </div>
   )
 }

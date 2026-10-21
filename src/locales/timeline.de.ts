@@ -23,4 +23,14 @@ export default {
   anchorAge: '{{name}} war {{age}} alt',
   noPersonEvents: 'Keine datierten Ereignisse für {{name}}',
   noPersonEventsHint: 'Ergänze Daten bei den Ereignissen oder nimm oben Verwandte dazu.',
+  scope: {
+    pick: 'Nur Ereignisse einer Person oder eines Orts…',
+    mode: 'Wessen Ereignisse',
+    self: 'Person',
+    ancestors: 'Vorfahren',
+    descendants: 'Nachkommen',
+    exact: 'Genau dieser Ort',
+    enclosed: 'Mit enthaltenen Orten',
+    clear: 'Alle Ereignisse zeigen',
+  },
 }

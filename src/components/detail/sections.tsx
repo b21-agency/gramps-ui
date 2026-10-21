@@ -1,11 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { ExternalLink } from 'lucide-react'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { NoteHtml } from '@/components/note-html'
+import { Lightbox } from './lightbox'
 import { refThumbUrl } from '@/components/portrait'
 import { api, mediaFileUrl, mediaThumbUrl } from '@/lib/api'
 import { useAccessToken } from '@/lib/auth'
@@ -32,7 +31,7 @@ export function DetailSection({
   className?: string
 }) {
   return (
-    <section id={id} className={cn('scroll-mt-20', className)}>
+    <section id={id} className={cn('scroll-mt-32', className)}>
       <div className="mb-3 flex items-baseline gap-2 border-b pb-2">
         <h2 className="text-xl font-medium">{title}</h2>
         {count != null && <span className="text-sm tabular-nums text-muted-foreground">{count}</span>}
@@ -98,8 +97,6 @@ export function Gallery({ refs, media }: { refs: MediaRef[]; media?: Media[] }) 
   useAccessToken()
   const [open, setOpen] = useState<number | null>(null)
   const byHandle = new Map((media ?? []).map((m) => [m.handle, m]))
-  const current = open != null ? refs[open] : null
-  const currentMedia = current ? byHandle.get(current.ref) : undefined
   return (
     <>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-3">
@@ -110,7 +107,7 @@ export function Gallery({ refs, media }: { refs: MediaRef[]; media?: Media[] }) 
               key={`${r.ref}-${i}`}
               type="button"
               onClick={() => setOpen(i)}
-              className="group overflow-hidden rounded-lg border bg-muted text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group overflow-hidden rounded-lg border bg-muted text-left outline-none transition-transform focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] motion-reduce:active:scale-100"
             >
               <img
                 src={refThumbUrl(r, 400)}
@@ -123,31 +120,23 @@ export function Gallery({ refs, media }: { refs: MediaRef[]; media?: Media[] }) 
           )
         })}
       </div>
-      <Dialog open={open != null} onOpenChange={(o) => !o && setOpen(null)}>
-        <DialogContent className="max-w-[min(64rem,calc(100vw-2rem))] gap-3 p-3 sm:max-w-[min(64rem,calc(100vw-2rem))]">
-          <DialogTitle className="sr-only">{currentMedia?.desc ?? 'Media'}</DialogTitle>
-          {current && (
-            <>
-              <img
-                src={mediaThumbUrl(current.ref, 1600)}
-                alt={currentMedia?.desc ?? ''}
-                className="max-h-[75vh] w-full rounded-md bg-muted object-contain"
-              />
-              <div className="flex items-center gap-3 px-1 text-sm">
-                <span className="min-w-0 flex-1 truncate">{currentMedia?.desc}</span>
-                {currentMedia && (
-                  <Link to={`/media/${currentMedia.gramps_id}`} className="text-primary hover:underline">
-                    {currentMedia.gramps_id}
-                  </Link>
-                )}
-                <a href={mediaFileUrl(current.ref)} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground">
-                  <ExternalLink className="size-4" />
-                </a>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <Lightbox
+        items={refs.map((r, i) => {
+          const m = byHandle.get(r.ref)
+          return {
+            key: `${r.ref}-${i}`,
+            src: mediaThumbUrl(r.ref, 1600),
+            alt: m?.desc ?? '',
+            caption: m?.desc,
+            href: m ? `/media/${m.gramps_id}` : undefined,
+            hrefLabel: m?.gramps_id,
+            original: mediaFileUrl(r.ref),
+          }
+        })}
+        index={open}
+        onIndexChange={setOpen}
+        onClose={() => setOpen(null)}
+      />
     </>
   )
 }
@@ -241,10 +230,13 @@ export function FactsTable({
   attributes,
   urls,
   addresses,
+  addressDates,
 }: {
   attributes?: Attribute[]
   urls?: Url[]
   addresses?: Address[]
+  /** formatted dates of the addresses (same order), e.g. from profile.addresses[].date_str */
+  addressDates?: string[]
 }) {
   const { t } = useTranslation('detail')
   const rows: Array<[string, ReactNode]> = []
@@ -262,12 +254,12 @@ export function FactsTable({
       ),
     ])
   })
-  addresses?.forEach((a) =>
+  addresses?.forEach((a, i) =>
     rows.push([
       t('address'),
       [a.street, a.locality, [a.postal, a.city].filter(Boolean).join(' '), a.county, a.state, a.country, a.phone]
         .filter(Boolean)
-        .join(', '),
+        .join(', ') + (addressDates?.[i] ? ` (${addressDates[i]})` : ''),
     ]),
   )
   if (!rows.length) return null
@@ -324,20 +316,39 @@ export function ReferencesList({ backlinks }: { backlinks?: Record<string, any[]
 /* ---------------- in-page section nav ---------------- */
 
 export function SectionNav({ items }: { items: Array<{ id: string; label: string; count?: number }> }) {
+  const active = useActiveSection(items.map((i) => i.id))
+  const nav = useRef<HTMLElement>(null)
+  // keep the highlighted tab visible in the sideways-scrolling bar
+  useEffect(() => {
+    const el = nav.current?.querySelector<HTMLElement>(`[data-id="${active}"]`)
+    const box = nav.current
+    if (!el || !box) return
+    const l = el.offsetLeft - 16
+    const r = el.offsetLeft + el.offsetWidth + 16
+    if (l < box.scrollLeft || r > box.scrollLeft + box.clientWidth) box.scrollTo({ left: Math.max(0, l), behavior: reducedMotion() ? 'auto' : 'smooth' })
+  }, [active])
   if (items.length < 2) return null
   return (
-    <nav className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-20 -mx-4 mb-8 overflow-x-auto border-b bg-background/90 px-4 backdrop-blur sm:-mx-6 sm:px-6">
+    <nav
+      ref={nav}
+      className="sticky top-[var(--header-h)] z-20 -mx-4 mb-8 overflow-x-auto border-b bg-background/90 px-4 backdrop-blur [scrollbar-width:none] sm:-mx-6 sm:px-6 [&::-webkit-scrollbar]:hidden"
+    >
       <ul className="flex gap-1 py-1.5">
         {items.map((i) => (
           <li key={i.id}>
             <a
               href={`#${i.id}`}
+              data-id={i.id}
+              aria-current={active === i.id ? 'location' : undefined}
               onClick={(e) => {
                 e.preventDefault()
-                document.getElementById(i.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                document.getElementById(i.id)?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' })
                 history.replaceState(null, '', `#${i.id}`)
               }}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+              className={cn(
+                'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:bg-accent max-md:min-h-10 max-md:rounded-full max-md:px-3.5',
+                active === i.id && 'bg-accent text-foreground',
+              )}
             >
               {i.label}
               {i.count != null && <span className="text-xs tabular-nums opacity-70">{i.count}</span>}
@@ -347,4 +358,52 @@ export function SectionNav({ items }: { items: Array<{ id: string; label: string
       </ul>
     </nav>
   )
+}
+
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/** Id of the section whose top most recently passed under the sticky bars. */
+function useActiveSection(ids: string[]) {
+  const [active, setActive] = useState<string | null>(null)
+  const key = ids.join(',')
+  useEffect(() => {
+    const list = key.split(',').filter(Boolean)
+    if (list.length < 2) return
+    let raf = 0
+    const update = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const line = 140
+        // the section whose top is closest above the line (DOM order differs from nav order on phones)
+        let current: string | null = null
+        let best = -Infinity
+        let lowest: string | null = null
+        let lowestTop = -Infinity
+        for (const id of list) {
+          const top = document.getElementById(id)?.getBoundingClientRect().top
+          if (top == null) continue
+          if (top <= line && top > best) {
+            best = top
+            current = id
+          }
+          if (top > lowestTop) {
+            lowestTop = top
+            lowest = id
+          }
+        }
+        // at the very bottom the last section on screen wins even if it is short
+        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = lowest
+        setActive(current)
+      })
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [key])
+  return active
 }

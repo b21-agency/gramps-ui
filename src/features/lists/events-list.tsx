@@ -5,6 +5,7 @@ import { profileName } from '@/lib/format'
 import type { EventProfile, FamilyProfile, PersonProfile } from '@/lib/types'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
+import { useExtraFacets } from './facets'
 import { or, rule, yearRangeDate } from './rules'
 import { ChangedCell, Dash, HandlePortrait, IdCell } from './cells'
 import { useTypeOptions } from './use-types'
@@ -51,6 +52,7 @@ function ParticipantsCell({ p, size = 26 }: { p?: Participants; size?: number })
 export function EventsListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
+  const extraFacets = useExtraFacets('event')
   const types = useTypeOptions('event_types')
 
   const config = useMemo<ListConfig<EventRow>>(() => {
@@ -67,6 +69,7 @@ export function EventsListPage() {
         },
       },
       ...(tagFilter ? [tagFilter] : []),
+      ...extraFacets,
     ]
     return {
       kind: 'event',
@@ -150,7 +153,7 @@ export function EventsListPage() {
         )
       },
     }
-  }, [t, tagFilter, types])
+  }, [t, tagFilter, types, extraFacets])
 
   return <DataListPage title={t('common:nav.events')} config={config} />
 }

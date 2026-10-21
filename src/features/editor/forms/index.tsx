@@ -37,6 +37,7 @@ export function validateObject(kind: ObjectKind, o: AnyObj): string | null {
       return hasName ? null : 'validation.personName'
     }
     case 'family':
+      if (o.father_handle && o.father_handle === o.mother_handle) return 'validation.samePartner'
       return o.father_handle || o.mother_handle || o.child_ref_list?.length ? null : 'validation.familyEmpty'
     case 'place':
       return o.name?.value?.trim() ? null : 'validation.placeName'

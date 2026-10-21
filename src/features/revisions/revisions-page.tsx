@@ -11,6 +11,7 @@ import { formatTimestamp, timeAgo } from '@/lib/format'
 import { useTitle } from '@/hooks/use-title'
 import { isUndo, summarize, useTypeMaps, type Transaction, type TypeMaps } from './history'
 import { ClassIcon } from './parts'
+import { ObjectRevisions, objectClassName } from './object-revisions'
 import type { TFunction } from 'i18next'
 
 const PAGE_SIZE = 20
@@ -30,12 +31,29 @@ export function RevisionsPage() {
   return <RevisionsList />
 }
 
+/** /revisions?class=Person&handle=… shows the history of one object. */
+function ObjectHistory({ cls, handle }: { cls: string; handle: string }) {
+  const { t } = useTranslation('revisions')
+  return (
+    <Page title={t('object.title')} description={t('object.description', { object: t(`objectClass.${objectClassName(cls)}`, { defaultValue: cls }) })}>
+      <Link to="/revisions" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ChevronLeft className="size-4" />
+        {t('title')}
+      </Link>
+      <ObjectRevisions cls={cls} handle={handle} />
+    </Page>
+  )
+}
+
 function RevisionsList() {
   const { t, i18n } = useTranslation('revisions')
   const [params, setParams] = useSearchParams()
   const page = Math.max(1, Number(params.get('page')) || 1)
+  const objCls = params.get('class')
+  const objHandle = params.get('handle')
   const { data: maps } = useTypeMaps()
   const q = useQuery({
+    enabled: !(objCls && objHandle),
     queryKey: ['transactions', 'history', 'list', page],
     placeholderData: keepPreviousData,
     queryFn: async () => {
@@ -50,6 +68,8 @@ function RevisionsList() {
     setParams(p > 1 ? { page: String(p) } : {})
     window.scrollTo({ top: 0 })
   }
+
+  if (objCls && objHandle) return <ObjectHistory cls={objCls} handle={objHandle} />
 
   return (
     <Page title={t('title')} description={t('description')}>
@@ -87,6 +107,11 @@ function RevisionsList() {
   )
 }
 
+/** Gramps descriptions like "Merge People" or "Import" say more than the derived headline; plain add/edit/delete ones do not. */
+function informative(description: string | undefined) {
+  return !!description && !/^(add|new|edit|update|delete|remove)\b/i.test(description.trim())
+}
+
 function TransactionRow({ tx, maps, t, lang }: { tx: Transaction; maps?: TypeMaps; t: TFunction; lang: string }) {
   const { headline, more, first } = summarize(tx, maps, t)
   const who = tx.connection?.user?.full_name || tx.connection?.user?.name
@@ -103,6 +128,7 @@ function TransactionRow({ tx, maps, t, lang }: { tx: Transaction; maps?: TypeMap
           </span>
           <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
             {who && <span>{who}</span>}
+            {first && informative(tx.description) && <span>{tx.description}</span>}
             {isUndo(tx) && (
               <span className="inline-flex items-center gap-1 rounded-full border px-1.5 py-px">
                 <Undo2 className="size-3" />

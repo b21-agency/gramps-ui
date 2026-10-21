@@ -114,7 +114,7 @@ export function emptyObject(kind: ObjectKind): AnyObj {
         father_handle: '',
         mother_handle: '',
         child_ref_list: [],
-        type: 'Married',
+        type: 'Unknown',
         event_ref_list: [],
         attribute_list: [],
         media_list: [],

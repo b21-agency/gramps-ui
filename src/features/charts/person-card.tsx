@@ -15,6 +15,11 @@ export function yearsText(p: GPerson, t: TFunction) {
   return p.dead ? t('charts:deceased') : ''
 }
 
+/** Full dates as recorded ("* 1855-06-21 · † 1911-06-28"), like the classic chart cards. */
+export function datesText(p: GPerson) {
+  return [p.birthDate && `* ${p.birthDate}`, p.deathDate && `† ${p.deathDate}`].filter(Boolean).join(' · ')
+}
+
 const stubIcon: Record<Side, typeof ChevronRight> = {
   right: ChevronRight,
   left: ChevronLeft,
@@ -61,6 +66,7 @@ export const PersonCard = memo(function PersonCard({
         data-cx={node.x + node.w / 2}
         data-cy={node.y + node.h / 2}
         aria-current={centre ? 'true' : undefined}
+        title={[person.name, datesText(person)].filter(Boolean).join('\n')}
         aria-label={centre ? `${person.name}${years ? `, ${years}` : ''}` : t('showInCentre', { name: person.name })}
         onClick={(e) => handlers.onActivate(person.handle, e.currentTarget)}
         className={cn(

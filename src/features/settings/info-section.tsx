@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Check, Copy, ExternalLink, Minus } from 'lucide-react'
+import { Check, Copy, ExternalLink, Minus, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ErrorState, RowsSkeleton } from '@/components/states'
 import { useMetadata } from '@/lib/queries'
 import { SettingsBlock } from './parts'
+import { ResearcherBlock } from './admin-extra'
+import { useAuth } from '@/lib/auth'
 
 type Meta = Record<string, Record<string, unknown> | undefined>
 
@@ -36,6 +38,7 @@ function YesNo({ value }: { value: unknown }) {
 export function InfoSection() {
   const { t } = useTranslation('settings')
   const q = useMetadata()
+  const { tree } = useAuth()
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />
   if (!q.data) return <RowsSkeleton rows={8} />
   const m = q.data as unknown as Meta
@@ -62,8 +65,35 @@ export function InfoSection() {
     ['videoThumbnails', thumbs.video],
   ]
 
+  // only sent to server administrators: configuration options that are going away
+  const deprecations = ((q.data as unknown as { deprecations?: Array<{ option: string; replacement?: string; message?: string; removed_in?: string }> }).deprecations ?? [])
+
   return (
     <div className="space-y-10">
+      {!!deprecations.length && (
+        <SettingsBlock title={t('info.warnings')} description={t('info.warningsDescription')}>
+          <ul className="grid gap-3">
+            {deprecations.map((d) => (
+              <li key={d.option} className="flex gap-2 text-sm">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-brass" />
+                <div className="min-w-0">
+                  <p>
+                    <code>{d.option}</code>
+                    {d.replacement && (
+                      <>
+                        {' → '}
+                        <code>{d.replacement}</code>
+                      </>
+                    )}
+                  </p>
+                  {d.message && <p className="text-muted-foreground">{d.message}</p>}
+                  {d.removed_in && <p className="text-muted-foreground">{t('info.removedIn', { version: d.removed_in })}</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </SettingsBlock>
+      )}
       <SettingsBlock
         title={t('info.versions')}
         description={t('info.description')}
@@ -95,6 +125,11 @@ export function InfoSection() {
       <SettingsBlock title={t('info.database')}>
         <dl className="divide-y">
           <Row label={t('info.dbName')}>{(db.name as string) ?? '–'}</Row>
+          {tree && (
+            <Row label={t('info.treeId')}>
+              <code className="text-xs">{tree}</code>
+            </Row>
+          )}
           <Row label={t('info.dbId')}>
             <code className="text-xs">{(db.id as string) ?? '–'}</code>
           </Row>
@@ -118,6 +153,7 @@ export function InfoSection() {
           ))}
         </dl>
       </SettingsBlock>
+      <ResearcherBlock readOnly />
     </div>
   )
 }

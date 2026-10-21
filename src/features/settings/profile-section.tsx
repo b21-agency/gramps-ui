@@ -10,12 +10,16 @@ import { useCurrentUser } from '@/components/user-menu'
 import { api, ApiError } from '@/lib/api'
 import type { UserInfo } from '@/lib/types'
 import { Field, SettingsBlock } from './parts'
+import { AccessTokensBlock, DeveloperBlock, UsernameBlock } from './profile-extra'
 
 export function ProfileSection() {
   return (
     <div className="space-y-10">
       <AccountForm />
+      <UsernameBlock />
       <PasswordForm />
+      <AccessTokensBlock />
+      <DeveloperBlock />
     </div>
   )
 }

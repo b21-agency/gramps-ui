@@ -1,6 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import {
   AttributionControl,
+  GeolocateControl,
   LngLatBounds,
   Map as MapLibre,
   Marker,
@@ -10,6 +11,25 @@ import {
 } from 'maplibre-gl'
 import { MAP_STYLE_DARK, MAP_STYLE_LIGHT } from './maplibre'
 import { cssVar, type PlacePoint } from './data'
+import {
+  MAP_STYLE_OHM,
+  filterOhmByYear,
+  localizedStyle,
+  type BaseLayer,
+  type Bounds,
+  type FeatureCollection,
+  type WikidataBuilding,
+} from './layers'
+
+export interface MapRasterOverlay {
+  handle: string
+  tiles: string
+  bounds: [number, number, number, number] | null
+}
+export interface MapVectorOverlay {
+  handle: string
+  data: FeatureCollection
+}
 
 const STYLE_LIGHT = MAP_STYLE_LIGHT
 const STYLE_DARK = MAP_STYLE_DARK
@@ -49,6 +69,15 @@ export function MapView({
   onViewChange,
   apiRef,
   showPlaces = true,
+  base = 'base',
+  year = null,
+  lang = 'en',
+  overlays = [],
+  vectors = [],
+  buildings = [],
+  selectedBuilding = null,
+  onBuildingClick,
+  onBoundsChange,
 }: {
   places: PlacePoint[]
   selected: string | null
@@ -60,20 +89,38 @@ export function MapView({
   onViewChange: (v: Viewport) => void
   apiRef: RefObject<MapApi | null>
   showPlaces?: boolean
+  /** base map: modern (light/dark by theme) or OpenHistoricalMap */
+  base?: BaseLayer
+  /** year the historic map shows */
+  year?: number | null
+  /** label language */
+  lang?: string
+  /** georeferenced historic maps (raster tiles) */
+  overlays?: MapRasterOverlay[]
+  /** KML/GPX/GeoJSON files of the selected place */
+  vectors?: MapVectorOverlay[]
+  /** Wikidata buildings */
+  buildings?: WikidataBuilding[]
+  selectedBuilding?: string | null
+  onBuildingClick?: (qid: string) => void
+  onBoundsChange?: (b: Bounds, zoom: number) => void
 }) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibre | null>(null)
-  const state = useRef({ places, selected, lifeLine, showPlaces, onSelect, onViewChange })
-  state.current = { places, selected, lifeLine, showPlaces, onSelect, onViewChange }
+  const state = useRef({ places, selected, lifeLine, showPlaces, onSelect, onViewChange, overlays, vectors, base, year, buildings, onBuildingClick, onBoundsChange })
+  state.current = { places, selected, lifeLine, showPlaces, onSelect, onViewChange, overlays, vectors, base, year, buildings, onBuildingClick, onBoundsChange }
   const markers = useRef<Marker[]>([])
-  const styleDark = useRef(dark)
+  const styleKey = useRef('')
+  // map.isStyleLoaded() stays false while tiles load, so track "our layers can be added" ourselves
+  const styleReady = useRef(false)
 
   /* ---------- create ---------- */
   useEffect(() => {
     if (!container.current) return
     const map = new MapLibre({
       container: container.current,
-      style: dark ? STYLE_DARK : STYLE_LIGHT,
+      // the real (localized) style is set by the style effect below
+      style: { version: 8, sources: {}, layers: [] },
       center: initialView?.center ?? [10, 30],
       zoom: initialView?.zoom ?? 1.5,
       attributionControl: false,
@@ -82,10 +129,26 @@ export function MapView({
     })
     map.touchZoomRotate.disableRotation()
     map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
+    map.addControl(new GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), 'bottom-right')
     map.addControl(new AttributionControl({ compact: true }), 'bottom-right')
     mapRef.current = map
 
-    map.on('style.load', () => addLayers(map, state.current))
+    map.on('style.load', () => {
+      styleReady.current = true
+      addLayers(map, state.current)
+      syncOverlays(map, state.current.overlays, state.current.vectors)
+      if (state.current.base === 'ohm' && state.current.year) filterOhmByYear(map, state.current.year)
+    })
+    const reportBounds = () => {
+      const b = map.getBounds()
+      state.current.onBoundsChange?.({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, map.getZoom())
+    }
+    map.on('load', reportBounds)
+    map.on('moveend', reportBounds)
+    map.on('click', 'wd-buildings', (e: MapLayerMouseEvent) => {
+      const f = e.features?.[0]
+      if (f) state.current.onBuildingClick?.(String(f.properties.qid))
+    })
     map.on('moveend', () => {
       const c = map.getCenter()
       state.current.onViewChange({ center: [round(c.lng), round(c.lat)], zoom: Math.round(map.getZoom() * 100) / 100 })
@@ -103,7 +166,7 @@ export function MapView({
       const f = e.features?.[0]
       if (f) state.current.onSelect(String(f.properties.handle))
     })
-    for (const layer of ['clusters', 'place']) {
+    for (const layer of ['clusters', 'place', 'wd-buildings']) {
       map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
       map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
     }
@@ -134,13 +197,47 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /* ---------- theme ---------- */
+  /* ---------- base style (theme, historic, label language) ---------- */
   useEffect(() => {
     const map = mapRef.current
-    if (!map || styleDark.current === dark) return
-    styleDark.current = dark
-    map.setStyle(dark ? STYLE_DARK : STYLE_LIGHT, { diff: false })
-  }, [dark])
+    const url = base === 'ohm' ? MAP_STYLE_OHM : dark ? STYLE_DARK : STYLE_LIGHT
+    const key = `${url}|${lang}`
+    if (!map || styleKey.current === key) return
+    styleKey.current = key
+    let cancelled = false
+    localizedStyle(url, lang, base === 'ohm').then((style) => {
+      if (cancelled || styleKey.current !== key) return
+      styleReady.current = false
+      map.setStyle(style, { diff: false })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [dark, base, lang])
+
+  /* ---------- historic map year ---------- */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || base !== 'ohm' || !year || !styleReady.current) return
+    filterOhmByYear(map, year)
+  }, [base, year])
+
+  /* ---------- Wikidata buildings ---------- */
+  useEffect(() => {
+    const src = mapRef.current?.getSource('wd') as GeoJSONSource | undefined
+    src?.setData(buildingsGeoJSON(buildings) as GeoData)
+  }, [buildings])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map?.getLayer('wd-selected')) return
+    map.setFilter('wd-selected', ['==', ['get', 'qid'], selectedBuilding ?? ''])
+  }, [selectedBuilding])
+
+  /* ---------- overlays ---------- */
+  useEffect(() => {
+    const map = mapRef.current
+    if (map && styleReady.current) syncOverlays(map, overlays, vectors)
+  }, [overlays, vectors])
 
   /* ---------- data ---------- */
   useEffect(() => {
@@ -223,6 +320,17 @@ function placesGeoJSON(places: PlacePoint[]): FC {
   }
 }
 
+function buildingsGeoJSON(list: WikidataBuilding[]): FC {
+  return {
+    type: 'FeatureCollection',
+    features: list.map((b) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [b.long, b.lat] },
+      properties: { qid: b.qid, label: b.label },
+    })),
+  }
+}
+
 function lineGeoJSON(line?: Array<[number, number]> | null): FC {
   return {
     type: 'FeatureCollection',
@@ -235,7 +343,13 @@ function lineGeoJSON(line?: Array<[number, number]> | null): FC {
 
 function addLayers(
   map: MapLibre,
-  s: { places: PlacePoint[]; selected: string | null; lifeLine?: Array<[number, number]> | null; showPlaces: boolean },
+  s: {
+    places: PlacePoint[]
+    selected: string | null
+    lifeLine?: Array<[number, number]> | null
+    showPlaces: boolean
+    buildings?: WikidataBuilding[]
+  },
 ) {
   const primary = cssVar('--primary')
   const onPrimary = cssVar('--primary-foreground', '#ffffff')
@@ -255,6 +369,38 @@ function addLayers(
   if (!map.getSource('life')) {
     map.addSource('life', { type: 'geojson', data: lineGeoJSON(s.lifeLine) as GeoData })
   }
+  if (!map.getSource('wd')) {
+    map.addSource('wd', { type: 'geojson', data: buildingsGeoJSON(s.buildings ?? []) as GeoData })
+  }
+  const lineage = cssVar('--lineage', '#7a6a8a')
+  addLayer(map, {
+    id: 'wd-buildings',
+    type: 'circle',
+    source: 'wd',
+    paint: { 'circle-color': lineage, 'circle-radius': 5, 'circle-stroke-width': 1.5, 'circle-stroke-color': card, 'circle-opacity': 0.9 },
+  })
+  addLayer(map, {
+    id: 'wd-selected',
+    type: 'circle',
+    source: 'wd',
+    filter: ['==', ['get', 'qid'], ''],
+    paint: { 'circle-color': brass, 'circle-radius': 8, 'circle-stroke-width': 2.5, 'circle-stroke-color': card },
+  })
+  addLayer(map, {
+    id: 'wd-label',
+    type: 'symbol',
+    source: 'wd',
+    minzoom: 16,
+    layout: {
+      'text-field': ['get', 'label'],
+      'text-font': ['Noto Sans Regular'],
+      'text-size': 11,
+      'text-offset': [0, 1],
+      'text-anchor': 'top',
+      'text-optional': true,
+    },
+    paint: { 'text-color': ink, 'text-halo-color': card, 'text-halo-width': 1.5 },
+  })
 
   addLayer(map, {
     id: 'life-line',
@@ -330,6 +476,63 @@ function addLayers(
     },
     paint: { 'text-color': ink, 'text-halo-color': card, 'text-halo-width': 1.5 },
   })
+}
+
+/** Replaces the overlay layers (raster `ovl-*`, vector `vec-*`) below the place markers. */
+function syncOverlays(map: MapLibre, overlays: MapRasterOverlay[], vectors: MapVectorOverlay[]) {
+  const style = map.getStyle()
+  if (!style) return
+  const want = new Set([...overlays.map((o) => `ovl-${o.handle}`), ...vectors.map((v) => `vec-${v.handle}`)])
+  for (const l of style.layers) {
+    const src = 'source' in l ? String(l.source) : ''
+    if ((src.startsWith('ovl-') || src.startsWith('vec-')) && !want.has(src)) map.removeLayer(l.id)
+  }
+  for (const id of Object.keys(style.sources)) {
+    if ((id.startsWith('ovl-') || id.startsWith('vec-')) && !want.has(id)) map.removeSource(id)
+  }
+  const before = map.getLayer('life-line') ? 'life-line' : undefined
+  for (const o of overlays) {
+    const id = `ovl-${o.handle}`
+    if (!map.getSource(id)) {
+      map.addSource(id, { type: 'raster', tiles: [o.tiles], tileSize: 256, maxzoom: 18, ...(o.bounds ? { bounds: o.bounds } : {}) })
+      map.addLayer({ id, type: 'raster', source: id }, before)
+    }
+  }
+  const brass = cssVar('--brass', '#a9833a')
+  for (const v of vectors) {
+    const id = `vec-${v.handle}`
+    const src = map.getSource(id) as GeoJSONSource | undefined
+    if (src) {
+      src.setData(v.data as unknown as GeoData)
+      continue
+    }
+    map.addSource(id, { type: 'geojson', data: v.data as unknown as GeoData })
+    map.addLayer(
+      { id: `${id}-fill`, type: 'fill', source: id, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': brass, 'fill-opacity': 0.18 } },
+      before,
+    )
+    map.addLayer(
+      {
+        id: `${id}-line`,
+        type: 'line',
+        source: id,
+        filter: ['in', ['geometry-type'], ['literal', ['LineString', 'Polygon']]],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': brass, 'line-width': 2.5 },
+      },
+      before,
+    )
+    map.addLayer(
+      {
+        id: `${id}-point`,
+        type: 'circle',
+        source: id,
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: { 'circle-color': brass, 'circle-radius': 5, 'circle-stroke-width': 2, 'circle-stroke-color': cssVar('--card', '#ffffff') },
+      },
+      before,
+    )
+  }
 }
 
 function addLayer(map: MapLibre, layer: Parameters<MapLibre['addLayer']>[0]) {

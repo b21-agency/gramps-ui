@@ -5,6 +5,7 @@ import { Landmark } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/states'
 import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectHistory } from '@/components/detail/object-history'
 import { DetailSection, FactsTable, Gallery, NotesList, SectionNav } from '@/components/detail/sections'
 import { api } from '@/lib/api'
 import { apiLocale } from '@/i18n'
@@ -45,7 +46,7 @@ export function SourcePage() {
   )
   const citationDates = new Map<string, string>()
   const cp = references.citation ?? []
-  if (cp.length === (backlinks.citation ?? []).length) backlinks.citation!.forEach((c, i) => citationDates.set(c.handle, cp[i]?.date ?? ''))
+  if (cp.length === (backlinks.citation ?? []).length) backlinks.citation?.forEach((c, i) => citationDates.set(c.handle, cp[i]?.date ?? ''))
 
   const repos = new Map((ext.repositories ?? []).map((r) => [r.handle, r]))
   const refs = referenceItems(backlinks, references, ['citation'])
@@ -148,6 +149,7 @@ export function SourcePage() {
                 <RichReferences groups={refs} />
               </DetailSection>
             )}
+            <ObjectHistory objClass="Source" handle={source.handle} lastChange={source.change} />
           </>
         }
       />

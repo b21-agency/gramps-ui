@@ -2,16 +2,15 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { Check, ChevronDown, ListChecks, Loader2, Plus, Search } from 'lucide-react'
+import { CheckSquare, ChevronDown, ListChecks, Loader2, Plus, Search, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { TagList } from '@/components/tag-list'
+import type { Tag } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { ResponsiveMenu } from '@/components/responsive-menu'
 import { Page } from '@/components/app-shell'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { useDebounced } from '@/components/command-search'
@@ -26,6 +25,7 @@ import {
   STATUSES,
   StatusIcon,
   TODO_TAG,
+  levelValue,
   sortTasks,
   taskPriority,
   taskStatus,
@@ -41,7 +41,7 @@ function useTasks() {
       const r = await apiRaw<Task[]>('/sources/', {
         query: {
           rules: JSON.stringify({ rules: [{ name: 'HasTag', values: [TODO_TAG] }] }),
-          extend: 'note_list',
+          extend: 'note_list,tag_list',
           sort: '-gramps_id',
           page: 1,
           pagesize: 1000,
@@ -52,6 +52,9 @@ function useTasks() {
     },
   })
 }
+
+/** Tags of a task other than ToDo. */
+const extraTags = (task: Task) => ((task.extended as { tags?: Tag[] } | undefined)?.tags ?? []).filter((x) => x.name !== TODO_TAG)
 
 const descriptionOf = (task: Task) => {
   const first = task.note_list?.[0]
@@ -66,17 +69,49 @@ export function TasksPage() {
   const [filter, setFilter] = useState<'all' | TaskStatus>('all')
   const [showDone, setShowDone] = useState(false)
   const [search, setSearch] = useState('')
+  const [tagFilter, setTagFilter] = useState('all')
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const update = useUpdateTask()
+  const usedTags = useMemo(() => {
+    const m = new Map<string, Tag>()
+    for (const task of q.data ?? []) for (const tag of extraTags(task)) m.set(tag.handle, tag)
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [q.data])
+  const toggleSelected = (h: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(h)) next.delete(h)
+      else next.add(h)
+      return next
+    })
+  const applyBulk = async (patch: { Status?: TaskStatus; Priority?: string }) => {
+    const tasks = (q.data ?? []).filter((x) => selected.has(x.handle))
+    if (!tasks.length) return
+    setBulkBusy(true)
+    try {
+      for (const task of tasks) await update(task, patch, { undo: false })
+      toast.success(t('bulk.done', { count: tasks.length }))
+      setSelected(new Set())
+    } catch {
+      /* toast shown */
+    } finally {
+      setBulkBusy(false)
+    }
+  }
   const dq = useDebounced(search, 150).trim().toLowerCase()
 
   const groups = useMemo(() => {
     const map = new Map<TaskStatus, Task[]>(STATUSES.map((s) => [s, []]))
     for (const task of q.data ?? []) {
       if (dq && !`${task.title} ${descriptionOf(task) ?? ''} ${task.gramps_id}`.toLowerCase().includes(dq)) continue
+      if (tagFilter !== 'all' && !task.tag_list?.includes(tagFilter)) continue
       map.get(taskStatus(task))!.push(task)
     }
     for (const list of map.values()) list.sort(sortTasks)
     return map
-  }, [q.data, dq])
+  }, [q.data, dq, tagFilter])
 
   const counts = useMemo(() => {
     const c = Object.fromEntries(STATUSES.map((s) => [s, 0])) as Record<TaskStatus, number>
@@ -134,6 +169,78 @@ export function TasksPage() {
                 aria-label={t('searchPlaceholder')}
               />
             </div>
+            {(usedTags.length > 0 || can('EditObject')) && (
+              <div className="flex w-full flex-wrap items-center gap-2">
+                {usedTags.length > 0 && (
+                  <Select value={tagFilter} onValueChange={setTagFilter}>
+                    <SelectTrigger size="sm" className="w-48" aria-label={t('tagFilter')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('allTags')}</SelectItem>
+                      {usedTags.map((tag) => (
+                        <SelectItem key={tag.handle} value={tag.handle}>
+                          {tag.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {can('EditObject') && (
+                  <Button
+                    variant={selecting ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="ml-auto"
+                    onClick={() => {
+                      setSelecting((v) => !v)
+                      setSelected(new Set())
+                    }}
+                  >
+                    {selecting ? <X /> : <CheckSquare />}
+                    {selecting ? t('bulk.stop') : t('bulk.start')}
+                  </Button>
+                )}
+              </div>
+            )}
+            {selecting && (
+              <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
+                <span className="mr-auto text-sm tabular-nums">{t('bulk.selected', { count: selected.size })}</span>
+                {bulkBusy && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                <ResponsiveMenu
+                  title={t('bulk.setStatus')}
+                  trigger={
+                    <Button variant="outline" size="sm" disabled={!selected.size || bulkBusy}>
+                      {t('bulk.setStatus')}
+                      <ChevronDown className="opacity-60" />
+                    </Button>
+                  }
+                  groups={[
+                    STATUSES.map((st) => ({
+                      key: st,
+                      icon: <StatusIcon status={st} />,
+                      label: t(`status.${st}`),
+                      onSelect: () => void applyBulk({ Status: st }),
+                    })),
+                  ]}
+                />
+                <ResponsiveMenu
+                  title={t('bulk.setPriority')}
+                  trigger={
+                    <Button variant="outline" size="sm" disabled={!selected.size || bulkBusy}>
+                      {t('bulk.setPriority')}
+                      <ChevronDown className="opacity-60" />
+                    </Button>
+                  }
+                  groups={[
+                    (['high', 'normal', 'low'] as const).map((l) => ({
+                      key: l,
+                      label: t(`priority.${l}`),
+                      onSelect: () => void applyBulk({ Priority: levelValue[l] }),
+                    })),
+                  ]}
+                />
+              </div>
+            )}
           </div>
 
           {dq && shown === 0 ? (
@@ -141,7 +248,13 @@ export function TasksPage() {
           ) : (
             <div className="space-y-10">
               {visible.map((s) => (
-                <TaskGroup key={s} status={s} tasks={groups.get(s)!} hideWhenEmpty={filter === 'all'} />
+                <TaskGroup
+                  key={s}
+                  status={s}
+                  tasks={groups.get(s)!}
+                  hideWhenEmpty={filter === 'all'}
+                  selection={selecting ? { selected, toggle: toggleSelected } : undefined}
+                />
               ))}
             </div>
           )}
@@ -191,7 +304,22 @@ function FilterChip({
   )
 }
 
-function TaskGroup({ status, tasks, hideWhenEmpty }: { status: TaskStatus; tasks: Task[]; hideWhenEmpty: boolean }) {
+interface Selection {
+  selected: Set<string>
+  toggle: (handle: string) => void
+}
+
+function TaskGroup({
+  status,
+  tasks,
+  hideWhenEmpty,
+  selection,
+}: {
+  status: TaskStatus
+  tasks: Task[]
+  hideWhenEmpty: boolean
+  selection?: Selection
+}) {
   const { t } = useTranslation('tasks')
   if (hideWhenEmpty && tasks.length === 0) return null
   return (
@@ -208,7 +336,7 @@ function TaskGroup({ status, tasks, hideWhenEmpty }: { status: TaskStatus; tasks
       ) : (
         <ul className="divide-y">
           {tasks.map((task) => (
-            <TaskRow key={task.handle} task={task} />
+            <TaskRow key={task.handle} task={task} selection={selection} />
           ))}
         </ul>
       )}
@@ -231,7 +359,7 @@ export function StatusMenu({
   const [pending, setPending] = useState(false)
   const status = taskStatus(task)
   const defaultTrigger = (
-    <Button variant="ghost" size="icon-sm" aria-label={`${t('changeStatus')}: ${t(`status.${status}`)}`} disabled={pending}>
+    <Button variant="ghost" size="icon-sm" className="max-md:size-10" aria-label={`${t('changeStatus')}: ${t(`status.${status}`)}`} disabled={pending}>
       {pending ? <Loader2 className="animate-spin" /> : <StatusIcon status={status} className="size-[18px]" />}
     </Button>
   )
@@ -241,46 +369,56 @@ export function StatusMenu({
         <StatusIcon status={status} className="size-[18px]" />
       </span>
     )
+  const setStatus = async (s: TaskStatus) => {
+    if (s === status) return
+    setPending(true)
+    try {
+      await update(task, { Status: s })
+      onChanged?.()
+    } catch {
+      /* toast shown */
+    } finally {
+      setPending(false)
+    }
+  }
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>{trigger ? trigger(status, pending) : defaultTrigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t('changeStatus')}</DropdownMenuLabel>
-        {STATUSES.map((s) => (
-          <DropdownMenuItem
-            key={s}
-            disabled={pending}
-            onSelect={async () => {
-              if (s === status) return
-              setPending(true)
-              try {
-                await update(task, { Status: s })
-                onChanged?.()
-              } catch {
-                /* toast shown */
-              } finally {
-                setPending(false)
-              }
-            }}
-          >
-            <StatusIcon status={s} />
-            <span className="flex-1">
+    <ResponsiveMenu
+      align="start"
+      className="w-56"
+      title={t('changeStatus')}
+      label={t('changeStatus')}
+      trigger={(trigger ? trigger(status, pending) : defaultTrigger) as React.ReactElement}
+      groups={[
+        STATUSES.map((s) => ({
+          key: s,
+          active: s === status,
+          icon: <StatusIcon status={s} />,
+          label: (
+            <span className="block">
               <span className="block">{t(`status.${s}`)}</span>
-              <span className="block text-xs text-muted-foreground">{t(`statusHint.${s}`)}</span>
+              <span className="block text-xs text-muted-foreground max-md:text-sm">{t(`statusHint.${s}`)}</span>
             </span>
-            {s === status && <Check className="ml-auto" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          ),
+          onSelect: () => void setStatus(s),
+        })),
+      ]}
+    />
   )
 }
 
-function TaskRow({ task }: { task: Task }) {
+function TaskRow({ task, selection }: { task: Task; selection?: Selection }) {
   const desc = excerpt(descriptionOf(task), 140)
   const done = taskStatus(task) === 'Done'
   return (
     <li className="flex items-start gap-2 py-3">
+      {selection && (
+        <Checkbox
+          className="mt-2 ml-1"
+          checked={selection.selected.has(task.handle)}
+          onCheckedChange={() => selection.toggle(task.handle)}
+          aria-label={task.title || task.gramps_id}
+        />
+      )}
       <div className="pt-0.5">
         <StatusMenu task={task} />
       </div>
@@ -294,6 +432,7 @@ function TaskRow({ task }: { task: Task }) {
           {task.title || task.gramps_id}
         </span>
         {desc && <span className="mt-0.5 block truncate text-sm text-muted-foreground">{desc}</span>}
+        <TagList tags={extraTags(task)} className="mt-1.5" />
       </Link>
       <div className="flex shrink-0 items-center gap-3 pt-1">
         <PriorityBadge priority={taskPriority(task)} quiet />

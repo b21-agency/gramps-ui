@@ -55,7 +55,7 @@
 }
 
 @layer base {
-  :root { --tabbar-h: 0px; }
+  :root { --tabbar-h: 0px; --header-h: calc(3.5rem + env(safe-area-inset-top, 0px)); }
   @media (max-width: 767px) {
     :root { --tabbar-h: calc(4rem + env(safe-area-inset-bottom, 0px)); }
   }
@@ -172,6 +172,20 @@
   button, [role="button"], [role="tab"], [role="menuitem"] {
     -webkit-user-select: none;
     user-select: none;
+  }
+  /* sheets and drawers appear without sliding when the user asks for less motion */
+  @media (prefers-reduced-motion: reduce) {
+    [data-vaul-drawer], [data-vaul-overlay], [data-slot="sheet-content"], [data-slot="sheet-overlay"] {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+  /* finger-sized rows in menus, selects and pickers on touch screens */
+  @media (pointer: coarse) {
+    [data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-radio-item"],
+    [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-sub-trigger"], [data-slot="command-item"] {
+      min-height: 2.75rem;
+    }
   }
 }
 

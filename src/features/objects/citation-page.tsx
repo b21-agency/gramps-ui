@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { BookOpen } from 'lucide-react'
 import { ErrorState } from '@/components/states'
 import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectHistory } from '@/components/detail/object-history'
 import { DetailSection, FactsTable, Gallery, NotesList, SectionNav } from '@/components/detail/sections'
 import type { Citation, Source } from '@/lib/types'
 import {
@@ -104,6 +105,7 @@ export function CitationPage() {
                 <FactsTable attributes={citation.attribute_list} />
               </DetailSection>
             )}
+            <ObjectHistory objClass="Citation" handle={citation.handle} lastChange={citation.change} />
           </>
         }
       />

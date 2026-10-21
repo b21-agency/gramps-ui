@@ -99,7 +99,7 @@ function RevisionDetail() {
             {changes.length > 1 ? t('changeCount', { count: changes.length }) : summary.headline}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {[who && t('by', { name: who }), formatTimestamp(tx.timestamp, i18n.language), timeAgo(tx.timestamp, i18n.language)]
+            {[tx.description && changes.length > 0 && tx.description, who && t('by', { name: who }), formatTimestamp(tx.timestamp, i18n.language), timeAgo(tx.timestamp, i18n.language)]
               .filter(Boolean)
               .join(' · ')}
             <span className="ml-2 tabular-nums">#{tx.id}</span>

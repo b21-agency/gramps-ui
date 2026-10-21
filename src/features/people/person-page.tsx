@@ -2,15 +2,15 @@ import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ChartGantt, Home, Map as MapIcon, Network, Search } from 'lucide-react'
+import { ChartGantt, Dna, Home, Map as MapIcon, Network, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Portrait } from '@/components/portrait'
 import { PersonChip } from '@/components/person-chip'
 import { TagList } from '@/components/tag-list'
 import { ErrorState } from '@/components/states'
 import { ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectHistory } from '@/components/detail/object-history'
 import {
   CitationsList,
   DetailSection,
@@ -22,20 +22,23 @@ import {
   SectionNav,
   type EventRow,
 } from '@/components/detail/sections'
-import { api } from '@/lib/api'
+import { api, qs } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { apiLocale } from '@/i18n'
 import { useObjectById } from '@/lib/queries'
 import { useHomePerson, useRecordVisit } from '@/lib/prefs'
 import { displayName, isEmpty, profileName, typeStr } from '@/lib/format'
-import type { EventProfile, FamilyProfile, Person, PersonProfile } from '@/lib/types'
+import type { ChildRef, EventProfile, Family, FamilyProfile, Person, PersonProfile } from '@/lib/types'
 import { usePortraits } from '@/hooks/use-portraits'
 import { useTitle } from '@/hooks/use-title'
 import { Lifeline } from './lifeline'
+import { ExternalSearch } from './external-search'
 import { AddRelativeMenu } from '@/features/editor/relationship-actions'
 
 export function PersonPage() {
   const { id } = useParams()
   const { t } = useTranslation(['person', 'detail', 'common'])
+  const { can } = useAuth()
   const q = useObjectById<Person>('person', id, { profile: 'all', extend: 'all', backlinks: true, precision: 1 })
   const person = q.data
   const profile = person?.profile
@@ -45,6 +48,7 @@ export function PersonPage() {
 
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />
   if (!person || !profile) return <PersonSkeleton />
+  const canUpload = can('AddObject') && can('EditObject')
 
   const ext = person.extended ?? {}
   const eventsByHandle = new Map((ext.events ?? []).map((e) => [e.handle, e]))
@@ -78,7 +82,7 @@ export function PersonPage() {
       <div className="grid gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0 space-y-10">
           <DetailSection id="family" title={t('detail:sections.family')} action={<AddRelativeMenu person={person} />}>
-            <FamilyBlock profile={profile} self={person.handle} />
+            <FamilyBlock profile={profile} self={person.handle} childRefs={childRefsOf(person)} />
           </DetailSection>
 
           <DetailSection id="events" title={t('detail:sections.events')} count={eventRows.length}>
@@ -103,9 +107,27 @@ export function PersonPage() {
         </div>
 
         <aside className="min-w-0 space-y-10">
-          {person.media_list.length > 0 && (
-            <DetailSection id="gallery" title={t('detail:sections.gallery')} count={person.media_list.length}>
-              <Gallery refs={person.media_list} media={ext.media} />
+          {(person.media_list.length > 0 || canUpload) && (
+            <DetailSection
+              id="gallery"
+              title={t('detail:sections.gallery')}
+              count={person.media_list.length || undefined}
+              action={
+                canUpload && (
+                  <Button asChild size="sm" variant="ghost">
+                    <Link to={`/new_media${qs({ person: person.handle, personName: name })}`}>
+                      <Upload />
+                      {t('uploadMedia')}
+                    </Link>
+                  </Button>
+                )
+              }
+            >
+              {person.media_list.length > 0 ? (
+                <Gallery refs={person.media_list} media={ext.media} />
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('noMedia')}</p>
+              )}
             </DetailSection>
           )}
 
@@ -116,7 +138,15 @@ export function PersonPage() {
                   <li key={i}>
                     <div className="font-medium">{displayName(n)}</div>
                     <div className="text-xs text-muted-foreground">
-                      {[typeStr(n.type), n.nick && `${t('nickname')}: ${n.nick}`, n.call && `${t('callName')}: ${n.call}`]
+                      {[
+                        typeStr(n.type),
+                        n.nick && `${t('nickname')}: ${n.nick}`,
+                        n.call && `${t('callName')}: ${n.call}`,
+                        n.famnick && `${t('familyNick')}: ${n.famnick}`,
+                        ...(n.surname_list ?? [])
+                          .filter((sn) => sn.surname && typeStr(sn.origintype))
+                          .map((sn) => `${sn.surname} (${typeStr(sn.origintype)})`),
+                      ]
                         .filter(Boolean)
                         .join(' · ')}
                     </div>
@@ -128,7 +158,7 @@ export function PersonPage() {
 
           {(person.attribute_list.length || person.urls.length || person.address_list.length) > 0 && (
             <DetailSection id="facts" title={t('detail:sections.facts')}>
-              <FactsTable attributes={person.attribute_list} urls={person.urls} addresses={person.address_list} />
+              <FactsTable attributes={person.attribute_list} urls={person.urls} addresses={person.address_list} addressDates={(profile as { addresses?: Array<{ date_str?: string }> }).addresses?.map((a) => a.date_str ?? '')} />
             </DetailSection>
           )}
 
@@ -145,6 +175,8 @@ export function PersonPage() {
               />
             </DetailSection>
           )}
+
+          <ObjectHistory objClass="Person" handle={person.handle} lastChange={person.change} />
         </aside>
       </div>
     </div>
@@ -181,11 +213,11 @@ function PersonHero({
 
   return (
     <header className="mb-8">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+      <div className="flex flex-col gap-6 max-sm:items-center max-sm:gap-4 max-sm:text-center sm:flex-row sm:items-start">
         <Portrait mediaRef={person.media_list[0]} name={name} sex={profile.sex} size={128} className="ring-4" />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-4xl font-medium leading-[1.1] tracking-tight text-balance sm:text-5xl">{name}</h1>
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.95rem]">
+        <div className="min-w-0 flex-1 max-sm:w-full">
+          <h1 className="text-4xl font-medium leading-[1.1] tracking-tight text-balance max-sm:text-[2.1rem] sm:text-5xl">{name}</h1>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.95rem] max-sm:justify-center">
             {vital(birth, '*')}
             {vital(death, '†')}
             {!isEmpty(death) && death.age && death.age !== 'unknown' && (
@@ -193,13 +225,13 @@ function PersonHero({
             )}
           </div>
           <RelationToHome person={person} />
-          <TagList tags={tags} className="mt-3" />
+          <TagList tags={tags} className="mt-3 max-sm:justify-center" />
         </div>
       </div>
 
       <Lifeline events={eventRows} birth={birth} death={death} related={relatedMoments(profile, t)} />
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-5 flex flex-wrap gap-2 max-sm:-mx-4 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:px-4 max-sm:pb-1 max-sm:[scrollbar-width:none] max-sm:[&>*]:h-10 max-sm:[&>*]:shrink-0 max-sm:[&>*]:rounded-full max-sm:[&>*]:px-4">
         <Button asChild size="sm">
           <Link to={`/tree/ancestor/${person.gramps_id}`}>
             <Network />
@@ -231,23 +263,15 @@ function PersonHero({
             {t('actions.setHome')}
           </Button>
         )}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button asChild size="sm" variant="ghost">
-              <a
-                href={`https://www.google.com/search?q=${encodeURIComponent(
-                  `"${name}" ${[birth?.date, death?.date].filter(Boolean).join(' ')}`,
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Search />
-                {t('actions.externalSearch')}
-              </a>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Google</TooltipContent>
-        </Tooltip>
+        {person.person_ref_list.some((r) => r.rel === 'DNA') && (
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/dna-matches/${person.gramps_id}`}>
+              <Dna />
+              {t('dnaMatches')}
+            </Link>
+          </Button>
+        )}
+        <ExternalSearch profile={profile} />
       </div>
     </header>
   )
@@ -293,8 +317,27 @@ function RelationToHome({ person }: { person: Person }) {
   )
 }
 
-function FamilyBlock({ profile, self }: { profile: PersonProfile; self: string }) {
-  const { t } = useTranslation('person')
+/** family handle -> child handle -> child reference (for non-birth relations). */
+function childRefsOf(person: Person) {
+  const ext = person.extended as { families?: Family[]; parent_families?: Family[] } | undefined
+  const out = new Map<string, Map<string, ChildRef>>()
+  for (const f of [...(ext?.families ?? []), ...(ext?.parent_families ?? [])])
+    out.set(f.handle, new Map((f.child_ref_list ?? []).map((c) => [c.ref, c])))
+  return out
+}
+
+function FamilyBlock({ profile, self, childRefs }: { profile: PersonProfile; self: string; childRefs: Map<string, Map<string, ChildRef>> }) {
+  const { t } = useTranslation(['person', 'objects'])
+  const relNote = (family: string, child: string) => {
+    const r = childRefs.get(family)?.get(child)
+    if (!r) return undefined
+    const f = typeStr(r.frel) || 'Birth'
+    const m = typeStr(r.mrel) || 'Birth'
+    if (f === 'Birth' && m === 'Birth') return undefined
+    const lbl = (x: string) => t(`objects:childRel.${x}`, { defaultValue: x })
+    if (f === m) return lbl(f)
+    return [f !== 'Birth' && `${t('objects:father')}: ${lbl(f)}`, m !== 'Birth' && `${t('objects:mother')}: ${lbl(m)}`].filter(Boolean).join(', ')
+  }
   const ppf = profile.primary_parent_family as FamilyProfile | undefined
   const families = profile.families ?? []
   const others = profile.other_parent_families ?? []
@@ -327,7 +370,7 @@ function FamilyBlock({ profile, self }: { profile: PersonProfile; self: string }
             <>
               <h3 className="mb-1 mt-4 text-sm text-muted-foreground">{t('siblings')}</h3>
               <div className="grid gap-1 sm:grid-cols-2">
-                {ppf.children!.map((c) => chip(c, { current: c.handle === self }))}
+                {ppf.children!.map((c) => chip(c, { current: c.handle === self, note: relNote(ppf.handle, c.handle) }))}
               </div>
             </>
           )}
@@ -350,7 +393,7 @@ function FamilyBlock({ profile, self }: { profile: PersonProfile; self: string }
             {(f.children?.length ?? 0) > 0 ? (
               <>
                 <h3 className="mb-1 mt-4 text-sm text-muted-foreground">{t('children')}</h3>
-                <div className="grid gap-1 sm:grid-cols-2">{f.children!.map((c) => chip(c))}</div>
+                <div className="grid gap-1 sm:grid-cols-2">{f.children!.map((c) => chip(c, { note: relNote(f.handle, c.handle) }))}</div>
               </>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">{t('noChildren')}</p>

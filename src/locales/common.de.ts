@@ -25,6 +25,8 @@ export default {
     revisions: 'Änderungen',
     more: 'Mehr',
     settings: 'Einstellungen',
+    notifications: 'Benachrichtigungen',
+    help: 'Hilfe',
     groups: { browse: 'Entdecken', research: 'Forschung', yours: 'Persönlich', tools: 'Werkzeuge' },
   },
   object: {
@@ -66,6 +68,8 @@ export default {
     signOut: 'Abmelden',
     copyLink: 'Link kopieren',
     linkCopied: 'Link kopiert',
+    share: 'Teilen',
+    moreActions: 'Weitere Aktionen',
     bookmark: 'Merken',
     unbookmark: 'Lesezeichen entfernen',
     download: 'Herunterladen',
@@ -103,4 +107,12 @@ export default {
   tags: 'Markierungen',
   homePerson: 'Ausgangsperson',
   setHomePerson: 'Als Ausgangsperson festlegen',
+  gallery: {
+    label: 'Fotos',
+    prev: 'Zurück',
+    next: 'Weiter',
+    position: '{{i}} von {{n}}',
+    openMedia: 'Medienseite öffnen',
+    original: 'Originaldatei öffnen',
+  },
 }

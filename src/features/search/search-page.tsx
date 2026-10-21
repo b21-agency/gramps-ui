@@ -17,6 +17,7 @@ import { describeObject, kindIcon, objectPath } from '@/lib/objects'
 import { timeAgo } from '@/lib/format'
 import type { ObjectKind, SearchHit } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
+import { useMetadata } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
 const KINDS: ObjectKind[] = ['person', 'family', 'event', 'place', 'media', 'source', 'citation', 'repository', 'note']
@@ -26,8 +27,13 @@ export function SearchPage() {
   const { t, i18n } = useTranslation(['search', 'common'])
   const [params, setParams] = useSearchParams()
   const q = params.get('q')?.trim() ?? ''
-  const typeParam = params.get('type')
-  const type = KINDS.includes(typeParam as ObjectKind) ? (typeParam as ObjectKind) : null
+  // one or more object types (comma separated), none = everything
+  const types = (params.get('type') ?? '').split(',').filter((k): k is ObjectKind => KINDS.includes(k as ObjectKind))
+  const type = types.length ? types.join(',') : null
+  const { data: meta } = useMetadata()
+  const sifts = (meta as { search?: { sifts?: { count_semantic?: number; semantic_index_stale?: boolean } } } | undefined)?.search?.sifts
+  const semanticAvailable = !!meta?.server?.semantic_search && !!sifts?.count_semantic && sifts?.semantic_index_stale !== true
+  const semantic = semanticAvailable && params.get('mode') === 'meaning'
   const sort = params.get('sort') === 'change' ? '-change' : null
   const page = Math.max(1, Number(params.get('page')) || 1)
   useTitle(q ? t('titleWithQuery', { q }) : t('title'))
@@ -49,8 +55,15 @@ export function SearchPage() {
     }, true)
   const setType = (k: ObjectKind | null) =>
     update((p) => {
-      if (k) p.set('type', k)
+      const next = k ? (types.includes(k) ? types.filter((x) => x !== k) : [...types, k]) : []
+      if (next.length) p.set('type', next.join(','))
       else p.delete('type')
+      p.delete('page')
+    })
+  const setMode = (m: 'meaning' | null) =>
+    update((p) => {
+      if (m) p.set('mode', m)
+      else p.delete('mode')
       p.delete('page')
     })
   const setSort = (s: 'change' | null) =>
@@ -61,25 +74,39 @@ export function SearchPage() {
     })
 
   const locale = apiLocale()
-  const query = searchQuery(q)
+  const query = semantic ? q : searchQuery(q)
   const results = useQuery({
-    queryKey: ['search', 'page', query, type, sort, page, locale],
+    queryKey: ['search', 'page', query, type, sort, page, locale, semantic],
     enabled: !!query,
     placeholderData: keepPreviousData,
     queryFn: () =>
       apiRaw<SearchHit[]>('/search/', {
-        query: { query, type: type ?? KINDS.join(','), sort, page, pagesize: PAGE_SIZE, locale, profile: 'self' },
+        query: {
+          query,
+          type: type ?? KINDS.join(','),
+          sort,
+          page,
+          pagesize: PAGE_SIZE,
+          locale,
+          profile: 'self',
+          semantic: semanticAvailable ? (semantic ? 1 : 0) : undefined,
+        },
       }),
   })
 
   // counts per object type for the chips (cheap: one hit each)
   const counts = useQueries({
     queries: [null, ...KINDS].map((k) => ({
-      queryKey: ['search', 'count', query, k, locale],
+      queryKey: ['search', 'count', query, k, locale, semantic],
       enabled: !!query,
       staleTime: 60_000,
       placeholderData: keepPreviousData,
-      queryFn: async () => (await apiRaw<SearchHit[]>('/search/', { query: { query, type: k, page: 1, pagesize: 1, locale } })).total ?? 0,
+      queryFn: async () =>
+        (
+          await apiRaw<SearchHit[]>('/search/', {
+            query: { query, type: k, page: 1, pagesize: 1, locale, semantic: semanticAvailable ? (semantic ? 1 : 0) : undefined },
+          })
+        ).total ?? 0,
     })),
   })
   const countOf = (i: number) => counts[i]?.data
@@ -106,12 +133,22 @@ export function SearchPage() {
           <TypeChip active={!type} label={t('all')} count={countOf(0)} onClick={() => setType(null)} />
           {KINDS.map((k, i) => {
             const n = countOf(i + 1)
-            if (n === 0 && type !== k) return null
-            return (
-              <TypeChip key={k} kind={k} active={type === k} label={t(`common:objects.${k}`)} count={n} onClick={() => setType(type === k ? null : k)} />
-            )
+            if (n === 0 && !types.includes(k)) return null
+            return <TypeChip key={k} kind={k} active={types.includes(k)} label={t(`common:objects.${k}`)} count={n} onClick={() => setType(k)} />
           })}
-          <div className="ml-auto flex items-center gap-1 text-sm">
+          <div className="ml-auto flex flex-wrap items-center gap-1 text-sm">
+            {semanticAvailable && (
+              <>
+                <span className="sr-only">{t('modeLabel')}</span>
+                <Button variant={semantic ? 'ghost' : 'secondary'} size="sm" aria-pressed={!semantic} onClick={() => setMode(null)}>
+                  {t('modeText')}
+                </Button>
+                <Button variant={semantic ? 'secondary' : 'ghost'} size="sm" aria-pressed={semantic} onClick={() => setMode('meaning')}>
+                  {t('modeMeaning')}
+                </Button>
+                <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+              </>
+            )}
             <span className="sr-only">{t('sortLabel')}</span>
             <Button variant={sort ? 'ghost' : 'secondary'} size="sm" aria-pressed={!sort} onClick={() => setSort(null)}>
               {t('sortRelevance')}

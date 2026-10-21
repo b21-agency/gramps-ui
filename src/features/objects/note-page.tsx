@@ -5,6 +5,7 @@ import { TagList } from '@/components/tag-list'
 import { ErrorState } from '@/components/states'
 import { ObjectToolbar } from '@/components/detail/object-header'
 import { DetailSection } from '@/components/detail/sections'
+import { ObjectHistory } from '@/components/detail/object-history'
 import { typeStr } from '@/lib/format'
 import type { Note } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -63,6 +64,9 @@ export function NotePage() {
           ) : (
             <p className="text-sm text-muted-foreground lg:mt-12">{t('unreferenced')}</p>
           )}
+          <div className="mt-10">
+            <ObjectHistory objClass="Note" handle={note.handle} lastChange={note.change} />
+          </div>
         </aside>
       </div>
     </PageFrame>

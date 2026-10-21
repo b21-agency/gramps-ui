@@ -4,6 +4,7 @@ import { Crosshair, LocateFixed, MapPin, Shapes, Tag } from 'lucide-react'
 import type { Place } from '@/lib/types'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
+import { useExtraFacets } from './facets'
 import { not, rule } from './rules'
 import { ChangedCell, Dash, IconTile, IdCell } from './cells'
 import { useTypeOptions } from './use-types'
@@ -34,6 +35,7 @@ function CoordsMark({ p }: { p: PlaceRow }) {
 export function PlacesListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
+  const extraFacets = useExtraFacets('place')
   const types = useTypeOptions('place_types')
 
   const config = useMemo<ListConfig<PlaceRow>>(() => {
@@ -51,6 +53,7 @@ export function PlacesListPage() {
         toRule: (v) => (v === 'no' ? rule('HasNoLatOrLon') : not(rule('HasNoLatOrLon'))),
       },
       ...(tagFilter ? [tagFilter] : []),
+      ...extraFacets,
     ]
     return {
       kind: 'place',
@@ -117,7 +120,7 @@ export function PlacesListPage() {
         </div>
       ),
     }
-  }, [t, tagFilter, types])
+  }, [t, tagFilter, types, extraFacets])
 
   return <DataListPage title={t('common:nav.places')} config={config} />
 }

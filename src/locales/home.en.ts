@@ -8,6 +8,7 @@ export default {
     change: 'Change',
     openTree: 'Family tree',
     openPerson: 'Profile',
+    missing: 'The person {{id}} could not be found. Choose another home person.',
   },
   onThisDay: 'On this day',
   onThisDayEmpty: 'No birthdays, weddings or anniversaries fall on today’s date.',
@@ -18,4 +19,12 @@ export default {
   latestPost: 'From the blog',
   readPost: 'Read',
   inArchive: 'In the archive',
+  getStarted: {
+    title: 'Get started',
+    noPeople: 'To start your family tree, add yourself as the first person or import a family tree file.',
+    noFamilies: 'Connect the people in your tree by adding a family.',
+    newPerson: 'Add a person',
+    newFamily: 'Add a family',
+    import: 'Import a family tree',
+  },
 }

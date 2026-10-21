@@ -1,4 +1,7 @@
 export default {
+  chartType: 'Diagrammart',
+  centreHere: 'In die Mitte',
+  setHomeShort: 'Als Ausgangs­person',
   title: 'Stammbaum',
   charts: {
     ancestor: 'Vorfahren',
@@ -25,7 +28,24 @@ export default {
   fewer: 'Weniger',
   more: 'Mehr',
   orientation: { label: 'Richtung', horizontal: 'Von links nach rechts', vertical: 'Von oben nach unten' },
-  colour: { label: 'Farben', line: 'Nach Familienlinie', generation: 'Nach Generation' },
+  colour: {
+    label: 'Farben',
+    line: 'Nach Familienlinie',
+    generation: 'Nach Generation',
+    nEvents: 'Anzahl der Ereignisse',
+    nNotes: 'Anzahl der Notizen',
+    birthYear: 'Geburtsjahr',
+    deathYear: 'Sterbejahr',
+    age: 'Alter beim Tod',
+    surname: 'Nachname',
+    religion: 'Religion',
+    nPaths: 'Häufigkeit als Vorfahr',
+    other: 'Andere',
+    noValue: 'Nicht erfasst',
+  },
+  display: 'Anzeigeoptionen',
+  nameOrder: { label: 'Namen', given: 'Vorname zuerst', surname: 'Nachname zuerst' },
+  goHome: 'Zur Ausgangsperson',
   settings: 'Einstellungen',
   zoomIn: 'Vergrößern',
   zoomOut: 'Verkleinern',
@@ -78,5 +98,6 @@ export default {
   hints: {
     keyboard: 'Mit den Pfeiltasten zwischen Personen wechseln, Enter holt sie in die Mitte, P öffnet das Profil.',
     touch: 'Tippe auf eine Person, um sie in die Mitte zu holen. Lange drücken öffnet das Profil.',
+    touchSelect: 'Tippe auf eine Person für Details. Mit zwei Fingern zoomen, lange drücken öffnet das Profil.',
   },
 }

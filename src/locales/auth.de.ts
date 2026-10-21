@@ -18,5 +18,16 @@ export default {
     submit: 'Link senden',
     sent: 'Falls das Konto existiert und eine E-Mail-Adresse hat, ist der Link unterwegs.',
     error: 'Für dieses Konto konnte kein Link verschickt werden.',
+    notFound: 'Dieses Konto gibt es nicht oder es hat keine E-Mail-Adresse.',
+    mailFailed: 'Der Server konnte die E-Mail nicht verschicken. Frag den Eigentümer des Stammbaums.',
+  },
+  firstRun: {
+    title: 'Willkommen',
+    subtitle: 'Leg das erste Konto an. Es wird Eigentümer dieses Stammbaums.',
+    fullName: 'Vollständiger Name',
+    email: 'E-Mail',
+    confirm: 'Passwort wiederholen',
+    hint: 'Das Passwort braucht mindestens 8 Zeichen.',
+    submit: 'Konto anlegen',
   },
 }

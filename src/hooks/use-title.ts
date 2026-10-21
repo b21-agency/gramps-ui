@@ -1,14 +1,14 @@
 import { useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useAppTitle } from '@/lib/tree-config'
 
 /** Sets the browser tab title: "<title> · <app name>". */
 export function useTitle(title?: string | null) {
-  const { t } = useTranslation()
+  const appName = useAppTitle()
   useEffect(() => {
     if (!title) return
-    document.title = `${title} · ${t('appName')}`
+    document.title = `${title} · ${appName}`
     return () => {
-      document.title = t('appName')
+      document.title = appName
     }
-  }, [title, t])
+  }, [title, appName])
 }

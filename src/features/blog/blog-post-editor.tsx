@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Bold, ImagePlus, Images, Italic, Link2, Loader2, Star, TriangleAlert, X } from 'lucide-react'
+import { Bold, Image as ImageIcon, ImagePlus, Images, Italic, Link2, Loader2, Star, TriangleAlert, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,8 @@ import { useCurrentUser } from '@/components/user-menu'
 import { api } from '@/lib/api'
 import { useAuth, useAccessToken } from '@/lib/auth'
 import { usePref } from '@/lib/prefs'
+import { useTags } from '@/lib/queries'
+import { PrivateSwitch, TagsField } from '@/features/editor/fields'
 import type { MediaRef, Note, Source } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { useTitle } from '@/hooks/use-title'
@@ -93,6 +95,10 @@ export function BlogPostEditor({
   const [photos, setPhotos] = useState<Photo[]>(() =>
     (post?.media_list ?? []).map((ref, i) => ({ key: `e${i}-${ref.ref}`, kind: 'existing' as const, ref })),
   )
+  const [extraTags, setExtraTags] = useState<string[]>(post?.tag_list ?? [])
+  const [isPrivate, setIsPrivate] = useState(!!post?.private)
+  const allTags = useTags().data
+  const blogTagHandle = allTags?.find((x) => x.name === BLOG_TAG)?.handle
   const [tab, setTab] = useState('write')
   const [saving, setSaving] = useState(false)
   const [titleError, setTitleError] = useState(false)
@@ -142,6 +148,15 @@ export function BlogPostEditor({
     wrap('[', `](${url.trim()})`, t('editor.link'))
   }
 
+  const insertImage = (handle: string) => {
+    const el = textRef.current
+    const at = el ? el.selectionStart : body.length
+    const token = `![image](gramps://Media/handle/${handle})`
+    const pre = body.slice(0, at)
+    const glue = pre && !pre.endsWith('\n') ? '\n\n' : ''
+    setBody(pre + glue + token + '\n\n' + body.slice(at).replace(/^\n+/, ''))
+  }
+
   const addFiles = (files: FileList | null) => {
     if (!files) return
     const next: Photo[] = Array.from(files)
@@ -173,6 +188,7 @@ export function BlogPostEditor({
     try {
       const text = parseMarkdownish(body.trim())
       const blogTag = await ensureTag(BLOG_TAG)
+      const tagList = [blogTag, ...extraTags.filter((h) => h !== blogTag)]
       const media_list = []
       for (const p of photos) {
         if (p.kind === 'existing') media_list.push({ ...emptyMediaRef(p.ref.ref), ...p.ref, _class: 'MediaRef' })
@@ -188,7 +204,7 @@ export function BlogPostEditor({
         const txn = await api<TxnEntry[]>('/objects/', {
           method: 'POST',
           json: [
-            { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'General', private: false, tag_list: [] },
+            { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'General', private: isPrivate, tag_list: tagList },
             {
               _class: 'Source',
               handle: s,
@@ -197,11 +213,11 @@ export function BlogPostEditor({
               pubinfo: '',
               abbrev: '',
               note_list: [n],
-              tag_list: [blogTag],
+              tag_list: tagList,
               media_list,
               attribute_list: [],
               reporef_list: [],
-              private: false,
+              private: isPrivate,
             },
           ],
         })
@@ -210,13 +226,17 @@ export function BlogPostEditor({
       } else {
         const noteList = [...(post.note_list ?? [])]
         if (note) {
-          if (body.trim() !== initialBody.trim())
-            await api(`/notes/${note.handle}`, { method: 'PUT', json: writableNote(note, text) })
+          const bodyChanged = body.trim() !== initialBody.trim()
+          if (bodyChanged || !!note.private !== isPrivate)
+            await api(`/notes/${note.handle}`, {
+              method: 'PUT',
+              json: { ...writableNote(note, bodyChanged ? text : (note.text as typeof text)), private: isPrivate },
+            })
         } else if (body.trim()) {
           const n = newHandle()
           await api('/notes/', {
             method: 'POST',
-            json: { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'General' },
+            json: { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'General', private: isPrivate, tag_list: tagList },
           })
           noteList.unshift(n)
         }
@@ -226,7 +246,8 @@ export function BlogPostEditor({
             title: title.trim(),
             author: author.trim(),
             note_list: noteList,
-            tag_list: post.tag_list.includes(blogTag) ? post.tag_list : [...post.tag_list, blogTag],
+            tag_list: tagList,
+            private: isPrivate,
             media_list: media_list as unknown as MediaRef[],
           }),
         })
@@ -316,6 +337,16 @@ export function BlogPostEditor({
                   <ToolbarButton label={t('editor.link')} onClick={addLink}>
                     <Link2 />
                   </ToolbarButton>
+                  <ObjectPicker
+                    kinds={['media']}
+                    placeholder={t('editor.pickMediaPlaceholder')}
+                    onChange={(o) => insertImage(o.handle)}
+                    trigger={
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={t('editor.insertImage')} title={t('editor.insertImage')}>
+                        <ImageIcon />
+                      </Button>
+                    }
+                  />
                 </div>
               )}
               <TabsList>
@@ -434,7 +465,10 @@ export function BlogPostEditor({
           </div>
         </div>
 
-        <div className="sticky bottom-0 -mx-4 flex flex-wrap justify-end gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-b-lg sm:px-0">
+        <TagsField value={extraTags.filter((h) => h !== blogTagHandle)} onChange={setExtraTags} />
+        <PrivateSwitch value={isPrivate} onChange={setIsPrivate} />
+
+        <div className="sticky bottom-[var(--tabbar-h)] -mx-4 flex flex-wrap justify-end gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-b-lg sm:px-0 max-md:flex-nowrap max-md:[&>button]:h-11 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">
           <Button type="button" variant="ghost" onClick={cancel} disabled={saving}>
             {t('editor.cancel')}
           </Button>

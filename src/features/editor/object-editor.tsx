@@ -21,6 +21,8 @@ export interface ObjectEditorProps {
   onDirtyChange?: (dirty: boolean) => void
   /** Extra content above the form (e.g. relation hint on new pages). */
   header?: ReactNode
+  /** Extra content below the form, inside the editor session (e.g. participants of a new event). */
+  footer?: ReactNode
   saveLabel?: string
   /** Classes for the scrolling body / sticky footer. */
   bodyClassName?: string
@@ -44,6 +46,7 @@ function EditorInner({
   onCancel,
   onDirtyChange,
   header,
+  footer,
   saveLabel,
   bodyClassName,
   footerClassName,
@@ -97,6 +100,7 @@ function EditorInner({
       <div className={cn('flex-1', bodyClassName)}>
         {header}
         <ObjectForm kind={kind} value={draft} onChange={setDraft} />
+        {footer}
       </div>
       <div className={cn('flex flex-col gap-2 border-t bg-background/95 py-3 backdrop-blur', footerClassName)}>
         {error && (
@@ -104,9 +108,9 @@ function EditorInner({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-2 max-md:[&>button]:h-11 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">
           {onCancel && (
-            <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>
+            <Button type="button" variant="ghost" className="max-md:bg-muted" onClick={onCancel} disabled={saving}>
               {t('common:actions.cancel')}
             </Button>
           )}

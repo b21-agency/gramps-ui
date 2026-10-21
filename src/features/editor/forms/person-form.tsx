@@ -7,6 +7,9 @@ import { typeStr } from '@/lib/format'
 import { useEditorSession, type EditorSession } from '../session'
 import { emptyName, type AnyObj } from '../lib'
 import { EventsField } from '../events-field'
+import { AddressesField } from '../address-field'
+import { AssociationsField } from '../associations-field'
+import { MediaRefsField } from '../media-field'
 import {
   AttributesField,
   CommonFields,
@@ -17,6 +20,8 @@ import {
   TextField,
   TypeCombobox,
   UrlsField,
+  move,
+  RefTitle,
 } from '../fields'
 
 export const GENDERS = [
@@ -68,10 +73,28 @@ function NameFields({ name, onChange, compact }: { name: AnyObj; onChange: (n: A
                 onChange={(e) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, surname: e.target.value } : x)))}
               />
               {surnames.length > 1 && (
-                <RowActions index={i} length={surnames.length} onRemove={() => setSurnames(surnames.filter((_, j) => j !== i))} />
+                <RowActions index={i} length={surnames.length} onMove={(d) => setSurnames(move(surnames, i, d))} onRemove={() => setSurnames(surnames.filter((_, j) => j !== i))} />
               )}
             </div>
           ))}
+          {surnames.map((s, i) =>
+            surnames.length > 1 || s.connector || typeStr(s.origintype) ? (
+              <div key={`more-${i}`} className="grid grid-cols-2 gap-2">
+                <Input
+                  value={s.connector ?? ''}
+                  placeholder={t('person.connector')}
+                  aria-label={`${t('person.connector')} ${i + 1}`}
+                  onChange={(e) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, connector: e.target.value } : x)))}
+                />
+                <TypeCombobox
+                  category="name_origin_types"
+                  value={s.origintype}
+                  ariaLabel={`${t('person.origin')} ${i + 1}${s.surname ? ` (${s.surname})` : ''}`}
+                  onChange={(v) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, origintype: v } : x)))}
+                />
+              </div>
+            ) : null,
+          )}
           {!compact && (
             <Button
               type="button"
@@ -126,10 +149,11 @@ export function PersonForm({ value, onChange }: { value: AnyObj; onChange: (o: A
         </Field>
       </section>
 
-      <FormSection title={t('person.moreName')} collapsible defaultOpen={!!(name.title || name.suffix || name.call || name.nick)}>
+      <FormSection title={t('person.moreName')} collapsible defaultOpen={!!(name.title || name.suffix || name.call || name.nick || name.famnick)}>
         <Grid>
           <TextField label={t('person.callName')} value={name.call} onChange={(v) => setName({ ...name, call: v })} hint={t('person.callNameHint')} />
           <TextField label={t('person.nickname')} value={name.nick} onChange={(v) => setName({ ...name, nick: v })} />
+          <TextField label={t('person.famnick')} value={name.famnick} onChange={(v) => setName({ ...name, famnick: v })} />
           <TextField label={t('person.title')} value={name.title} onChange={(v) => setName({ ...name, title: v })} placeholder={t('person.titlePlaceholder')} />
           <TextField label={t('person.suffix')} value={name.suffix} onChange={(v) => setName({ ...name, suffix: v })} placeholder={t('person.suffixPlaceholder')} />
           <Field label={t('person.nameType')}>
@@ -161,10 +185,19 @@ export function PersonForm({ value, onChange }: { value: AnyObj; onChange: (o: A
                   onChange={(v) => onChange({ ...value, alternate_names: alt.map((x, j) => (j === i ? { ...x, type: v } : x)) })}
                 />
               </div>
-              <RowActions
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
                 className="ml-auto"
+                onClick={() => onChange({ ...value, primary_name: n, alternate_names: alt.map((x, j) => (j === i ? name : x)) })}
+              >
+                {t('person.makePrimary')}
+              </Button>
+              <RowActions
                 index={i}
                 length={alt.length}
+                onMove={(d) => onChange({ ...value, alternate_names: move(alt, i, d) })}
                 onRemove={() => onChange({ ...value, alternate_names: alt.filter((_, j) => j !== i) })}
               />
             </div>
@@ -191,9 +224,41 @@ export function PersonForm({ value, onChange }: { value: AnyObj; onChange: (o: A
         </div>
       </FormSection>
 
+      <FamilyOrder value={value} onChange={onChange} />
+      <MediaRefsField value={value.media_list ?? []} onChange={(v) => onChange({ ...value, media_list: v })} />
       <AttributesField value={value.attribute_list ?? []} onChange={(v) => onChange({ ...value, attribute_list: v })} />
+      <AddressesField value={value.address_list ?? []} onChange={(v) => onChange({ ...value, address_list: v })} />
+      <AssociationsField value={value.person_ref_list ?? []} onChange={(v) => onChange({ ...value, person_ref_list: v })} />
       <UrlsField value={value.urls ?? []} onChange={(v) => onChange({ ...value, urls: v })} />
       <CommonFields value={value} onChange={onChange} />
     </div>
+  )
+}
+
+/** Order of the person's parent families (the first is the main one) and own families. Linking/unlinking happens on the family. */
+function FamilyOrder({ value, onChange }: { value: AnyObj; onChange: (o: AnyObj) => void }) {
+  const { t } = useTranslation('editor')
+  const lists = (['parent_family_list', 'family_list'] as const).filter((k) => (value[k]?.length ?? 0) > 1)
+  if (!lists.length) return null
+  return (
+    <FormSection title={t('person.familyOrder')} collapsible defaultOpen={false}>
+      <p className="-mt-2 text-xs text-muted-foreground">{t('person.familyOrderHint')}</p>
+      {lists.map((k) => {
+        const list: string[] = value[k]
+        return (
+          <div key={k} className="flex flex-col gap-1">
+            <span className="text-[13px] font-medium text-muted-foreground">{t(k === 'family_list' ? 'person.ownFamilies' : 'person.parentFamilies')}</span>
+            <ul className="flex flex-col divide-y rounded-xl border">
+              {list.map((h, i) => (
+                <li key={h} className="flex items-center gap-2 py-1 pl-3 pr-1 text-sm">
+                  <RefTitle kind="family" handle={h} className="flex-1" />
+                  <RowActions index={i} length={list.length} onMove={(d) => onChange({ ...value, [k]: move(list, i, d) })} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      })}
+    </FormSection>
   )
 }

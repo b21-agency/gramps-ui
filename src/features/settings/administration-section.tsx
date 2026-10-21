@@ -34,16 +34,31 @@ import { useTask } from '@/features/tools/use-task'
 import { TaskStatusLine, taskErrorText } from '@/features/tools/task-status'
 import { Field, SettingsBlock } from './parts'
 import { toHex6 } from './color'
+import {
+  CustomizationBlock,
+  DangerZoneBlock,
+  MediaStatusBlock,
+  ResearcherBlock,
+  SearchIndexStatus,
+  UsageBlock,
+  VerifyBlock,
+} from './admin-extra'
 
 export function AdministrationSection() {
   const { can } = useAuth()
   return (
     <div className="space-y-10">
       {can('EditTree') && <TreeNameBlock />}
+      <ResearcherBlock />
+      <UsageBlock />
       <DataCounts />
+      <MediaStatusBlock />
+      {can('EditTree') && <CustomizationBlock />}
       {(can('EditObject') || can('AddObject')) && <TagsBlock />}
       {can('TriggerReindex') && <ReindexBlock />}
       {can('RepairTree') && <RepairBlock />}
+      {can('RepairTree') && <VerifyBlock />}
+      {can('BatchDeleteObjects') && <DangerZoneBlock />}
     </div>
   )
 }
@@ -366,6 +381,7 @@ function ReindexBlock() {
   return (
     <SettingsBlock title={t('admin.reindex')} description={t('admin.reindexDescription')}>
       <div className="max-w-md space-y-3">
+        <SearchIndexStatus />
         <Button variant="outline" onClick={run} disabled={task.running}>
           {task.running ? <Loader2 className="animate-spin" /> : <SearchCheck />}
           {t('admin.reindexRun')}

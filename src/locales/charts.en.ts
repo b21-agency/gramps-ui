@@ -1,4 +1,7 @@
 export default {
+  chartType: 'Chart type',
+  centreHere: 'Center here',
+  setHomeShort: 'Make home person',
   title: 'Family tree',
   charts: {
     ancestor: 'Ancestors',
@@ -25,7 +28,24 @@ export default {
   fewer: 'Fewer',
   more: 'More',
   orientation: { label: 'Direction', horizontal: 'Left to right', vertical: 'Top to bottom' },
-  colour: { label: 'Colours', line: 'By family line', generation: 'By generation' },
+  colour: {
+    label: 'Colours',
+    line: 'By family line',
+    generation: 'By generation',
+    nEvents: 'Number of events',
+    nNotes: 'Number of notes',
+    birthYear: 'Birth year',
+    deathYear: 'Death year',
+    age: 'Age at death',
+    surname: 'Surname',
+    religion: 'Religion',
+    nPaths: 'Ancestor frequency',
+    other: 'Other',
+    noValue: 'Not recorded',
+  },
+  display: 'Display options',
+  nameOrder: { label: 'Names', given: 'Given name first', surname: 'Surname first' },
+  goHome: 'Go to home person',
   settings: 'Chart settings',
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
@@ -78,5 +98,6 @@ export default {
   hints: {
     keyboard: 'Arrow keys move between people, Enter puts them in the centre, P opens their profile.',
     touch: 'Tap a person to put them in the centre. Press and hold to open their profile.',
+    touchSelect: 'Tap a person for details. Pinch to zoom, press and hold to open a profile.',
   },
 }

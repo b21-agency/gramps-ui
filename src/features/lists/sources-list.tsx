@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Archive, BookOpen, Tag } from 'lucide-react'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
+import { useExtraFacets } from './facets'
 import { or, rule } from './rules'
 import { ChangedCell, Dash, IconTile, IdCell } from './cells'
 
@@ -19,6 +20,7 @@ export interface SourceRow {
 export function SourcesListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
+  const extraFacets = useExtraFacets('source')
 
   const config = useMemo<ListConfig<SourceRow>>(() => {
     const filters: FilterDef[] = [
@@ -30,6 +32,7 @@ export function SourcesListPage() {
         toRule: () => rule('HasRepository', '0', 'greater than'),
       },
       ...(tagFilter ? [tagFilter] : []),
+      ...extraFacets,
     ]
     return {
       kind: 'source',
@@ -102,7 +105,7 @@ export function SourcesListPage() {
         </div>
       ),
     }
-  }, [t, tagFilter])
+  }, [t, tagFilter, extraFacets])
 
   return <DataListPage title={t('common:nav.sources')} config={config} />
 }

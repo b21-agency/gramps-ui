@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { ImagePlus, Images, Loader2, X } from 'lucide-react'
+import { ObjectPicker } from '@/components/object-picker'
+import { refThumbUrl } from '@/components/portrait'
+import { useTags } from '@/lib/queries'
+import { PrivateSwitch, TagsField } from '@/features/editor/fields'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,13 +17,14 @@ import { EmptyState } from '@/components/states'
 import { useCurrentUser } from '@/components/user-menu'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import type { Source } from '@/lib/types'
+import type { MediaRef, Source } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
 import {
   ensureTag,
   invalidateSources,
   newHandle,
   txnObject,
+  uploadMedia,
   writableNote,
   writableSource,
   type TxnEntry,
@@ -72,10 +77,40 @@ export function TaskEditor({
   const [body, setBody] = useState(initialBody)
   const [status, setStatus] = useState<TaskStatus>(task ? taskStatus(task) : 'Open')
   const [level, setLevel] = useState<PriorityLevel>(task ? priorityLevel(taskPriority(task)) : 'normal')
+  const [extraTags, setExtraTags] = useState<string[]>(task?.tag_list ?? [])
+  const [isPrivate, setIsPrivate] = useState(!!task?.private)
+  const [attachments, setAttachments] = useState<MediaRef[]>(task?.media_list ?? [])
+  const [uploading, setUploading] = useState(false)
+  const todoHandle = useTags().data?.find((x) => x.name === TODO_TAG)?.handle
   const [saving, setSaving] = useState(false)
   const [titleError, setTitleError] = useState(false)
 
   if (!can(task ? 'EditObject' : 'AddObject')) return <EmptyState title={t('editor.noPermission')} className="py-24" />
+
+  const upload = async (files: FileList | null) => {
+    if (!files?.length) return
+    setUploading(true)
+    try {
+      for (const f of Array.from(files)) {
+        const m = await uploadMedia(f)
+        setAttachments((a) => [...a, { ref: m.handle, rect: null } as MediaRef])
+      }
+    } catch (e) {
+      toast.error(t('editor.failed', { message: (e as Error).message }))
+    } finally {
+      setUploading(false)
+    }
+  }
+  const mediaList = () =>
+    attachments.map((m) => ({
+      private: false,
+      citation_list: [],
+      note_list: [],
+      attribute_list: [],
+      ...m,
+      rect: m.rect ?? null,
+      _class: 'MediaRef',
+    }))
 
   const save = async () => {
     if (!title.trim()) {
@@ -87,6 +122,7 @@ export function TaskEditor({
     try {
       const text = parseMarkdownish(body.trim())
       const todo = await ensureTag(TODO_TAG, '#a9833a')
+      const tagList = [todo, ...extraTags.filter((h) => h !== todo)]
       // keep the exact priority number when the level did not change
       const priority =
         task && priorityLevel(taskPriority(task)) === level ? String(taskPriority(task)) : levelValue[level]
@@ -101,8 +137,8 @@ export function TaskEditor({
             handle: n,
             text: { _class: 'StyledText', ...text },
             type: 'To Do',
-            private: false,
-            tag_list: [],
+            private: isPrivate,
+            tag_list: tagList,
           })
         objects.push({
           _class: 'Source',
@@ -112,10 +148,10 @@ export function TaskEditor({
           pubinfo: '',
           abbrev: '',
           note_list: body.trim() ? [n] : [],
-          tag_list: [todo],
-          media_list: [],
+          tag_list: tagList,
+          media_list: mediaList(),
           reporef_list: [],
-          private: false,
+          private: isPrivate,
           attribute_list: withAttrs({ attribute_list: [] }, { Status: status, Priority: priority }).map((a) => ({
             ...a,
             _class: 'SrcAttribute',
@@ -126,13 +162,17 @@ export function TaskEditor({
       } else {
         const noteList = [...(task.note_list ?? [])]
         if (note) {
-          if (body.trim() !== initialBody.trim())
-            await api(`/notes/${note.handle}`, { method: 'PUT', json: writableNote(note, text) })
+          const bodyChanged = body.trim() !== initialBody.trim()
+          if (bodyChanged || !!note.private !== isPrivate)
+            await api(`/notes/${note.handle}`, {
+              method: 'PUT',
+              json: { ...writableNote(note, bodyChanged ? text : (note.text as typeof text)), private: isPrivate },
+            })
         } else if (body.trim()) {
           const n = newHandle()
           await api('/notes/', {
             method: 'POST',
-            json: { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'To Do' },
+            json: { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'To Do', private: isPrivate, tag_list: tagList },
           })
           noteList.unshift(n)
         }
@@ -141,7 +181,9 @@ export function TaskEditor({
           json: writableSource(task, {
             title: title.trim(),
             note_list: noteList,
-            tag_list: task.tag_list.includes(todo) ? task.tag_list : [...task.tag_list, todo],
+            tag_list: tagList,
+            private: isPrivate,
+            media_list: mediaList() as unknown as MediaRef[],
             attribute_list: withAttrs(task, { Status: status, Priority: priority }),
           }),
         })
@@ -238,7 +280,63 @@ export function TaskEditor({
           <p className="text-xs text-muted-foreground">{t('editor.formattingHint')}</p>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
+        <div className="space-y-2">
+          <Label>{t('attachments')}</Label>
+          {attachments.length > 0 && (
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2">
+              {attachments.map((m, i) => (
+                <li key={`${m.ref}-${i}`} className="relative overflow-hidden rounded-lg border bg-muted">
+                  <img src={refThumbUrl(m, 200)} alt="" className="aspect-square w-full object-cover" />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon-sm"
+                    className="absolute top-1 right-1 size-7 bg-background/90"
+                    aria-label={t('editor.removeAttachment')}
+                    onClick={() => setAttachments((a) => a.filter((_, j) => j !== i))}
+                  >
+                    <X />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={uploading} asChild>
+              <label className="cursor-pointer">
+                {uploading ? <Loader2 className="animate-spin" /> : <ImagePlus />}
+                {t('editor.uploadAttachment')}
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    void upload(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            </Button>
+            <ObjectPicker
+              kinds={['media']}
+              placeholder={t('editor.pickMediaPlaceholder')}
+              onChange={(o) =>
+                setAttachments((a) => (a.some((m) => m.ref === o.handle) ? a : [...a, { ref: o.handle, rect: null } as MediaRef]))
+              }
+              trigger={
+                <Button type="button" variant="ghost" size="sm">
+                  <Images />
+                  {t('editor.pickMedia')}
+                </Button>
+              }
+            />
+          </div>
+        </div>
+
+        <TagsField value={extraTags.filter((h) => h !== todoHandle)} onChange={setExtraTags} />
+        <PrivateSwitch value={isPrivate} onChange={setIsPrivate} />
+
+        <div className="flex flex-wrap justify-end gap-2 border-t pt-4 max-md:flex-nowrap max-md:[&>button]:h-11 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">
           <Button type="button" variant="ghost" disabled={saving} onClick={() => (onCancel ? onCancel() : navigate(-1))}>
             {t('editor.cancel')}
           </Button>

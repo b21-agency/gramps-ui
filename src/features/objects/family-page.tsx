@@ -6,6 +6,7 @@ import { Portrait } from '@/components/portrait'
 import { PersonChip } from '@/components/person-chip'
 import { TagList } from '@/components/tag-list'
 import { ErrorState } from '@/components/states'
+import { ObjectHistory } from '@/components/detail/object-history'
 import { ObjectToolbar } from '@/components/detail/object-header'
 import {
   CitationsList,
@@ -145,6 +146,7 @@ export function FamilyPage() {
                 <RichReferences groups={refs} />
               </DetailSection>
             )}
+            <ObjectHistory objClass="Family" handle={family.handle} lastChange={family.change} />
           </>
         }
       />

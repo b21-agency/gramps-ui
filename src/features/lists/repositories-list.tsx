@@ -5,6 +5,7 @@ import type { Address, Url } from '@/lib/types'
 import { typeStr } from '@/lib/format'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
+import { useExtraFacets } from './facets'
 import { rule } from './rules'
 import { ChangedCell, Dash, IconTile, IdCell } from './cells'
 import { useTypeLabel, useTypeOptions } from './use-types'
@@ -27,6 +28,7 @@ const where = (r: RepositoryRow) => {
 export function RepositoriesListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
+  const extraFacets = useExtraFacets('repository')
   const types = useTypeOptions('repository_types')
   const typeLabel = useTypeLabel('repository_types')
 
@@ -34,6 +36,7 @@ export function RepositoriesListPage() {
     const filters: FilterDef[] = [
       { id: 'type', type: 'select', label: t('repositories.type'), icon: Shapes, options: types, toRule: (v) => rule('HasRepo', '', v, '', '') },
       ...(tagFilter ? [tagFilter] : []),
+      ...extraFacets,
     ]
     return {
       kind: 'repository',
@@ -103,7 +106,7 @@ export function RepositoriesListPage() {
         </div>
       ),
     }
-  }, [t, tagFilter, types, typeLabel])
+  }, [t, tagFilter, types, typeLabel, extraFacets])
 
   return <DataListPage title={t('common:nav.repositories')} config={config} />
 }

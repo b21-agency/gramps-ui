@@ -168,10 +168,9 @@ export async function fanChartSvg(geo: FanGeometry, t: TFunction): Promise<{ svg
   const w = Math.ceil(x1 - x0 + pad * 2)
   const h = Math.ceil(y1 - y0 + pad * 2)
   const fills = new Map<string, string>()
-  const fillOf = (colour: string, mix: number) => {
-    const k = `${colour}/${mix}`
-    if (!fills.has(k)) fills.set(k, resolveColour(`color-mix(in oklab, var(${colour}) ${mix}%, var(--card))`))
-    return fills.get(k)!
+  const fillOf = (fill: string) => {
+    if (!fills.has(fill)) fills.set(fill, resolveColour(fill))
+    return fills.get(fill)!
   }
   const parts: string[] = []
   for (const s of geo.segments) {
@@ -179,7 +178,7 @@ export async function fanChartSvg(geo: FanGeometry, t: TFunction): Promise<{ svg
       parts.push(`<path d="${s.d}" fill="none" stroke="${c.border}" stroke-dasharray="4 5"/>`)
       continue
     }
-    parts.push(`<path d="${s.d}" fill="${fillOf(s.colour, s.mix)}" stroke="${c.background}" stroke-width="1.5"/>`)
+    parts.push(`<path d="${s.d}" fill="${fillOf(s.fill)}" stroke="${c.background}" stroke-width="1.5"/>`)
     parts.push(`<g transform="${s.transform}" text-anchor="middle">`)
     for (const l of s.lines)
       parts.push(

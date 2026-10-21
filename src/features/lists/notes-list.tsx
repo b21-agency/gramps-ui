@@ -4,6 +4,7 @@ import { Shapes, Tag } from 'lucide-react'
 import { typeStr } from '@/lib/format'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
+import { useExtraFacets } from './facets'
 import { rule } from './rules'
 import { ChangedCell, Dash, IdCell } from './cells'
 import { useTypeLabel, useTypeOptions } from './use-types'
@@ -21,6 +22,7 @@ const preview = (n: NoteRow) => n.text?.string?.replace(/\s+/g, ' ').trim() ?? '
 export function NotesListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
+  const extraFacets = useExtraFacets('note')
   const types = useTypeOptions('note_types')
   const typeLabel = useTypeLabel('note_types')
 
@@ -28,6 +30,7 @@ export function NotesListPage() {
     const filters: FilterDef[] = [
       { id: 'type', type: 'select', label: t('notes.type'), icon: Shapes, options: types, toRule: (v) => rule('HasType', v) },
       ...(tagFilter ? [tagFilter] : []),
+      ...extraFacets,
     ]
     return {
       kind: 'note',
@@ -79,7 +82,7 @@ export function NotesListPage() {
         </div>
       ),
     }
-  }, [t, tagFilter, types, typeLabel])
+  }, [t, tagFilter, types, typeLabel, extraFacets])
 
   return <DataListPage title={t('common:nav.notes')} config={config} />
 }

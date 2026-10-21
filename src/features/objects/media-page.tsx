@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Download, ExternalLink, FileText, FileVideo, FileAudio, File as FileIcon } from 'lucide-react'
+import { Download, ExternalLink, FileText, FileVideo, FileAudio, File as FileIcon, ScanText, SquareDashedMousePointer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/states'
 import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectHistory } from '@/components/detail/object-history'
 import { CitationsList, DetailSection, FactsTable, NotesList, SectionNav } from '@/components/detail/sections'
 import { mediaFileUrl, mediaThumbUrl } from '@/lib/api'
-import { useAccessToken } from '@/lib/auth'
+import { useAccessToken, useAuth } from '@/lib/auth'
 import { objectPath } from '@/lib/objects'
 import type { Media, MediaRef } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,9 @@ import {
   type AnyObj,
   type RefItem,
 } from './shared'
+import { RegionEditor, type LinkedRegion, type Rect } from './media-regions'
+import { OcrPanel, useOcrAvailable } from './media-ocr'
+import { OverlayMap, parseBounds } from './media-overlay'
 
 interface Region {
   key: string
@@ -41,6 +45,10 @@ export function MediaPage() {
   const { q, title } = useObjectPage<Media>('media', id, (m) => m.desc || m.path?.split('/').pop() || m.gramps_id)
   const media = q.data
   const [active, setActive] = useState<string | null>(null)
+  const [editRegions, setEditRegions] = useState(false)
+  const [ocr, setOcr] = useState(false)
+  const { can } = useAuth()
+  const ocrAvailable = useOcrAvailable(media?.mime)
 
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />
   if (!media) return <ObjectSkeleton media />
@@ -64,6 +72,7 @@ export function MediaPage() {
   const withRect = regions.filter((r) => r.rect)
   const isImage = media.mime?.startsWith('image/')
   const notes = media.note_list ?? []
+  const overlay = isImage ? parseBounds(media.attribute_list) : null
   const cites = media.citation_list ?? []
 
   const nav = navItems([
@@ -77,7 +86,14 @@ export function MediaPage() {
     <PageFrame>
       <ObjectToolbar kind="media" object={media} title={title} onSaved={() => q.refetch()} />
 
-      {isImage ? (
+      {isImage && editRegions ? (
+        <RegionEditor
+          media={media}
+          regions={withRect.map<LinkedRegion>((r) => ({ key: r.key, item: r.item, rect: r.rect!, stored: (r.ref?.rect ?? r.rect) as Rect }))}
+          onChanged={() => q.refetch()}
+          onClose={() => setEditRegions(false)}
+        />
+      ) : isImage ? (
         <ImageViewer media={media} title={title} regions={withRect} active={active} setActive={setActive} />
       ) : (
         <FileCard media={media} title={title} />
@@ -99,6 +115,18 @@ export function MediaPage() {
         }
         aside={
           <div className="flex flex-wrap gap-2 sm:justify-end">
+            {isImage && can('EditObject') && !editRegions && (
+              <Button size="sm" variant="outline" onClick={() => setEditRegions(true)}>
+                <SquareDashedMousePointer />
+                {t('regions.edit')}
+              </Button>
+            )}
+            {ocrAvailable && (
+              <Button size="sm" variant="outline" aria-pressed={ocr} onClick={() => setOcr(!ocr)}>
+                <ScanText />
+                {t('ocr.title')}
+              </Button>
+            )}
             <Button asChild size="sm" variant="outline">
               <a href={mediaFileUrl(media.handle)} target="_blank" rel="noreferrer">
                 <ExternalLink />
@@ -120,6 +148,7 @@ export function MediaPage() {
       <Columns
         main={
           <>
+            {ocr && ocrAvailable && <OcrPanel handle={media.handle} onClose={() => setOcr(false)} onSaved={() => q.refetch()} />}
             {regions.length > 0 && (
               <DetailSection id="references" title={t('detail:sections.references')} count={regions.length}>
                 {withRect.length > 0 && isImage && <p className="mb-2 text-sm text-muted-foreground">{t('regionsHint')}</p>}
@@ -147,6 +176,11 @@ export function MediaPage() {
         }
         aside={
           <>
+            {overlay && (
+              <DetailSection id="map" title={t('overlay.title')}>
+                <OverlayMap handle={media.handle} bounds={overlay} />
+              </DetailSection>
+            )}
             {cites.length > 0 && (
               <DetailSection id="sources" title={t('detail:sections.sources')} count={cites.length}>
                 <CitationsList handles={cites} />
@@ -157,6 +191,7 @@ export function MediaPage() {
                 <FactsTable attributes={media.attribute_list} />
               </DetailSection>
             )}
+            <ObjectHistory objClass="Media" handle={media.handle} lastChange={media.change} />
           </>
         }
       />

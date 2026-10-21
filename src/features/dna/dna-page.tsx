@@ -1,7 +1,23 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ChevronRight, Dna, Network } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { ArrowLeft, ChevronRight, Dna, Network, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { useAuth } from '@/lib/auth'
+import { errorMessage, invalidateAfterWrite, undoTransaction } from '@/features/editor/lib'
+import { MatchDialog } from './match-dialog'
+import { DnaTabs, useDefaultPerson } from './dna-tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -13,6 +29,7 @@ import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
 import { ChromosomeBrowser, type Lane } from './chromosome-browser'
 import {
+  deleteDnaMatch,
   matchStats,
   normChromosome,
   sideColor,
@@ -24,7 +41,6 @@ import {
 } from './data'
 
 const LANE_COLORS = ['bg-chart-1', 'bg-chart-2', 'bg-chart-3', 'bg-chart-4', 'bg-chart-5']
-const MAX_LANES = 6
 
 function fmtCm(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 })
@@ -34,26 +50,55 @@ export function DnaPage() {
   const { t } = useTranslation(['dna', 'common'])
   useTitle(t('title'))
   const { id, match } = useParams()
+  const { can } = useAuth()
   const people = useDnaPeople()
   const selected = people.data?.find((p) => p.gramps_id === id)
+  const [adding, setAdding] = useState(false)
+  useDefaultPerson('/dna-matches', id, people.data)
 
   if (people.isError) return <ErrorState error={people.error} onRetry={() => people.refetch()} />
+
+  const addButton = can('EditObject') && (
+    <Button onClick={() => setAdding(true)}>
+      <Plus />
+      {t('edit.addTitle')}
+    </Button>
+  )
+  const addDialog = (
+    <MatchDialog
+      open={adding}
+      onOpenChange={setAdding}
+      source={selected ? { handle: selected.handle, title: profileName(selected.profile) || selected.gramps_id } : undefined}
+    />
+  )
 
   if (people.data && people.data.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-8">
-        <h1 className="text-3xl font-medium tracking-tight">{t('title')}</h1>
-        <Explainer className="mt-8" />
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h1 className="text-3xl font-medium tracking-tight">{t('title')}</h1>
+          {addButton}
+        </div>
+        <div className="mt-6">
+          <DnaTabs />
+        </div>
+        <Explainer />
+        {addDialog}
       </div>
     )
   }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-medium tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('intro')}</p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-medium tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('intro')}</p>
+        </div>
+        {addButton}
       </div>
+      <DnaTabs id={id} />
+      {addDialog}
       <div className="grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <aside className={cn('min-w-0', id && 'hidden lg:block')}>
           <div className="mb-2 flex items-baseline gap-2 border-b pb-2">
@@ -131,18 +176,59 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
     [q.data, profiles.data],
   )
   const current = matchId ? rows.find((r) => r.p?.gramps_id === matchId) : undefined
+  const { can } = useAuth()
+  const qc = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  // legend click shows one match alone (without leaving the overview)
+  const [isolated, setIsolated] = useState<string | null>(null)
+  const { pathname } = useLocation()
+  const browserRef = useRef<HTMLDivElement>(null)
+  const chromosomeRoute = pathname.startsWith('/dna-chromosome')
+  useEffect(() => {
+    if (chromosomeRoute && rows.length) browserRef.current?.scrollIntoView({ block: 'start' })
+  }, [chromosomeRoute, rows.length])
 
+  const removeMatch = async () => {
+    if (!current) return
+    setDeleting(false)
+    const mName = profileName(current.p?.profile) || current.p?.gramps_id || ''
+    try {
+      const tx = await deleteDnaMatch(person.handle, current.m)
+      invalidateAfterWrite(qc, ['person'])
+      navigate(`/dna-matches/${person.gramps_id}`, { replace: true })
+      toast.success(t('edit.deleted', { name: mName }), {
+        duration: 10_000,
+        action: {
+          label: t('edit.undo'),
+          onClick: async () => {
+            try {
+              await undoTransaction(tx)
+              invalidateAfterWrite(qc, ['person'])
+            } catch (e) {
+              toast.error(t('edit.failed'), { description: errorMessage(e) })
+            }
+          },
+        },
+      })
+    } catch (e) {
+      toast.error(t('edit.failed'), { description: errorMessage(e) })
+    }
+  }
+
+  const allLanes: Lane[] = rows
+    .filter((r) => r.s.count > 0)
+    .map((r, i) => ({
+      key: r.m.handle,
+      label: profileName(r.p?.profile) || '…',
+      color: LANE_COLORS[i % LANE_COLORS.length],
+      segments: r.m.segments,
+    }))
   const lanes: Lane[] = current
     ? [{ key: current.m.handle, label: profileName(current.p?.profile), segments: current.m.segments }]
-    : rows
-        .filter((r) => r.s.count > 0)
-        .slice(0, MAX_LANES)
-        .map((r, i) => ({
-          key: r.m.handle,
-          label: profileName(r.p?.profile) || '…',
-          color: LANE_COLORS[i % LANE_COLORS.length],
-          segments: r.m.segments,
-        }))
+    : isolated && allLanes.some((l) => l.key === isolated)
+      ? allLanes.filter((l) => l.key === isolated)
+      : allLanes
 
   return (
     <div className="min-w-0">
@@ -214,22 +300,64 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
       )}
 
       {rows.length > 0 && (
-        <div className="mt-8">
+        <div className="mt-8 scroll-mt-20" ref={browserRef}>
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b pb-2">
             <h2 className="text-xl font-medium">{t('browser')}</h2>
             <span className="text-sm text-muted-foreground">
-              {current ? t('browserOne', { name: profileName(current.p?.profile) }) : t('browserAll', { count: lanes.length })}
+              {current ? t('browserOne', { name: profileName(current.p?.profile) }) : t('browserAll', { count: allLanes.length })}
             </span>
           </div>
           {lanes.every((l) => l.segments.length === 0) ? (
             <EmptyState icon={Dna} title={t('noSegments')}>{t('noSegmentsHint')}</EmptyState>
           ) : (
             <>
-              <Legend lanes={lanes} perSide={!!current} />
+              <Legend
+                lanes={current ? lanes : allLanes}
+                perSide={!!current}
+                isolated={isolated}
+                onToggle={(k) => setIsolated((v) => (v === k ? null : k))}
+              />
               <ChromosomeBrowser lanes={lanes} />
             </>
           )}
-          {current && <MatchDetails match={current.m} stats={current.s} ancestors={profiles.data} person={person} matchPerson={current.p} />}
+          {current && (
+            <>
+              {can('EditObject') && (
+                <div className="mt-6 flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                    <Pencil />
+                    {t('edit.editData')}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setDeleting(true)}>
+                    <Trash2 />
+                    {t('edit.delete')}
+                  </Button>
+                </div>
+              )}
+              <MatchDetails match={current.m} stats={current.s} ancestors={profiles.data} person={person} matchPerson={current.p} />
+              <MatchDialog
+                open={editing}
+                onOpenChange={setEditing}
+                source={{ handle: person.handle, title: name }}
+                match={current.m}
+                matchName={profileName(current.p?.profile)}
+              />
+              <AlertDialog open={deleting} onOpenChange={setDeleting}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t('edit.deleteTitle', { name: profileName(current.p?.profile) })}</AlertDialogTitle>
+                    <AlertDialogDescription>{t('edit.deleteBody', { name })}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction variant="destructive" onClick={() => void removeMatch()}>
+                      {t('edit.delete')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -246,7 +374,17 @@ function SideBadge({ side }: { side: string }) {
   )
 }
 
-function Legend({ lanes, perSide }: { lanes: Lane[]; perSide: boolean }) {
+function Legend({
+  lanes,
+  perSide,
+  isolated,
+  onToggle,
+}: {
+  lanes: Lane[]
+  perSide: boolean
+  isolated?: string | null
+  onToggle?: (key: string) => void
+}) {
   if (perSide) {
     const sides = [...new Set(lanes.flatMap((l) => l.segments.map((s) => s.side)))]
     return (
@@ -260,10 +398,20 @@ function Legend({ lanes, perSide }: { lanes: Lane[]; perSide: boolean }) {
   return (
     <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
       {lanes.map((l) => (
-        <span key={l.key} className="inline-flex items-center gap-1.5">
+        <button
+          key={l.key}
+          type="button"
+          onClick={() => onToggle?.(l.key)}
+          aria-pressed={isolated === l.key}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+            isolated && isolated !== l.key && 'opacity-50',
+            isolated === l.key && 'text-foreground',
+          )}
+        >
           <span className={cn('size-2 rounded-full', l.color)} />
           {l.label}
-        </span>
+        </button>
       ))}
     </div>
   )

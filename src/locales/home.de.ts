@@ -8,6 +8,7 @@ export default {
     change: 'Ändern',
     openTree: 'Stammbaum',
     openPerson: 'Profil',
+    missing: 'Die Person {{id}} wurde nicht gefunden. Wähle eine andere Startperson.',
   },
   onThisDay: 'An diesem Tag',
   onThisDayEmpty: 'Heute gibt es keine Geburts-, Hochzeits- oder Gedenktage.',
@@ -18,4 +19,12 @@ export default {
   latestPost: 'Aus dem Blog',
   readPost: 'Lesen',
   inArchive: 'Im Archiv',
+  getStarted: {
+    title: 'Los geht’s',
+    noPeople: 'Leg dich selbst als erste Person an oder importiere eine Stammbaum-Datei, um deinen Stammbaum zu beginnen.',
+    noFamilies: 'Verbinde die Personen in deinem Stammbaum, indem du eine Familie anlegst.',
+    newPerson: 'Person hinzufügen',
+    newFamily: 'Familie hinzufügen',
+    import: 'Stammbaum importieren',
+  },
 }

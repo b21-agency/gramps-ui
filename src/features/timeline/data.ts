@@ -7,6 +7,7 @@ import type { DateVal, GEvent } from '@/lib/types'
 export interface EventLite {
   handle: string
   gramps_id: string
+  place?: string
   type: string | { string: string }
   date?: Pick<DateVal, 'sortval' | 'year' | 'dateval' | 'modifier' | 'quality'>
 }
@@ -14,6 +15,8 @@ export interface EventLite {
 export interface DatedEvent {
   handle: string
   gramps_id: string
+  /** place handle */
+  place?: string
   type: string
   year: number
   sortval: number
@@ -22,11 +25,11 @@ export interface DatedEvent {
 /** All dated events, sorted chronologically (one request, cached). */
 export function useAllEvents() {
   return useQuery({
-    queryKey: ['events', 'timeline-all'],
+    queryKey: ['events', 'timeline-all', 'place'],
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<DatedEvent[]> => {
       const list = await api<EventLite[]>('/events/', {
-        query: { keys: 'handle,gramps_id,date,type' },
+        query: { keys: 'handle,gramps_id,date,type,place' },
       })
       const out: DatedEvent[] = []
       for (const e of list) {
@@ -36,12 +39,55 @@ export function useAllEvents() {
         out.push({
           handle: e.handle,
           gramps_id: e.gramps_id,
+          place: e.place || undefined,
           type: typeof e.type === 'string' ? e.type : e.type?.string ?? '',
           year,
           sortval,
         })
       }
       return out.sort((a, b) => a.sortval - b.sortval)
+    },
+  })
+}
+
+export type ScopeMode = 'self' | 'ancestors' | 'descendants' | 'exact' | 'enclosed'
+
+/**
+ * Restricts the global timeline to one person (their own events, or those of all their
+ * ancestors/descendants) or one place (exactly, or with every place it encloses).
+ * Returns the matching event handles (person) or place handles (place); undefined while loading.
+ */
+export function useTimelineScope(kind: 'person' | 'place' | null, id: string | null, mode: ScopeMode) {
+  return useQuery({
+    queryKey: ['timeline-scope', kind, id, mode],
+    enabled: !!kind && !!id,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<{ events?: Set<string>; places?: Set<string> }> => {
+      if (kind === 'person') {
+        const query =
+          mode === 'ancestors' || mode === 'descendants'
+            ? {
+                rules: JSON.stringify({
+                  rules: [
+                    {
+                      name: mode === 'ancestors' ? 'IsLessThanNthGenerationAncestorOf' : 'IsLessThanNthGenerationDescendantOf',
+                      values: [id, '100'],
+                    },
+                  ],
+                }),
+              }
+            : { gramps_id: id! }
+        const people = await api<Array<{ event_ref_list?: Array<{ ref: string }> }>>('/people/', {
+          query: { ...query, keys: 'handle,event_ref_list' },
+        })
+        return { events: new Set(people.flatMap((p) => (p.event_ref_list ?? []).map((r) => r.ref))) }
+      }
+      const query =
+        mode === 'enclosed'
+          ? { rules: JSON.stringify({ rules: [{ name: 'IsEnclosedBy', values: [id, '1'] }] }) }
+          : { gramps_id: id! }
+      const places = await api<Array<{ handle: string }>>('/places/', { query: { ...query, keys: 'handle' } })
+      return { places: new Set(places.map((p) => p.handle)) }
     },
   })
 }

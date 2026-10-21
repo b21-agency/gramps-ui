@@ -4,6 +4,7 @@ import { ChevronRight, Map as MapIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/states'
 import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectHistory } from '@/components/detail/object-history'
 import { CitationsList, DetailSection, FactsTable, Gallery, NotesList, SectionNav } from '@/components/detail/sections'
 import { typeStr } from '@/lib/format'
 import type { EventProfile, Place } from '@/lib/types'
@@ -45,6 +46,9 @@ export function PlacePage() {
 
   // parent chain: profile.parent_places goes from the direct parent up to the root
   const parents = [...(profile.parent_places ?? [])].reverse()
+  // a place can be enclosed by several places, e.g. over different periods
+  const directParents = profile.direct_parent_places ?? []
+  const showDirect = directParents.length > 1 || directParents.some((d) => d.date_str)
   const altNames =
     profile.alternate_place_names?.filter((a) => a.value) ??
     place.alt_names.map((n) => ({ value: n.value, date_str: '' }))
@@ -92,6 +96,19 @@ export function PlacePage() {
             ))}
           </ol>
         </nav>
+      )}
+      {showDirect && (
+        <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground" aria-label={t('detail:sections.hierarchy')}>
+          {directParents.map((d, i) => (
+            <li key={`${d.place.gramps_id}-${i}`}>
+              <span>{t('detail:sections.hierarchy')} </span>
+              <Link to={`/place/${d.place.gramps_id}`} className="text-foreground hover:underline" title={d.place.type}>
+                {d.place.name}
+              </Link>
+              {d.date_str && <span className="tabular-nums"> · {d.date_str}</span>}
+            </li>
+          ))}
+        </ul>
       )}
 
       <ObjectTitle
@@ -181,6 +198,7 @@ export function PlacePage() {
                 <RichReferences groups={refs} />
               </DetailSection>
             )}
+            <ObjectHistory objClass="Place" handle={place.handle} lastChange={place.change} />
           </>
         }
       />

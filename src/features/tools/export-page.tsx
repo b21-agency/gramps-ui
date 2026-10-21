@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Archive, Download, FileArchive, Loader2 } from 'lucide-react'
+import { Archive, Download, FileArchive, Loader2, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,7 +14,7 @@ import { ErrorState, RowsSkeleton } from '@/components/states'
 import { ObjectPicker } from '@/components/object-picker'
 import { api } from '@/lib/api'
 import { apiLocale } from '@/i18n'
-import { useAccessToken } from '@/lib/auth'
+import { useAccessToken, useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { useTitle } from '@/hooks/use-title'
 import { TaskStatusLine, taskErrorText } from './task-status'
@@ -44,6 +44,7 @@ export function ExportPage() {
   const { t, i18n } = useTranslation('tools')
   useTitle(t('export.title'))
   useAccessToken()
+  const { can } = useAuth()
   const q = useQuery({
     queryKey: ['exporters'],
     queryFn: () => api<Exporter[]>('/exporters/'),
@@ -106,6 +107,12 @@ export function ExportPage() {
       ) : (
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0 space-y-10">
+            {!can('ViewPrivate') && (
+              <p className="flex items-start gap-2 rounded-lg border border-brass/40 bg-brass/10 px-3 py-2 text-sm">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                {t('export.incomplete')}
+              </p>
+            )}
             <section>
               <h2 className="mb-3 border-b pb-2 text-xl font-medium">{t('export.format')}</h2>
               <RadioGroup

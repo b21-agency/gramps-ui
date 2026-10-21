@@ -18,5 +18,16 @@ export default {
     submit: 'Send reset link',
     sent: 'If the user exists and has an e-mail address, a reset link is on its way.',
     error: 'No reset link could be sent for this user.',
+    notFound: 'This user does not exist or has no e-mail address.',
+    mailFailed: 'The server could not send the e-mail. Ask the tree owner for help.',
+  },
+  firstRun: {
+    title: 'Welcome',
+    subtitle: 'Create the first account. It becomes the owner of this family tree.',
+    fullName: 'Full name',
+    email: 'E-mail',
+    confirm: 'Repeat password',
+    hint: 'The password needs at least 8 characters.',
+    submit: 'Create account',
   },
 }

@@ -59,6 +59,15 @@ export default {
     estimated: 'estimated {{date}}',
     calculated: 'calculated {{date}}',
   },
+  object: {
+    title: 'History of this record',
+    description: 'Every saved change to this {{object}}, newest first.',
+    lastChanged: 'Last changed {{when}}',
+    empty: 'No recorded changes yet',
+    unknownUser: 'Unknown',
+    onlyRecent: 'Only the most recent changes are shown.',
+    showMore: 'Show more',
+  },
   undo: {
     button: 'Undo this change',
     title: 'Undo this change?',
@@ -154,5 +163,10 @@ export default {
     birth_ref_index: 'Birth event',
     death_ref_index: 'Death event',
     lang: 'Language',
+  },
+  objectHistory: {
+    lastChanged: 'Last changed {{when}}',
+    onlyRecent: 'Only the most recent changes are shown.',
+    showMore: 'Show more',
   },
 }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { BookOpen } from 'lucide-react'
 import { ErrorState } from '@/components/states'
 import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectHistory } from '@/components/detail/object-history'
 import { DetailSection, FactsTable, NotesList, SectionNav } from '@/components/detail/sections'
 import { typeStr } from '@/lib/format'
 import type { Repository } from '@/lib/types'
@@ -78,6 +79,7 @@ export function RepositoryPage() {
                 <RichReferences groups={refs} />
               </DetailSection>
             )}
+            <ObjectHistory objClass="Repository" handle={repo.handle} lastChange={repo.change} />
           </>
         }
       />

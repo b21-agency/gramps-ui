@@ -3,7 +3,6 @@ import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { CalendarX2, Loader2, MapPin } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { api } from '@/lib/api'
 import { apiLocale } from '@/i18n'
@@ -64,7 +63,7 @@ export function PersonTimeline({ person }: { person: Person }) {
               aria-pressed={active.includes(g)}
               onClick={() => toggle(g)}
               className={cn(
-                'inline-flex h-7 items-center rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                'inline-flex h-7 items-center rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 max-md:h-9 max-md:px-3.5',
                 active.includes(g) ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:bg-accent',
               )}
             >
@@ -74,18 +73,23 @@ export function PersonTimeline({ person }: { person: Person }) {
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">{t('generations')}</span>
-          <Select value={String(generations)} onValueChange={(v) => setGenerations(Number(v))}>
-            <SelectTrigger size="sm" className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[1, 2, 3].map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="inline-flex rounded-lg border bg-muted p-0.5" role="radiogroup" aria-label={t('generations')}>
+            {[1, 2, 3].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={generations === n}
+                onClick={() => setGenerations(n)}
+                className={cn(
+                  'h-6 min-w-8 rounded-md px-2 text-sm tabular-nums transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 max-md:h-8 max-md:min-w-10',
+                  generations === n ? 'bg-card font-medium shadow-xs' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
           {q.isFetching && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
         </div>
       </div>

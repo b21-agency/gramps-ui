@@ -186,13 +186,14 @@ export async function login(username: string, password: string) {
   })
   if (!res.ok) {
     let type = res.status === 403 || res.status === 401 ? 'invalid_credentials' : res.status === 429 ? 'rate_limited' : 'failed'
+    let body: unknown = undefined
     try {
-      const body = await res.json()
-      type = body?.error?.type ?? type
+      body = await res.json()
+      type = (body as { error?: { type?: string } })?.error?.type ?? type
     } catch {
       /* not json */
     }
-    throw new ApiError(res.status, type)
+    throw new ApiError(res.status, type, body)
   }
   const data = await res.json()
   tokens.set(data.access_token, data.refresh_token)

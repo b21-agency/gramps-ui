@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
+import { ChevronRight } from 'lucide-react'
 import type { MediaRef, PersonProfile } from '@/lib/types'
 import { isEmpty, lifespan, profileName } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -41,8 +42,12 @@ export function PersonChip({
   const cls = cn('group flex min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 text-left', className)
   if (current || !person.gramps_id) return <div className={cn(cls, current && 'bg-accent/60')}>{body}</div>
   return (
-    <Link to={`/person/${person.gramps_id}`} className={cn(cls, 'transition-colors hover:bg-accent focus-visible:bg-accent outline-none')}>
+    <Link
+      to={`/person/${person.gramps_id}`}
+      className={cn(cls, 'transition-colors outline-none hover:bg-accent focus-visible:bg-accent active:bg-accent max-md:py-2')}
+    >
       {body}
+      <ChevronRight className="ml-auto size-4 shrink-0 text-muted-foreground/60 md:hidden" aria-hidden />
     </Link>
   )
 }

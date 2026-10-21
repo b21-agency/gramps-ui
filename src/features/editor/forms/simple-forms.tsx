@@ -5,14 +5,16 @@ import { toast } from 'sonner'
 import { Loader2, Map as MapIcon, Plus, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api, mediaThumbUrl } from '@/lib/api'
 import { useAccessToken } from '@/lib/auth'
-import { cn } from '@/lib/utils'
 import { type AnyObj, invalidateAfterWrite } from '../lib'
 import { DateInput } from '../date-input'
+import { AddressesField } from '../address-field'
+import { MediaRefsField } from '../media-field'
+import { NoteTextField } from '../note-text-field'
+import { MapOverlayField } from '@/features/objects/media-overlay'
 import { EventCoreFields } from '../events-field'
 import {
   AttributesField,
@@ -45,6 +47,7 @@ export function EventForm({ value, onChange }: FormProps) {
       <section className="flex flex-col gap-4">
         <EventCoreFields value={value} onChange={onChange} />
       </section>
+      <MediaRefsField value={value.media_list ?? []} onChange={(v) => onChange({ ...value, media_list: v })} />
       <AttributesField value={value.attribute_list ?? []} onChange={(v) => onChange({ ...value, attribute_list: v })} />
       <CommonFields value={value} onChange={onChange} />
     </div>
@@ -59,7 +62,7 @@ function num(s: unknown) {
 }
 
 export function PlaceForm({ value, onChange }: FormProps) {
-  const { t } = useTranslation('editor')
+  const { t, i18n } = useTranslation('editor')
   const [showMap, setShowMap] = useState(false)
   const refs: AnyObj[] = value.placeref_list ?? []
   const alt: AnyObj[] = value.alt_names ?? []
@@ -84,16 +87,24 @@ export function PlaceForm({ value, onChange }: FormProps) {
         <Field label={t('place.enclosedBy')} hint={t('place.enclosedByHint')}>
           <div className="flex flex-col gap-2">
             {refs.map((r, i) => (
-              <div key={`${r.ref}-${i}`} className="flex items-center gap-1">
-                <div className="min-w-0 flex-1">
-                  <RefPicker
-                    kind="place"
-                    value={r.ref}
-                    clearable={false}
-                    onChange={(h) => h && onChange({ ...value, placeref_list: refs.map((x, j) => (j === i ? { ...x, ref: h } : x)) })}
-                  />
+              <div key={`${r.ref}-${i}`} className="flex flex-col gap-2">
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0 flex-1">
+                    <RefPicker
+                      kind="place"
+                      value={r.ref}
+                      clearable={false}
+                      onChange={(h) => h && onChange({ ...value, placeref_list: refs.map((x, j) => (j === i ? { ...x, ref: h } : x)) })}
+                    />
+                  </div>
+                  <RowActions index={i} length={refs.length} onRemove={() => onChange({ ...value, placeref_list: refs.filter((_, j) => j !== i) })} />
                 </div>
-                <RowActions index={i} length={refs.length} onRemove={() => onChange({ ...value, placeref_list: refs.filter((_, j) => j !== i) })} />
+                <DateInput
+                  label={t('place.validDate')}
+                  value={r.date}
+                  lang={i18n.language}
+                  onChange={(d) => onChange({ ...value, placeref_list: refs.map((x, j) => (j === i ? { ...x, date: d } : x)) })}
+                />
               </div>
             ))}
             {refs.length === 0 && (
@@ -148,21 +159,34 @@ export function PlaceForm({ value, onChange }: FormProps) {
 
       <FormSection title={t('place.altNames')} count={alt.length} collapsible defaultOpen={alt.length > 0}>
         {alt.map((n, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <Input
-              className="flex-1"
-              value={n.value ?? ''}
-              aria-label={t('place.name')}
-              onChange={(e) => onChange({ ...value, alt_names: alt.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) })}
+          <div key={i} className="flex flex-col gap-2 rounded-xl border p-3">
+            <div className="flex items-center gap-2">
+              <Input
+                className="flex-1"
+                value={n.value ?? ''}
+                aria-label={t('place.name')}
+                onChange={(e) => onChange({ ...value, alt_names: alt.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) })}
+              />
+              <Input
+                className="w-20"
+                value={n.lang ?? ''}
+                placeholder={t('place.lang')}
+                aria-label={t('place.lang')}
+                onChange={(e) => onChange({ ...value, alt_names: alt.map((x, j) => (j === i ? { ...x, lang: e.target.value } : x)) })}
+              />
+              <RowActions
+                index={i}
+                length={alt.length}
+                onMove={(d) => onChange({ ...value, alt_names: move(alt, i, d) })}
+                onRemove={() => onChange({ ...value, alt_names: alt.filter((_, j) => j !== i) })}
+              />
+            </div>
+            <DateInput
+              label={t('place.validDate')}
+              value={n.date}
+              lang={i18n.language}
+              onChange={(d) => onChange({ ...value, alt_names: alt.map((x, j) => (j === i ? { ...x, date: d } : x)) })}
             />
-            <Input
-              className="w-20"
-              value={n.lang ?? ''}
-              placeholder={t('place.lang')}
-              aria-label={t('place.lang')}
-              onChange={(e) => onChange({ ...value, alt_names: alt.map((x, j) => (j === i ? { ...x, lang: e.target.value } : x)) })}
-            />
-            <RowActions index={i} length={alt.length} onRemove={() => onChange({ ...value, alt_names: alt.filter((_, j) => j !== i) })} />
           </div>
         ))}
         <div>
@@ -174,11 +198,25 @@ export function PlaceForm({ value, onChange }: FormProps) {
 
       <FormSection title={t('more')} collapsible defaultOpen={false}>
         <Grid>
+          <TextField
+            label={t('place.nameLang')}
+            value={value.name?.lang}
+            onChange={(v) => onChange({ ...value, name: { _class: 'PlaceName', value: '', ...value.name, lang: v } })}
+          />
+          <DateInput
+            label={t('place.nameDate')}
+            value={value.name?.date}
+            lang={i18n.language}
+            onChange={(d) => onChange({ ...value, name: { _class: 'PlaceName', value: '', ...value.name, date: d } })}
+          />
+        </Grid>
+        <Grid>
           <TextField label={t('place.code')} value={value.code} onChange={(v) => onChange({ ...value, code: v })} hint={t('place.codeHint')} />
           <TextField label={t('place.title')} value={value.title} onChange={(v) => onChange({ ...value, title: v })} hint={t('place.titleHint')} />
         </Grid>
       </FormSection>
       <UrlsField value={value.urls ?? []} onChange={(v) => onChange({ ...value, urls: v })} />
+      <MediaRefsField value={value.media_list ?? []} onChange={(v) => onChange({ ...value, media_list: v })} />
       <CommonFields value={value} onChange={onChange} />
     </div>
   )
@@ -279,6 +317,7 @@ export function SourceForm({ value, onChange }: FormProps) {
         )}
       </FormSection>
       <AttributesField category="source_attribute_types" value={value.attribute_list ?? []} onChange={(v) => onChange({ ...value, attribute_list: v })} />
+      <MediaRefsField value={value.media_list ?? []} onChange={(v) => onChange({ ...value, media_list: v })} />
       <CommonFields value={value} onChange={onChange} citations={false} />
     </div>
   )
@@ -334,6 +373,7 @@ export function CitationForm({ value, onChange }: FormProps) {
         </Grid>
       </section>
       <AttributesField category="source_attribute_types" value={value.attribute_list ?? []} onChange={(v) => onChange({ ...value, attribute_list: v })} />
+      <MediaRefsField value={value.media_list ?? []} onChange={(v) => onChange({ ...value, media_list: v })} />
       <CommonFields value={value} onChange={onChange} citations={false} />
     </div>
   )
@@ -351,6 +391,7 @@ export function RepositoryForm({ value, onChange }: FormProps) {
           <TypeCombobox category="repository_types" value={value.type} onChange={(v) => onChange({ ...value, type: v })} />
         </Field>
       </section>
+      <AddressesField value={value.address_list ?? []} onChange={(v) => onChange({ ...value, address_list: v })} />
       <UrlsField value={value.urls ?? []} onChange={(v) => onChange({ ...value, urls: v })} />
       <CommonFields value={value} onChange={onChange} citations={false} />
     </div>
@@ -361,26 +402,10 @@ export function RepositoryForm({ value, onChange }: FormProps) {
 
 export function NoteForm({ value, onChange }: FormProps) {
   const { t } = useTranslation('editor')
-  const hasMarkup = (value.text?.tags ?? []).length > 0
-  const [original] = useState(value.text?.string ?? '')
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-4">
-        <Field label={t('note.text')} hint={hasMarkup ? t('note.markupHint') : undefined}>
-          <Textarea
-            value={value.text?.string ?? ''}
-            rows={14}
-            autoFocus={!value.text?.string}
-            className={cn('min-h-64', value.format === 1 && 'font-mono text-sm')}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                // formatting ranges no longer match edited text; keep them only while the text is unchanged
-                text: { _class: 'StyledText', string: e.target.value, tags: e.target.value === original ? value.text?.tags ?? [] : [] },
-              })
-            }
-          />
-        </Field>
+        <NoteTextField value={value} onChange={onChange} />
         <Grid>
           <Field label={t('note.type')}>
             <TypeCombobox category="note_types" value={value.type} onChange={(v) => onChange({ ...value, type: v })} />
@@ -404,7 +429,6 @@ export function MediaForm({ value, onChange }: FormProps) {
   const qc = useQueryClient()
   const input = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
-  const [bust, setBust] = useState(0)
   const replace = async (file: File) => {
     setBusy(true)
     try {
@@ -416,7 +440,6 @@ export function MediaForm({ value, onChange }: FormProps) {
       const n = tx.find((e) => e.new?.handle === value.handle)?.new
       if (n) onChange({ ...value, path: n.path, mime: n.mime, checksum: n.checksum })
       invalidateAfterWrite(qc, ['media'])
-      setBust(Date.now())
       toast.success(t('media.replaced'))
     } catch (e) {
       toast.error(t('media.replaceFailed'), { description: (e as Error).message })
@@ -430,7 +453,7 @@ export function MediaForm({ value, onChange }: FormProps) {
       {value.gramps_id && (
         <section className="flex items-center gap-4">
           <div className="size-24 shrink-0 overflow-hidden rounded-lg border bg-muted">
-            {isImage && <img src={`${mediaThumbUrl(value.handle, 200, { square: true })}&v=${bust}`} alt="" className="size-full object-cover" />}
+            {isImage && <img src={`${mediaThumbUrl(value.handle, 200, { square: true })}${value.checksum ? `&checksum=${value.checksum}` : ''}`} alt="" className="size-full object-cover" />}
           </div>
           <div className="min-w-0 flex-1 text-sm">
             <p className="truncate text-muted-foreground">{value.path}</p>
@@ -456,6 +479,7 @@ export function MediaForm({ value, onChange }: FormProps) {
         <DateInput label={t('date')} value={value.date} onChange={(d) => onChange({ ...value, date: d })} lang={i18n.language} />
       </section>
       <AttributesField value={value.attribute_list ?? []} onChange={(v) => onChange({ ...value, attribute_list: v })} />
+      {isImage && value.gramps_id && <MapOverlayField value={value} onChange={onChange} />}
       <CommonFields value={value} onChange={onChange} />
     </div>
   )
