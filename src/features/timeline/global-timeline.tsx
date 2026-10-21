@@ -184,12 +184,30 @@ export function GlobalTimeline() {
   const focusEvent = params.get('event')
   const focused = useRef<string | null>(null)
   useEffect(() => {
-    if (!focusEvent || focused.current === focusEvent || !rows.length) return
+    if (!focusEvent || focused.current === focusEvent || !q.data) return
     const idx = rows.findIndex((r) => r.kind === 'event' && r.ev.gramps_id === focusEvent)
-    if (idx < 0) return
+    if (idx < 0) {
+      // hidden by a filter: clear the filters so the event shows (undated events never show)
+      if (!q.data.some((e) => e.gramps_id === focusEvent)) return
+      if (scopeKind || activeTypes.length || range) {
+        setTypes([])
+        setRange(null)
+        if (scopeKind)
+          setParams(
+            (prev) => {
+              const next = new URLSearchParams(prev)
+              ;['ofk', 'of', 'mode'].forEach((k) => next.delete(k))
+              return next
+            },
+            { replace: true },
+          )
+      }
+      return
+    }
     focused.current = focusEvent
     v.scrollToIndex(idx, { align: 'center' })
-  }, [focusEvent, rows, v])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusEvent, rows, v, q.data])
 
   const jumpTo = (decade: number) => {
     const idx = rows.findIndex((r) => r.kind === 'decade' && r.decade === decade)

@@ -792,3 +792,39 @@ export function SearchIndexStatus() {
     </p>
   )
 }
+
+/* ---------------- database schema upgrade ---------------- */
+
+/** True when the tree's database schema is older than the server needs. */
+export function useSchemaOutdated() {
+  const { data: meta } = useMetadata()
+  const db = meta?.database as { schema?: string; actual_schema?: number | string } | undefined
+  if (!db?.actual_schema || !db.schema) return false
+  return parseInt(String(db.actual_schema), 10) < parseInt(db.schema.split('.')[0], 10)
+}
+
+export function UpgradeBlock() {
+  const { t } = useTranslation('settings')
+  const qc = useQueryClient()
+  const outdated = useSchemaOutdated()
+  const task = useTask()
+  if (!outdated && task.phase === 'idle') return null
+  const run = () =>
+    task
+      .start((signal) => api('/trees/-/migrate', { method: 'POST', signal }))
+      .then(() => qc.invalidateQueries())
+      .catch((e) => {
+        if ((e as Error)?.name !== 'AbortError') toast.error(taskErrorText(t, e))
+      })
+  return (
+    <SettingsBlock title={t('upgrade.title')} description={t('upgrade.description')}>
+      <div className="grid max-w-md gap-3">
+        <Button onClick={run} disabled={task.running || !outdated}>
+          {task.running && <Loader2 className="animate-spin" />}
+          {t('upgrade.run')}
+        </Button>
+        <TaskStatusLine phase={task.phase} progress={task.progress} error={task.error} runningLabel={t('upgrade.running')} successLabel={t('upgrade.done')} />
+      </div>
+    </SettingsBlock>
+  )
+}

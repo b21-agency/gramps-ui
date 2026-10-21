@@ -348,4 +348,11 @@ export default {
     typeToConfirm: 'Type “{{word}}” to confirm',
     confirm: 'Delete records',
   },
+  upgrade: {
+    title: 'Database upgrade',
+    description: 'The family tree database uses an older format. Upgrade it so the server can work with it. Make a backup or export first.',
+    run: 'Upgrade database',
+    running: 'Upgrading the database…',
+    done: 'Database upgraded',
+  },
 }

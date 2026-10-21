@@ -27,4 +27,9 @@ export default {
     newFamily: 'Add a family',
     import: 'Import a family tree',
   },
+  maintenance: {
+    reindex: 'The search index is empty, so search finds nothing. Rebuild it in the administration settings.',
+    upgrade: 'The family tree database needs an upgrade before it can be edited safely.',
+    open: 'Open administration',
+  },
 }

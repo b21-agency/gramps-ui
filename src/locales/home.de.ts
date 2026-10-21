@@ -27,4 +27,9 @@ export default {
     newFamily: 'Familie hinzufügen',
     import: 'Stammbaum importieren',
   },
+  maintenance: {
+    reindex: 'Der Suchindex ist leer, deshalb findet die Suche nichts. Bau ihn in den Verwaltungs-Einstellungen neu auf.',
+    upgrade: 'Die Datenbank des Stammbaums muss aktualisiert werden, bevor sie sicher bearbeitet werden kann.',
+    open: 'Verwaltung öffnen',
+  },
 }

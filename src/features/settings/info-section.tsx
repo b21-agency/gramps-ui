@@ -125,7 +125,7 @@ export function InfoSection() {
       <SettingsBlock title={t('info.database')}>
         <dl className="divide-y">
           <Row label={t('info.dbName')}>{(db.name as string) ?? '–'}</Row>
-          {tree && (
+          {tree && tree !== db.id && (
             <Row label={t('info.treeId')}>
               <code className="text-xs">{tree}</code>
             </Row>

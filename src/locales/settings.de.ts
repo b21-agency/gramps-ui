@@ -350,4 +350,11 @@ export default {
     typeToConfirm: 'Tippe „{{word}}“ zur Bestätigung',
     confirm: 'Einträge löschen',
   },
+  upgrade: {
+    title: 'Datenbank-Aktualisierung',
+    description: 'Die Datenbank des Stammbaums nutzt ein älteres Format. Aktualisiere sie, damit der Server damit arbeiten kann. Mach vorher eine Sicherung oder einen Export.',
+    run: 'Datenbank aktualisieren',
+    running: 'Datenbank wird aktualisiert…',
+    done: 'Datenbank aktualisiert',
+  },
 }

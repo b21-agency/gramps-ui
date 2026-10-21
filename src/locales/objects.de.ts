@@ -89,4 +89,5 @@ export default {
     pickCorner: 'Linke obere Ecke auf der Karte wählen',
     remove: 'Von der Karte entfernen',
   },
+  showOnTimeline: 'In der Zeitleiste zeigen',
 }

@@ -89,4 +89,5 @@ export default {
     pickCorner: 'Choose the top-left corner on the map',
     remove: 'Remove from the map',
   },
+  showOnTimeline: 'Show on timeline',
 }

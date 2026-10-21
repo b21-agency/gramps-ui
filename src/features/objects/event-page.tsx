@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { CalendarDays, MapPin, UsersRound } from 'lucide-react'
+import { CalendarDays, ChartGantt, MapPin, UsersRound } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { PersonChip } from '@/components/person-chip'
 import { Portrait } from '@/components/portrait'
 import { ErrorState } from '@/components/states'
@@ -68,7 +69,21 @@ export function EventPage() {
 
   return (
     <PageFrame>
-      <ObjectToolbar kind="event" object={event} title={title} onSaved={() => q.refetch()} />
+      <ObjectToolbar
+        kind="event"
+        object={event}
+        title={title}
+        onSaved={() => q.refetch()}
+        extra={
+          event.date?.sortval ? (
+            <Button asChild variant="ghost" size="icon" className="max-md:size-11" aria-label={t('showOnTimeline')} title={t('showOnTimeline')}>
+              <Link to={`/timeline?event=${event.gramps_id}`}>
+                <ChartGantt />
+              </Link>
+            </Button>
+          ) : undefined
+        }
+      />
 
       <ObjectTitle
         title={title}

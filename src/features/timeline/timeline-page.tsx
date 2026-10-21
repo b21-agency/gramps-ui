@@ -19,7 +19,7 @@ export function TimelinePage() {
   const { t } = useTranslation(['timeline', 'common'])
   const [params, setParams] = useSearchParams()
   const [home] = useHomePerson()
-  const personId = params.get('person') ?? (params.get('view') === 'all' ? null : home)
+  const personId = params.get('person') ?? (params.get('view') === 'all' || params.has('event') || params.has('ofk') ? null : home)
 
   const q = useObjectById<Person>('person', personId ?? undefined, {
     keys: 'handle,gramps_id,profile,media_list',

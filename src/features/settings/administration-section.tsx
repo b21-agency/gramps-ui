@@ -40,6 +40,7 @@ import {
   MediaStatusBlock,
   ResearcherBlock,
   SearchIndexStatus,
+  UpgradeBlock,
   UsageBlock,
   VerifyBlock,
 } from './admin-extra'
@@ -48,6 +49,7 @@ export function AdministrationSection() {
   const { can } = useAuth()
   return (
     <div className="space-y-10">
+      {can('UpgradeSchema') && <UpgradeBlock />}
       {can('EditTree') && <TreeNameBlock />}
       <ResearcherBlock />
       <UsageBlock />

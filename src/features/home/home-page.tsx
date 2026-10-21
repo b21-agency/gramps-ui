@@ -20,6 +20,7 @@ import { describeObject, kindIcon, objectPath } from '@/lib/objects'
 import { profileName, timeAgo, yearOf } from '@/lib/format'
 import type { EventProfile, GEvent, MediaRef, ObjectKind, PersonProfile, SearchHit, Source } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
+import { useSchemaOutdated } from '@/features/settings/admin-extra'
 
 export function HomePage() {
   const { t } = useTranslation('home')
@@ -49,6 +50,7 @@ export function HomePage() {
         )}
       </header>
 
+      <MaintenanceNotice />
       <TreeHomeNote />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
@@ -415,3 +417,24 @@ function ArchiveCounts() {
   )
 }
 
+
+/** Owners see when the search index is empty or the database needs an upgrade. */
+function MaintenanceNotice() {
+  const { t } = useTranslation('home')
+  const { can } = useAuth()
+  const { data: meta } = useMetadata()
+  const outdated = useSchemaOutdated()
+  if (!meta) return null
+  const objects = Object.values(meta.object_counts).reduce((a, b) => a + (b ?? 0), 0)
+  const reindex = can('TriggerReindex') && objects > 0 && (meta.search?.sifts?.count ?? 0) === 0
+  const upgrade = can('UpgradeSchema') && outdated
+  if (!reindex && !upgrade) return null
+  return (
+    <div role="status" className="mb-6 flex flex-col gap-3 rounded-xl border border-brass/50 bg-brass/10 p-4 sm:flex-row sm:items-center">
+      <p className="min-w-0 flex-1 text-sm">{upgrade ? t('maintenance.upgrade') : t('maintenance.reindex')}</p>
+      <Button asChild size="sm" variant="outline">
+        <Link to="/settings/administration">{t('maintenance.open')}</Link>
+      </Button>
+    </div>
+  )
+}

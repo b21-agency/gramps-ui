@@ -157,20 +157,16 @@ export function MapOverlayField({ value, onChange }: { value: AnyObj; onChange: 
   }
 
   const edge = (label: string, i: 0 | 1, j: 0 | 1) => (
-    <Field label={label}>
-      <Input
-        inputMode="decimal"
-        value={bounds ? String(bounds[i][j]) : ''}
-        disabled={!bounds}
-        onChange={(e) => {
-          const n = parseFloat(e.target.value.replace(',', '.'))
-          if (!bounds || !Number.isFinite(n)) return
-          const b = bounds.map((p) => [...p]) as Bounds
-          b[i][j] = n
-          set(b)
-        }}
-      />
-    </Field>
+    <EdgeInput
+      label={label}
+      value={bounds ? bounds[i][j] : null}
+      onCommit={(n) => {
+        if (!bounds) return
+        const b = bounds.map((p) => [...p]) as Bounds
+        b[i][j] = n
+        set(b)
+      }}
+    />
   )
 
   return (
@@ -199,5 +195,32 @@ export function MapOverlayField({ value, onChange }: { value: AnyObj; onChange: 
       )}
       {bounds && !picking && <OverlayMap handle={value.handle} bounds={bounds} />}
     </FormSection>
+  )
+}
+
+/** Coordinate input that keeps the typed text and applies it when left (or on Enter). */
+function EdgeInput({ label, value, onCommit }: { label: string; value: number | null; onCommit: (n: number) => void }) {
+  const [text, setText] = useState(value == null ? '' : String(value))
+  const [last, setLast] = useState(value)
+  if (value !== last) {
+    setLast(value)
+    setText(value == null ? '' : String(value))
+  }
+  const commit = () => {
+    const n = parseFloat(text.replace(',', '.'))
+    if (Number.isFinite(n) && n !== value) onCommit(n)
+    else setText(value == null ? '' : String(value))
+  }
+  return (
+    <Field label={label}>
+      <Input
+        inputMode="decimal"
+        value={text}
+        disabled={value == null}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), commit())}
+      />
+    </Field>
   )
 }
