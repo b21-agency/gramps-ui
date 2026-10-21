@@ -72,7 +72,7 @@ export const navGroups: Array<{ key: string; items: NavItem[] }> = [
       { to: '/reports', key: 'reports', icon: FileText },
       { to: '/export', key: 'export', icon: FileDown },
       { to: '/import', key: 'import', icon: FileUp, permission: 'ImportFile' },
-      { to: '/revisions', key: 'revisions', icon: GitCommitHorizontal },
+      { to: '/revisions', key: 'revisions', icon: GitCommitHorizontal, permission: 'ViewPrivate' },
       { to: '/settings', key: 'settings', icon: Settings },
     ],
   },
