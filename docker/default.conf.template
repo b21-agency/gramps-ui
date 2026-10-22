@@ -12,6 +12,7 @@ server {
     include /etc/nginx/mime.types;
     types {
         text/javascript mjs;
+        application/manifest+json webmanifest;
     }
 
     gzip on;
