@@ -1,7 +1,6 @@
 import { lazy, Suspense, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,22 +23,21 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/states'
-import { api } from '@/lib/api'
+import { useGetObjectQuery } from '@/api/enhanced/objects'
+import { unwrapApi, useDeleteObjectDeferredMutation, useEditableObjectQuery, useInvalidateOnUnmount } from '@/api/enhanced/editor'
 import { useAuth } from '@/lib/auth'
 import { describeObject, objectPath } from '@/lib/objects'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { endpointOf, type ObjectKind } from '@/lib/types'
+import type { ObjectKind } from '@/lib/types'
 import {
-  deleteObject,
-  endpointsOfTx,
   errorMessage,
-  invalidateAfterWrite,
   listPathOf,
   toWritable,
   undoTransaction,
   extendedObjects,
   type AnyObj,
+  type Transaction,
 } from './lib'
 
 const ObjectEditor = lazy(async () => ({ default: (await import('./object-editor')).ObjectEditor }))
@@ -190,15 +188,9 @@ function EditSheetBody({
   onSaved: () => void
 }) {
   const { t } = useTranslation(['editor', 'common'])
-  const endpoint = endpointOf[kind]
-  const q = useQuery({
-    queryKey: ['editor', endpoint, handle],
-    staleTime: Infinity,
-    gcTime: 0,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    queryFn: () => api<AnyObj>(`/${endpoint}/${handle}`, { query: { extend: 'all' } }),
-  })
+  // uncached snapshot, never refetched while the form is open (see editableObject)
+  const eq = useEditableObjectQuery({ kind, handle }, { refetchOnReconnect: false, refetchOnMountOrArgChange: true })
+  const q = { ...eq, data: eq.data as AnyObj | undefined }
   const title = q.data ? describeObject(kind, q.data).title : ''
   return (
     <>
@@ -258,35 +250,33 @@ export function DeleteDialog({
   onOpenChange: (o: boolean) => void
 }) {
   const { t } = useTranslation(['editor', 'common'])
-  const qc = useQueryClient()
+  const invalidateLater = useInvalidateOnUnmount()
+  const [deleteObject] = useDeleteObjectDeferredMutation()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const title = describeObject(kind, object).title || object.gramps_id
   // a place that still encloses other places can't be deleted (they would point nowhere)
-  const encloses = useQuery({
-    queryKey: ['places', 'encloses', object.handle],
-    enabled: open && kind === 'place',
-    staleTime: 0,
-    queryFn: async () =>
-      ((await api<AnyObj>(`/places/${object.handle}`, { query: { backlinks: true, keys: 'backlinks' } })).backlinks?.place ?? []).length > 0,
-  })
-  const blocked = kind === 'place' && !!encloses.data
+  const encloses = useGetObjectQuery(
+    { kind: 'place', handle: object.handle, query: { backlinks: true, keys: 'backlinks' } },
+    { skip: !(open && kind === 'place'), refetchOnMountOrArgChange: true },
+  )
+  const blocked = kind === 'place' && ((encloses.data?.backlinks as { place?: string[] } | undefined)?.place ?? []).length > 0
   const run = async () => {
     setBusy(true)
     try {
-      const tx = await deleteObject(kind, object.handle)
+      const { tx } = await unwrapApi(deleteObject({ kind, handle: object.handle }))
       onOpenChange(false)
-      // leave the page first so the deleted record isn't refetched
+      // leave the page first: refreshed once this page is gone, so the deleted record isn't refetched
+      invalidateLater(tx)
       navigate(listPathOf[kind])
-      setTimeout(() => invalidateAfterWrite(qc, [kind, ...endpointsOfTx(tx)]), 0)
       toast.success(t('editor:delete.done', { name: title }), {
         duration: 10_000,
         action: {
           label: t('editor:undo'),
           onClick: async () => {
             try {
-              const back = await undoTransaction(tx)
-              invalidateAfterWrite(qc, [kind, ...endpointsOfTx(back)])
+              // the undo mutation invalidates the restored objects itself
+              await undoTransaction(tx as Transaction)
               toast.success(t('editor:delete.restored'))
               navigate(objectPath(kind, object.gramps_id))
             } catch (e) {

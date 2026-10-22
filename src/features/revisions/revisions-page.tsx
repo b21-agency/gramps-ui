@@ -1,11 +1,11 @@
 import { Link, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { ChevronLeft, ChevronRight, History, ShieldOff, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Page } from '@/components/app-shell'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
-import { apiRaw } from '@/lib/api'
+import { useTransactionHistoryPageQuery } from '@/api/enhanced/revisions'
 import { useAuth } from '@/lib/auth'
 import { formatTimestamp, timeAgo } from '@/lib/format'
 import { useTitle } from '@/hooks/use-title'
@@ -52,17 +52,8 @@ function RevisionsList() {
   const objCls = params.get('class')
   const objHandle = params.get('handle')
   const { data: maps } = useTypeMaps()
-  const q = useQuery({
-    enabled: !(objCls && objHandle),
-    queryKey: ['transactions', 'history', 'list', page],
-    placeholderData: keepPreviousData,
-    queryFn: async () => {
-      const r = await apiRaw<Transaction[]>('/transactions/history/', {
-        query: { sort: '-id', page, pagesize: PAGE_SIZE, old: 1, new: 1 },
-      })
-      return { items: r.data, total: r.total ?? r.data.length }
-    },
-  })
+  // `data` keeps the previous page while the next one loads
+  const q = useTransactionHistoryPageQuery(objCls && objHandle ? skipToken : { page, pagesize: PAGE_SIZE })
   const pages = q.data ? Math.max(1, Math.ceil(q.data.total / PAGE_SIZE)) : 1
   const go = (p: number) => {
     setParams(p > 1 ? { page: String(p) } : {})

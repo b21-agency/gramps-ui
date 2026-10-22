@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowLeft, BookOpen, Ellipsis, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -21,7 +20,7 @@ import { ErrorState } from '@/components/states'
 import { NoteHtml } from '@/components/note-html'
 import { refThumbUrl } from '@/components/portrait'
 import { Gallery, useNotesHtml } from '@/components/detail/sections'
-import { api } from '@/lib/api'
+import { useInvalidateOnUnmount } from '@/api/enhanced/editor'
 import { useAuth, useAccessToken } from '@/lib/auth'
 import { useObjectById } from '@/lib/queries'
 import { useRecordVisit } from '@/lib/prefs'
@@ -30,7 +29,7 @@ import { useTitle } from '@/hooks/use-title'
 import { BlogPostEditor } from './blog-post-editor'
 import { blogProse, postDate, withInlineImages } from './prose'
 import { inlineImageHandles, type StyledTag } from './styled-text'
-import { invalidateSources } from './tagged-source'
+import { deleteTaggedSource } from './tagged-source'
 
 type Post = Source & { extended?: Source['extended'] & { notes?: Note[] } }
 
@@ -40,7 +39,7 @@ export function BlogPostPage() {
   const { can } = useAuth()
   useAccessToken()
   const navigate = useNavigate()
-  const qc = useQueryClient()
+  const invalidateLater = useInvalidateOnUnmount()
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -63,9 +62,8 @@ export function BlogPostPage() {
         post={post}
         onCancel={() => setEditing(false)}
         onSaved={() => {
+          // the save invalidated the post and its note; both refetch on their own
           setEditing(false)
-          void q.refetch()
-          void notes.refetch()
         }}
       />
     )
@@ -75,15 +73,11 @@ export function BlogPostPage() {
   const remove = async () => {
     setDeleting(true)
     try {
-      await api(`/sources/${post.handle}`, { method: 'DELETE' })
       // the text note belongs to the post unless something else links to it
-      if (firstNote) {
-        const n = await api<{ backlinks?: Record<string, string[]> }>(`/notes/${firstNote}`, { query: { backlinks: true } })
-        const others = Object.values(n.backlinks ?? {}).flat().length
-        if (others === 0) await api(`/notes/${firstNote}`, { method: 'DELETE' })
-      }
-      invalidateSources(qc)
+      const tx = await deleteTaggedSource(post.handle, firstNote)
       toast.success(t('delete.done'))
+      // refreshed once this page is gone, so the deleted post isn't refetched
+      invalidateLater(tx)
       navigate('/blog')
     } catch (e) {
       toast.error((e as Error).message)

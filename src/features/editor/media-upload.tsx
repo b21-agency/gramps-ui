@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CircleAlert, CircleCheck, FileImage, Loader2, Upload, X } from 'lucide-react'
 import { Page } from '@/components/app-shell'
@@ -15,7 +14,9 @@ import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
 import { DateInput } from './date-input'
 import { Field } from './fields'
-import { errorMessage, invalidateAfterWrite, putObject, type AnyObj, type Transaction } from './lib'
+import { invalidateTransaction } from '@/api/enhanced/editor'
+import { useAppDispatch } from '@/store'
+import { errorMessage, putObject, type AnyObj, type Transaction } from './lib'
 import { addMediaRef } from './relations'
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -89,7 +90,7 @@ function uploadRaw(file: File, onProgress: (p: number) => void): Promise<Transac
 export function MediaUpload() {
   const { t } = useTranslation(['editor', 'common'])
   const navigate = useNavigate()
-  const qc = useQueryClient()
+  const dispatch = useAppDispatch()
   const [params] = useSearchParams()
   const input = useRef<HTMLInputElement>(null)
   const [items, setItems] = useState<Item[]>([])
@@ -123,6 +124,8 @@ export function MediaUpload() {
       patch(it.key, { status: 'uploading', progress: 0, error: undefined })
       try {
         const tx = await uploadRaw(it.file, (p) => patch(it.key, { progress: p }))
+        // binary upload bypasses RTK: refresh what it touched (the later writes invalidate themselves)
+        dispatch(invalidateTransaction(tx))
         const media: AnyObj | undefined = tx.find((e) => e._class === 'Media' && e.new)?.new ?? tx[0]?.new ?? undefined
         if (!media) throw new Error('no media in response')
         patch(it.key, { status: 'saving', progress: 1 })
@@ -137,7 +140,6 @@ export function MediaUpload() {
         patch(it.key, { status: 'error', error: errorMessage(e) })
       }
     }
-    invalidateAfterWrite(qc, ['media', 'person'])
     setRunning(false)
     if (ok) toast.success(t('editor:media.uploaded', { count: ok }))
     const pending = items.filter((x) => x.status !== 'done').length

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowLeft, BookOpen, ChevronDown, CircleCheck, Ellipsis, Loader2, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,14 +18,14 @@ import {
 } from '@/components/ui/alert-dialog'
 import { ErrorState } from '@/components/states'
 import { DetailSection, Gallery, NotesList } from '@/components/detail/sections'
-import { api } from '@/lib/api'
+import { useInvalidateOnUnmount } from '@/api/enhanced/editor'
 import { useAuth } from '@/lib/auth'
 import { useObjectById } from '@/lib/queries'
 import { useRecordVisit } from '@/lib/prefs'
 import { useTitle } from '@/hooks/use-title'
 import { TagList } from '@/components/tag-list'
 import type { Tag } from '@/lib/types'
-import { invalidateSources } from '@/features/blog/tagged-source'
+import { deleteTaggedSource } from '@/features/blog/tagged-source'
 import { PriorityBadge, StatusIcon, taskPriority, taskStatus, useUpdateTask, type Task } from './task-model'
 import { StatusMenu } from './tasks-page'
 import { TaskEditor } from './task-editor'
@@ -36,7 +35,7 @@ export function TaskPage() {
   const { t } = useTranslation('tasks')
   const { can } = useAuth()
   const navigate = useNavigate()
-  const qc = useQueryClient()
+  const invalidateLater = useInvalidateOnUnmount()
   const update = useUpdateTask()
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -56,8 +55,7 @@ export function TaskPage() {
         task={task}
         onCancel={() => setEditing(false)}
         onSaved={() => {
-          setEditing(false)
-          void q.refetch()
+          setEditing(false) // the save invalidated the task; it refetches on its own
         }}
       />
     )
@@ -70,7 +68,6 @@ export function TaskPage() {
     setBusy(true)
     try {
       await update(task, { Status: done ? 'Open' : 'Done' })
-      await q.refetch()
     } catch {
       /* toast shown */
     } finally {
@@ -81,13 +78,10 @@ export function TaskPage() {
   const remove = async () => {
     setBusy(true)
     try {
-      await api(`/sources/${task.handle}`, { method: 'DELETE' })
-      if (descNote) {
-        const n = await api<{ backlinks?: Record<string, string[]> }>(`/notes/${descNote}`, { query: { backlinks: true } })
-        if (Object.values(n.backlinks ?? {}).flat().length === 0) await api(`/notes/${descNote}`, { method: 'DELETE' })
-      }
-      invalidateSources(qc)
+      const tx = await deleteTaggedSource(task.handle, descNote)
       toast.success(t('delete.done'))
+      // refreshed once this page is gone, so the deleted task isn't refetched
+      invalidateLater(tx)
       navigate('/tasks')
     } catch (e) {
       toast.error((e as Error).message)
@@ -142,7 +136,6 @@ export function TaskPage() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <StatusMenu
             task={task}
-            onChanged={() => void q.refetch()}
             trigger={(s, pending) => (
               <Button variant="outline" size="sm" disabled={pending}>
                 {pending ? <Loader2 className="animate-spin" /> : <StatusIcon status={s} />}

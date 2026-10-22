@@ -1,41 +1,21 @@
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useInfiniteQuery } from '@tanstack/react-query'
 import { Feather, Loader2, PenLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Page } from '@/components/app-shell'
 import { EmptyState, ErrorState } from '@/components/states'
 import { refThumbUrl } from '@/components/portrait'
-import { apiRaw } from '@/lib/api'
+import { useBlogPostsInfiniteQuery, type BlogPost } from '@/api/enhanced/blog'
 import { apiLocale } from '@/i18n'
 import { useAuth, useAccessToken } from '@/lib/auth'
-import type { Note, Source } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
-import { BLOG_TAG, excerpt, postDate } from './prose'
+import { excerpt, postDate } from './prose'
 
-type Post = Source & { extended?: { notes?: Note[] } }
-const PAGE_SIZE = 12
+type Post = BlogPost
 
 function useBlogPosts() {
-  return useInfiniteQuery({
-    queryKey: ['sources', 'blog', 'posts', apiLocale()],
-    initialPageParam: 1,
-    queryFn: async ({ pageParam }) => {
-      const r = await apiRaw<Post[]>('/sources/', {
-        query: {
-          rules: JSON.stringify({ rules: [{ name: 'HasTag', values: [BLOG_TAG] }] }),
-          sort: '-change',
-          extend: 'note_list',
-          page: pageParam,
-          pagesize: PAGE_SIZE,
-          locale: apiLocale(),
-        },
-      })
-      return { items: r.data, total: r.total ?? r.data.length, page: pageParam }
-    },
-    getNextPageParam: (last) => (last.page * PAGE_SIZE < last.total ? last.page + 1 : undefined),
-  })
+  return useBlogPostsInfiniteQuery({ locale: apiLocale() })
 }
 
 function bodyOf(post: Post) {

@@ -1,18 +1,18 @@
 import { lazy, Suspense, useMemo, useState, type ComponentType } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
 import { Lock, UserRoundPlus } from 'lucide-react'
 import { Page, PageSkeleton } from '@/components/app-shell'
 import { EmptyState, ErrorState } from '@/components/states'
-import { api } from '@/lib/api'
+import { useGetObjectQuery } from '@/api/enhanced/objects'
 import { useAuth } from '@/lib/auth'
 import { describeObject, objectPath } from '@/lib/objects'
 import { surnameOf } from '@/lib/format'
 import type { ObjectKind } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
-import { emptyName, emptyObject, endpointsOfTx, errorMessage, invalidateAfterWrite, txGrampsId, type AnyObj, type Transaction } from './lib'
+import { emptyName, emptyObject, errorMessage, txGrampsId, type AnyObj, type Transaction } from './lib'
 import { ObjectEditor } from './object-editor'
 import { addChild, addChildToFamily, addEventRef, addParent, addPartner, addSibling } from './relations'
 import { MediaUpload } from './media-upload'
@@ -62,7 +62,6 @@ const RELATION_PARAMS: RelationParam[] = ['childOf', 'childOfPerson', 'parentOf'
 function NewObjectForm({ kind }: { kind: ObjectKind }) {
   const { t } = useTranslation(['editor', 'common'])
   const navigate = useNavigate()
-  const qc = useQueryClient()
   const { can } = useAuth()
   const [params] = useSearchParams()
   const what = t(`common:object.${kind}`)
@@ -75,14 +74,11 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
   const eventOwner = kind === 'event' ? (params.get('person') ? 'person' : params.get('family') ? 'family' : null) : null
   const eventOwnerHandle = eventOwner ? params.get(eventOwner)! : null
 
-  const related = useQuery({
-    queryKey: ['editor', 'related', relKind, relHandle ?? eventOwnerHandle],
-    enabled: !!(relHandle || eventOwnerHandle),
-    queryFn: () =>
-      api<AnyObj>(`/${(eventOwner ?? relKind) === 'family' ? 'families' : 'people'}/${relHandle ?? eventOwnerHandle}`, {
-        query: { extend: 'all', profile: 'self' },
-      }),
-  })
+  const relatedHandle = relHandle ?? eventOwnerHandle
+  const relatedQ = useGetObjectQuery(
+    relatedHandle ? { kind: eventOwner ?? relKind, handle: relatedHandle, query: { extend: 'all', profile: 'self' } } : skipToken,
+  )
+  const related = { ...relatedQ, data: relatedQ.data as AnyObj | undefined }
 
   // participants of a new event: the person/family it was started from, plus any added in the form
   const [participants, setParticipants] = useState<Participant[]>(() =>
@@ -149,7 +145,6 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
     } catch (e) {
       toast.error(t('editor:linkFailed'), { description: errorMessage(e) })
     }
-    invalidateAfterWrite(qc, ['person', 'family', ...endpointsOfTx(extra)])
     const id = txGrampsId(tx, obj.handle)
     toast.success(t('editor:created', { what }))
     if (id) navigate(objectPath(kind, id), { replace: true })

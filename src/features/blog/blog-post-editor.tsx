@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Bold, Image as ImageIcon, ImagePlus, Images, Italic, Link2, Loader2, Star, TriangleAlert, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,7 +14,6 @@ import { NoteHtml } from '@/components/note-html'
 import { EmptyState } from '@/components/states'
 import { refThumbUrl } from '@/components/portrait'
 import { useCurrentUser } from '@/components/user-menu'
-import { api } from '@/lib/api'
 import { useAuth, useAccessToken } from '@/lib/auth'
 import { usePref } from '@/lib/prefs'
 import { useTags } from '@/lib/queries'
@@ -25,13 +23,14 @@ import { cn } from '@/lib/utils'
 import { useTitle } from '@/hooks/use-title'
 import {
   ensureTag,
-  invalidateSources,
+  createObject,
+  postObjects,
+  updateObject,
   newHandle,
   txnObject,
   uploadMedia,
   writableNote,
   writableSource,
-  type TxnEntry,
 } from './tagged-source'
 import { BLOG_TAG, blogProse, markdownishToHtml } from './prose'
 import { hasUnsupportedStyling, parseMarkdownish, toMarkdownish, type StyledTag } from './styled-text'
@@ -73,7 +72,6 @@ export function BlogPostEditor({
   const { t } = useTranslation('blog')
   const { can } = useAuth()
   const navigate = useNavigate()
-  const qc = useQueryClient()
   const { data: me } = useCurrentUser()
   useAccessToken()
   useTitle(post ? t('editor.editTitle') : t('editor.newTitle'))
@@ -201,26 +199,23 @@ export function BlogPostEditor({
       if (!post) {
         const n = newHandle()
         const s = newHandle()
-        const txn = await api<TxnEntry[]>('/objects/', {
-          method: 'POST',
-          json: [
-            { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'General', private: isPrivate, tag_list: tagList },
-            {
-              _class: 'Source',
-              handle: s,
-              title: title.trim(),
-              author: author.trim(),
-              pubinfo: '',
-              abbrev: '',
-              note_list: [n],
-              tag_list: tagList,
-              media_list,
-              attribute_list: [],
-              reporef_list: [],
-              private: isPrivate,
-            },
-          ],
-        })
+        const txn = await postObjects([
+          { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'General', private: isPrivate, tag_list: tagList },
+          {
+            _class: 'Source',
+            handle: s,
+            title: title.trim(),
+            author: author.trim(),
+            pubinfo: '',
+            abbrev: '',
+            note_list: [n],
+            tag_list: tagList,
+            media_list,
+            attribute_list: [],
+            reporef_list: [],
+            private: isPrivate,
+          },
+        ])
         grampsId = txnObject<Source>(txn, 'Source', s)!.gramps_id
         setDraft(null)
       } else {
@@ -228,21 +223,26 @@ export function BlogPostEditor({
         if (note) {
           const bodyChanged = body.trim() !== initialBody.trim()
           if (bodyChanged || !!note.private !== isPrivate)
-            await api(`/notes/${note.handle}`, {
-              method: 'PUT',
-              json: { ...writableNote(note, bodyChanged ? text : (note.text as typeof text)), private: isPrivate },
+            await updateObject('note', note.handle, {
+              ...writableNote(note, bodyChanged ? text : (note.text as typeof text)),
+              private: isPrivate,
             })
         } else if (body.trim()) {
           const n = newHandle()
-          await api('/notes/', {
-            method: 'POST',
-            json: { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'General', private: isPrivate, tag_list: tagList },
+          await createObject('note', {
+            _class: 'Note',
+            handle: n,
+            text: { _class: 'StyledText', ...text },
+            type: 'General',
+            private: isPrivate,
+            tag_list: tagList,
           })
           noteList.unshift(n)
         }
-        await api(`/sources/${post.handle}`, {
-          method: 'PUT',
-          json: writableSource(post, {
+        await updateObject(
+          'source',
+          post.handle,
+          writableSource(post, {
             title: title.trim(),
             author: author.trim(),
             note_list: noteList,
@@ -250,10 +250,10 @@ export function BlogPostEditor({
             private: isPrivate,
             media_list: media_list as unknown as MediaRef[],
           }),
-        })
+        )
         grampsId = post.gramps_id
       }
-      invalidateSources(qc)
+      // every write above went through an RTK mutation and invalidated what it touched
       toast.success(post ? t('editor.saved') : t('editor.published'))
       if (onSaved) onSaved(grampsId)
       else navigate(`/blog/${grampsId}`)

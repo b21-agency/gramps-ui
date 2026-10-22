@@ -64,17 +64,21 @@ export function writableNote(note: Note, text: { string: string; tags: unknown[]
 
 /* ---------- writes (RTK mutations: each invalidates what its transaction touched) ---------- */
 
+/** Unwrap a write: a mutable copy of the transaction (RTK results are frozen). */
+const txOf = (p: { unwrap(): Promise<unknown> }) =>
+  unwrapApi(p).then((r) => (Array.isArray(r) ? [...r] : []) as TxnEntry[])
+
 export function createObject(kind: ObjectKind | 'tag', body: Record<string, unknown>) {
-  return unwrapApi(store.dispatch(objectsApi.endpoints.createObject.initiate({ kind, body }))) as Promise<TxnEntry[]>
+  return txOf(store.dispatch(objectsApi.endpoints.createObject.initiate({ kind, body })))
 }
 
 export function updateObject(kind: ObjectKind | 'tag', handle: string, body: Record<string, unknown>) {
-  return unwrapApi(store.dispatch(objectsApi.endpoints.updateObject.initiate({ kind, handle, body }))) as Promise<TxnEntry[]>
+  return txOf(store.dispatch(objectsApi.endpoints.updateObject.initiate({ kind, handle, body })))
 }
 
 /** Several linked objects in one atomic transaction (POST /objects/). */
 export function postObjects(objects: Array<Record<string, unknown>>) {
-  return unwrapApi(store.dispatch(objectsApi.endpoints.createObjects.initiate(objects))) as Promise<TxnEntry[]>
+  return txOf(store.dispatch(objectsApi.endpoints.createObjects.initiate(objects)))
 }
 
 /**
@@ -84,7 +88,7 @@ export function postObjects(objects: Array<Record<string, unknown>>) {
  */
 export async function deleteTaggedSource(sourceHandle: string, noteHandle?: string): Promise<TxnEntry[]> {
   const del = (kind: ObjectKind, handle: string) =>
-    unwrapApi(store.dispatch(editorApi.endpoints.deleteObjectDeferred.initiate({ kind, handle }))).then((r) => r.tx as TxnEntry[])
+    unwrapApi(store.dispatch(editorApi.endpoints.deleteObjectDeferred.initiate({ kind, handle }))).then((r) => [...r.tx] as TxnEntry[]) // copy: RTK results are frozen
   const tx = await del('source', sourceHandle)
   if (noteHandle) {
     const n = (await unwrapApi(

@@ -160,10 +160,12 @@ export function emptyObject(kind: ObjectKind): AnyObj {
 
 const dispatch = store.dispatch
 
+/** Unwrap a write: a mutable copy of the transaction (RTK results are frozen; callers append to them). */
+const txOf = (p: { unwrap(): Promise<unknown> }) =>
+  unwrapApi(p).then((r) => (Array.isArray(r) ? [...r] : []) as Transaction)
+
 export function putObject(kind: ObjectKind, obj: AnyObj) {
-  return unwrapApi(
-    dispatch(objectsApi.endpoints.updateObject.initiate({ kind, handle: obj.handle, body: toWritable(kind, obj) })),
-  ) as Promise<Transaction>
+  return txOf(dispatch(objectsApi.endpoints.updateObject.initiate({ kind, handle: obj.handle, body: toWritable(kind, obj) })))
 }
 
 /** Create several objects atomically (POST /objects/). */
@@ -171,15 +173,15 @@ export function createObjects(objs: AnyObj[]) {
   // families last: the server updates the members' family lists, so they must exist first
   const sorted = [...objs.filter((o) => o._class !== 'Family'), ...objs.filter((o) => o._class === 'Family')]
   const clean = sorted.map((o) => toWritable(kindOfClass[o._class], o))
-  return unwrapApi(dispatch(objectsApi.endpoints.createObjects.initiate(clean))) as Promise<Transaction>
+  return txOf(dispatch(objectsApi.endpoints.createObjects.initiate(clean)))
 }
 
 export function deleteObject(kind: ObjectKind, handle: string) {
-  return unwrapApi(dispatch(objectsApi.endpoints.deleteObject.initiate({ kind, handle }))) as Promise<Transaction>
+  return txOf(dispatch(objectsApi.endpoints.deleteObject.initiate({ kind, handle })))
 }
 
 export function undoTransaction(tx: Transaction) {
-  return unwrapApi(dispatch(objectsApi.endpoints.undoTransaction.initiate(tx as unknown as RtkTxEntry[]))) as Promise<Transaction>
+  return txOf(dispatch(objectsApi.endpoints.undoTransaction.initiate(tx as unknown as RtkTxEntry[])))
 }
 
 /** Fetch a raw writable copy of an object (no profile/extend), always fresh from the server. */

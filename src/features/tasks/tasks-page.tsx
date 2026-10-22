@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
 import { CheckSquare, ChevronDown, ListChecks, Loader2, Plus, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -14,7 +13,7 @@ import { ResponsiveMenu } from '@/components/responsive-menu'
 import { Page } from '@/components/app-shell'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { useDebounced } from '@/components/command-search'
-import { apiRaw } from '@/lib/api'
+import { useGetObjectsQuery } from '@/api/enhanced/objects'
 import { apiLocale } from '@/i18n'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
@@ -35,22 +34,19 @@ import {
 } from './task-model'
 
 function useTasks() {
-  return useQuery({
-    queryKey: ['sources', 'tasks', apiLocale()],
-    queryFn: async () => {
-      const r = await apiRaw<Task[]>('/sources/', {
-        query: {
-          rules: JSON.stringify({ rules: [{ name: 'HasTag', values: [TODO_TAG] }] }),
-          extend: 'note_list,tag_list',
-          sort: '-gramps_id',
-          page: 1,
-          pagesize: 1000,
-          locale: apiLocale(),
-        },
-      })
-      return r.data
+  // provides the Sources list tag: any task write refreshes it
+  const r = useGetObjectsQuery({
+    kind: 'source',
+    query: {
+      rules: JSON.stringify({ rules: [{ name: 'HasTag', values: [TODO_TAG] }] }),
+      extend: 'note_list,tag_list',
+      sort: '-gramps_id',
+      page: 1,
+      pagesize: 1000,
+      locale: apiLocale(),
     },
   })
+  return { ...r, data: r.data?.items as Task[] | undefined }
 }
 
 /** Tags of a task other than ToDo. */

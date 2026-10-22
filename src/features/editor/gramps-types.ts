@@ -1,7 +1,8 @@
 // Gramps type vocabularies (event types, roles, ...) with translated labels.
 import { useCallback, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useGetTypesQuery } from '@/api/metadata-api-slice.gen'
+import { useEditorTypeTranslationsQuery } from '@/api/enhanced/editor'
 import { apiLocale } from '@/i18n'
 
 interface TypesResponse {
@@ -31,28 +32,14 @@ export const customKeys: Record<string, string[]> = {
 
 export function useGrampsTypes() {
   const lang = apiLocale()
-  const types = useQuery({
-    queryKey: ['types', 'all'],
-    queryFn: () => api<TypesResponse>('/types/'),
-    staleTime: 10 * 60_000,
-  })
+  const typesQ = useGetTypesQuery({})
+  const types = { ...typesQ, data: typesQ.data as TypesResponse | undefined }
   const strings = useMemo(() => {
     const all = new Set<string>()
     for (const list of Object.values(types.data?.default ?? {})) list.forEach((s) => all.add(s))
     return [...all].sort()
   }, [types.data])
-  const translations = useQuery({
-    queryKey: ['types', 'translations', lang, strings.length],
-    enabled: lang !== 'en' && strings.length > 0,
-    staleTime: Infinity,
-    queryFn: async () => {
-      const res = await api<Array<{ original: string; translation: string }>>(`/translations/${lang}`, {
-        method: 'POST',
-        json: { strings },
-      })
-      return Object.fromEntries(res.map((r) => [r.original, r.translation])) as Record<string, string>
-    },
-  })
+  const translations = useEditorTypeTranslationsQuery(lang !== 'en' && strings.length > 0 ? { lang, strings } : skipToken)
   const tr = translations.data
   const label = useCallback((s: string) => (s && tr?.[s]) || s, [tr])
   const options = useCallback(

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
 import { ArrowLeft, ShieldOff, TriangleAlert, Undo2 } from 'lucide-react'
 import type { TFunction } from 'i18next'
@@ -18,7 +18,15 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Page } from '@/components/app-shell'
 import { EmptyState, ErrorState } from '@/components/states'
-import { api } from '@/lib/api'
+import { api } from '@/api'
+import {
+  useGetTransactionHistoryQuery,
+  useGetTransactionUndoQuery,
+  usePostTransactionUndoMutation,
+} from '@/api/transactions-api-slice.gen'
+import { unwrapApi } from '@/api/enhanced/editor'
+import { DERIVED, type TagType } from '@/api/enhanced/tags'
+import { useAppDispatch } from '@/store'
 import { useAuth } from '@/lib/auth'
 import { formatTimestamp, timeAgo } from '@/lib/format'
 import { objectPath } from '@/lib/objects'
@@ -44,6 +52,9 @@ import {
 } from './history'
 import { ClassIcon, LeafValue } from './parts'
 
+/** An undo can touch any object (and may run as a background task): refresh all tree data. */
+const TREE_DATA_TAGS: TagType[] = ['People', 'Families', 'Events', 'Places', 'Sources', 'Citations', 'Repositories', 'Notes', 'Media', 'Tags', ...DERIVED]
+
 export function RevisionPage() {
   const { t } = useTranslation('revisions')
   const { can } = useAuth()
@@ -64,11 +75,8 @@ function RevisionDetail() {
   const { t, i18n } = useTranslation('revisions')
   const { can } = useAuth()
   const { data: maps } = useTypeMaps()
-  const q = useQuery({
-    queryKey: ['transactions', 'history', 'detail', id],
-    queryFn: () => api<Transaction>(`/transactions/history/${id}`, { query: { old: 1, new: 1 } }),
-  })
-  const tx = q.data
+  const q = useGetTransactionHistoryQuery(id ? { transactionId: Number(id), old: true, new: true } : skipToken)
+  const tx = q.data as Transaction | undefined
   const summary = tx ? summarize(tx, maps, t) : null
   useTitle(summary?.headline ?? t('title'))
 
@@ -225,28 +233,27 @@ function FieldList({ obj, maps, t }: { obj: ReturnType<typeof asObject>; maps?: 
 
 function UndoButton({ id }: { id: number }) {
   const { t } = useTranslation('revisions')
-  const qc = useQueryClient()
+  const dispatch = useAppDispatch()
   const [open, setOpen] = useState(false)
   const task = useTask<unknown>()
-  const check = useQuery({
-    queryKey: ['transactions', 'history', 'undo-check', id],
-    enabled: open,
-    staleTime: 0,
-    gcTime: 0,
-    queryFn: () => api<UndoCheck>(`/transactions/history/${id}/undo`),
-  })
+  const [postUndo] = usePostTransactionUndoMutation()
+  // fresh check every time the dialog opens
+  const checkQ = useGetTransactionUndoQuery(open ? { transactionId: id } : skipToken, { refetchOnMountOrArgChange: true })
+  const check = { ...checkQ, data: checkQ.data as UndoCheck | undefined }
   const conflicts = check.data?.conflicts ?? []
   const force = !!check.data && !check.data.can_undo_without_force
 
   const run = async () => {
     try {
-      await task.start((signal) =>
-        api(`/transactions/history/${id}/undo`, { method: 'POST', query: { force: force ? 1 : undefined }, signal }),
-      )
+      await task.start((signal) => {
+        const req = postUndo({ transactionId: id, force: force || undefined })
+        signal?.addEventListener('abort', () => req.abort())
+        return unwrapApi(req)
+      })
       toast.success(t('undo.success'))
       setOpen(false)
       task.reset()
-      void qc.invalidateQueries()
+      dispatch(api.util.invalidateTags(TREE_DATA_TAGS))
     } catch (e) {
       if ((e as DOMException)?.name === 'AbortError') return
       const msg = String((e as Error)?.message ?? '')

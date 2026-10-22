@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronRight, Loader2, UserRoundPlus, UserRoundSearch, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -27,7 +26,7 @@ import { useAuth } from '@/lib/auth'
 import { personName, profileName } from '@/lib/format'
 import type { FamilyProfile, Person } from '@/lib/types'
 import { qs } from '@/lib/api'
-import { endpointsOfTx, errorMessage, invalidateAfterWrite, type Transaction } from './lib'
+import { errorMessage } from './lib'
 import { addChild, addChildToFamily, addParent, addPartner, addSibling } from './relations'
 
 type Rel = 'father' | 'mother' | 'partner' | 'child' | 'sibling' | 'familyChild'
@@ -51,7 +50,6 @@ export function AddRelativeMenu({ person, className }: { person: Person; classNa
   const { t } = useTranslation('editor')
   const { can } = useAuth()
   const navigate = useNavigate()
-  const qc = useQueryClient()
   const [target, setTarget] = useState<LinkTarget | null>(null)
   const [busy, setBusy] = useState(false)
   const isMobile = useIsMobile()
@@ -77,13 +75,12 @@ export function AddRelativeMenu({ person, className }: { person: Person; classNa
   const link = async (rel: Rel, other: string, familyHandle?: string) => {
     setBusy(true)
     try {
-      let tx: Transaction = []
-      if (rel === 'father' || rel === 'mother') tx = await addParent(person.handle, other)
-      if (rel === 'partner') tx = await addPartner(person.handle, other)
-      if (rel === 'child') tx = await addChild(person.handle, other, familyHandle)
-      if (rel === 'sibling') tx = await addSibling(person.handle, other)
-      if (rel === 'familyChild') tx = await addChildToFamily(other, person.handle)
-      invalidateAfterWrite(qc, ['person', 'family', ...endpointsOfTx(tx)])
+      // the relation helpers write through RTK mutations, which refresh the touched objects
+      if (rel === 'father' || rel === 'mother') await addParent(person.handle, other)
+      if (rel === 'partner') await addPartner(person.handle, other)
+      if (rel === 'child') await addChild(person.handle, other, familyHandle)
+      if (rel === 'sibling') await addSibling(person.handle, other)
+      if (rel === 'familyChild') await addChildToFamily(other, person.handle)
       toast.success(t(`relatives.linked.${rel}`))
       setTarget(null)
     } catch (e) {

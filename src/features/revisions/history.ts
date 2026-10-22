@@ -1,7 +1,6 @@
 // Change history (undo log) of the Gramps Web API: types, readable values, field-level diff.
-import { useQuery } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
-import { api } from '@/lib/api'
+import { useTypeMapsQuery } from '@/api/enhanced/revisions'
 import { displayName } from '@/lib/format'
 import { normalizeKind } from '@/lib/objects'
 import type { Name, ObjectKind } from '@/lib/types'
@@ -84,23 +83,7 @@ export type TypeMaps = Record<string, Record<string, string>>
 
 /** Value → English name maps for all Gramps default types (fetched once per session). */
 export function useTypeMaps() {
-  return useQuery({
-    queryKey: ['types', 'default', 'maps'],
-    staleTime: Infinity,
-    gcTime: Infinity,
-    queryFn: async () => {
-      const entries = await Promise.all(
-        Object.values(typeDatatype).map(async (dt) => {
-          try {
-            return [dt, await api<Record<string, string>>(`/types/default/${dt}/map`)] as const
-          } catch {
-            return [dt, {}] as const
-          }
-        }),
-      )
-      return Object.fromEntries(entries) as TypeMaps
-    },
-  })
+  return useTypeMapsQuery()
 }
 
 interface RawTyped {

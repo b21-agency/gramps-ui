@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { ObjectKind } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { EditorSessionProvider, useEditorSession } from './session'
-import { endpointsOfTx, errorMessage, invalidateAfterWrite, type AnyObj, type Transaction } from './lib'
+import { errorMessage, type AnyObj, type Transaction } from './lib'
 import { ObjectForm, finalizeObject, validateObject } from './forms'
 
 export interface ObjectEditorProps {
@@ -53,7 +52,6 @@ function EditorInner({
 }: ObjectEditorProps) {
   const { t } = useTranslation(['editor', 'common'])
   const session = useEditorSession()
-  const qc = useQueryClient()
   const [base] = useState(initial)
   const [draft, setDraft] = useState(initial)
   const [saving, setSaving] = useState(false)
@@ -71,8 +69,8 @@ function EditorInner({
     setSaving(true)
     try {
       const obj = finalizeObject(kind, draft, session)
+      // session.save writes through RTK mutations: the touched objects refresh on their own
       const tx = await session.save(kind, obj, mode)
-      invalidateAfterWrite(qc, [kind, ...endpointsOfTx(tx)])
       await onSaved(tx, obj)
     } catch (e) {
       const msg = errorMessage(e)

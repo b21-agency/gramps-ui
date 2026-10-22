@@ -1,6 +1,5 @@
 import { lazy, Suspense, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Map as MapIcon, Plus, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,8 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api, mediaThumbUrl } from '@/lib/api'
+import { invalidateTransaction } from '@/api/enhanced/editor'
+import type { TxEntry } from '@/api/enhanced/tags'
+import { useAppDispatch } from '@/store'
 import { useAccessToken } from '@/lib/auth'
-import { type AnyObj, invalidateAfterWrite } from '../lib'
+import type { AnyObj } from '../lib'
 import { DateInput } from '../date-input'
 import { AddressesField } from '../address-field'
 import { MediaRefsField } from '../media-field'
@@ -426,20 +428,21 @@ export function NoteForm({ value, onChange }: FormProps) {
 export function MediaForm({ value, onChange }: FormProps) {
   const { t, i18n } = useTranslation('editor')
   useAccessToken()
-  const qc = useQueryClient()
+  const dispatch = useAppDispatch()
   const input = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const replace = async (file: File) => {
     setBusy(true)
     try {
-      const tx = await api<Array<{ new: AnyObj }>>(`/media/${value.handle}/file`, {
+      // binary body: raw fetch, then invalidate what the transaction touched
+      const tx = await api<Array<TxEntry & { new: AnyObj }>>(`/media/${value.handle}/file`, {
         method: 'PUT',
         body: file,
         headers: { 'Content-Type': file.type || 'application/octet-stream' },
       })
       const n = tx.find((e) => e.new?.handle === value.handle)?.new
       if (n) onChange({ ...value, path: n.path, mime: n.mime, checksum: n.checksum })
-      invalidateAfterWrite(qc, ['media'])
+      dispatch(invalidateTransaction(tx))
       toast.success(t('media.replaced'))
     } catch (e) {
       toast.error(t('media.replaceFailed'), { description: (e as Error).message })

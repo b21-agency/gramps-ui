@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ImagePlus, Images, Loader2, X } from 'lucide-react'
 import { ObjectPicker } from '@/components/object-picker'
@@ -15,19 +14,19 @@ import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { EmptyState } from '@/components/states'
 import { useCurrentUser } from '@/components/user-menu'
-import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import type { MediaRef, Source } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
 import {
   ensureTag,
-  invalidateSources,
+  createObject,
+  postObjects,
+  updateObject,
   newHandle,
   txnObject,
   uploadMedia,
   writableNote,
   writableSource,
-  type TxnEntry,
 } from '@/features/blog/tagged-source'
 import { parseMarkdownish, toMarkdownish, type StyledTag } from '@/features/blog/styled-text'
 import {
@@ -60,7 +59,6 @@ export function TaskEditor({
   const { t } = useTranslation('tasks')
   const { can } = useAuth()
   const navigate = useNavigate()
-  const qc = useQueryClient()
   const { data: me } = useCurrentUser()
   useTitle(task ? t('editor.editTitle') : t('editor.newTitle'))
 
@@ -157,28 +155,33 @@ export function TaskEditor({
             _class: 'SrcAttribute',
           })),
         })
-        const txn = await api<TxnEntry[]>('/objects/', { method: 'POST', json: objects })
+        const txn = await postObjects(objects as Array<Record<string, unknown>>)
         grampsId = txnObject<Source>(txn, 'Source', s)!.gramps_id
       } else {
         const noteList = [...(task.note_list ?? [])]
         if (note) {
           const bodyChanged = body.trim() !== initialBody.trim()
           if (bodyChanged || !!note.private !== isPrivate)
-            await api(`/notes/${note.handle}`, {
-              method: 'PUT',
-              json: { ...writableNote(note, bodyChanged ? text : (note.text as typeof text)), private: isPrivate },
+            await updateObject('note', note.handle, {
+              ...writableNote(note, bodyChanged ? text : (note.text as typeof text)),
+              private: isPrivate,
             })
         } else if (body.trim()) {
           const n = newHandle()
-          await api('/notes/', {
-            method: 'POST',
-            json: { _class: 'Note', handle: n, text: { _class: 'StyledText', ...text }, type: 'To Do', private: isPrivate, tag_list: tagList },
+          await createObject('note', {
+            _class: 'Note',
+            handle: n,
+            text: { _class: 'StyledText', ...text },
+            type: 'To Do',
+            private: isPrivate,
+            tag_list: tagList,
           })
           noteList.unshift(n)
         }
-        await api(`/sources/${task.handle}`, {
-          method: 'PUT',
-          json: writableSource(task, {
+        await updateObject(
+          'source',
+          task.handle,
+          writableSource(task, {
             title: title.trim(),
             note_list: noteList,
             tag_list: tagList,
@@ -186,10 +189,10 @@ export function TaskEditor({
             media_list: mediaList() as unknown as MediaRef[],
             attribute_list: withAttrs(task, { Status: status, Priority: priority }),
           }),
-        })
+        )
         grampsId = task.gramps_id
       }
-      invalidateSources(qc)
+      // every write above went through an RTK mutation and invalidated what it touched
       toast.success(task ? t('editor.saved') : t('editor.created'))
       if (onSaved) onSaved(grampsId)
       else navigate(`/task/${grampsId}`)

@@ -1,7 +1,6 @@
 // Shared form widgets for the object editors.
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   ArrowDown,
@@ -33,7 +32,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ObjectSearchList } from '@/components/object-picker'
 import { tagColor } from '@/components/tag-list'
-import { api } from '@/lib/api'
+import { useCreateObjectMutation } from '@/api/enhanced/objects'
+import { unwrapApi } from '@/api/enhanced/editor'
 import { useObjectByHandle, useTags } from '@/lib/queries'
 import { describeObject, kindIcon } from '@/lib/objects'
 import { personName, typeStr } from '@/lib/format'
@@ -318,7 +318,7 @@ const TAG_COLORS = ['#7a8f3f', '#b08a3e', '#a8553a', '#4f7a8a', '#7a5a8a', '#5a5
 export function TagsField({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const { t } = useTranslation('editor')
   const tags = useTags()
-  const qc = useQueryClient()
+  const [createObject] = useCreateObjectMutation()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
@@ -333,8 +333,9 @@ export function TagsField({ value, onChange }: { value: string[]; onChange: (v: 
     setCreating(true)
     try {
       const color = TAG_COLORS[all.length % TAG_COLORS.length]
-      const tx = await api<Array<{ handle: string }>>('/tags/', { method: 'POST', json: { _class: 'Tag', name, color, priority: all.length } })
-      await qc.invalidateQueries({ queryKey: ['tags'] })
+      // invalidates the tag list itself (Tags LIST from the transaction)
+      const tx = await unwrapApi(createObject({ kind: 'tag', body: { _class: 'Tag', name, color, priority: all.length } }))
+      await tags.refetch() // show the new tag as selected right away
       const h = tx[0]?.handle
       if (h) onChange([...value, h])
       setQ('')

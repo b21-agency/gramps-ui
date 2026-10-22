@@ -1,12 +1,13 @@
 // Tasks are Sources tagged "ToDo" with SrcAttributes "Status" and "Priority" (1 = highest … 9).
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Circle, CircleCheck, CircleDot, CircleSlash } from 'lucide-react'
-import { api } from '@/lib/api'
+import { objectsApi, useUpdateObjectMutation } from '@/api/enhanced/objects'
+import { unwrapApi } from '@/api/enhanced/editor'
+import { useAppDispatch } from '@/store'
 import type { Attribute, Note, Source } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { invalidateSources, writableSource } from '@/features/blog/tagged-source'
+import { writableSource } from '@/features/blog/tagged-source'
 
 export const TODO_TAG = 'ToDo'
 export const STATUSES = ['Open', 'In Progress', 'Blocked', 'Done'] as const
@@ -97,26 +98,31 @@ export function PriorityBadge({ priority, className, quiet }: { priority: number
 /** PUT the task with new Status/Priority; toast with undo for status moves. */
 export function useUpdateTask() {
   const { t } = useTranslation('tasks')
-  const qc = useQueryClient()
+  const dispatch = useAppDispatch()
+  const [updateObject] = useUpdateObjectMutation()
+  // the mutation invalidates the task (and the task list) from its transaction
   const put = (task: Source, patch: { Status?: string; Priority?: string }) =>
-    api(`/sources/${task.handle}`, {
-      method: 'PUT',
-      json: writableSource(task, { attribute_list: withAttrs(task, patch) }),
-    })
+    unwrapApi(
+      updateObject({
+        kind: 'source',
+        handle: task.handle,
+        body: writableSource(task, { attribute_list: withAttrs(task, patch) }),
+      }),
+    )
   return async (task: Source, patch: { Status?: TaskStatus; Priority?: string }, opts: { undo?: boolean } = {}) => {
     const before = { Status: taskStatus(task), Priority: String(taskPriority(task)) }
     try {
       await put(task, patch)
-      invalidateSources(qc)
       if (patch.Status && opts.undo !== false)
         toast.success(t('movedTo', { status: t(`status.${patch.Status}`) }), {
           action: {
             label: t('undo'),
             onClick: async () => {
               // re-read: the PUT changed `change`, and the server wants the full current object
-              const fresh = await api<Source>(`/sources/${task.handle}`)
+              const fresh = (await unwrapApi(
+                dispatch(objectsApi.endpoints.getObject.initiate({ kind: 'source', handle: task.handle }, { subscribe: false, forceRefetch: true })),
+              )) as unknown as Source
               await put(fresh, { Status: before.Status })
-              invalidateSources(qc)
             },
           },
         })
