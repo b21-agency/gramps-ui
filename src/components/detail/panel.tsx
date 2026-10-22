@@ -1,9 +1,11 @@
+import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Portrait } from '@/components/portrait'
 import { lifespan, profileName } from '@/lib/format'
 import type { EventProfile, MediaRef, PersonProfile } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { NameTooltip } from '@/components/name-tooltip'
 
 /** Album panel: a rounded card surface with a serif title and an optional action. */
 export function Panel({
@@ -22,7 +24,7 @@ export function Panel({
   id?: string
 }) {
   return (
-    <section id={id} className={cn('min-w-0 scroll-mt-24 rounded-3xl bg-card p-5 sm:p-6', className)}>
+    <section id={id} className={cn('flex min-w-0 scroll-mt-24 flex-col rounded-3xl bg-card p-5 sm:p-6', className)}>
       <div className="mb-4 flex items-baseline gap-2">
         <h2 className="font-serif text-2xl font-medium">{title}</h2>
         {count != null && <span className="text-sm tabular-nums text-muted-foreground">{count}</span>}
@@ -97,14 +99,15 @@ export function FaceStack({
   return (
     <div className="flex flex-wrap items-center">
       {shown.map((p, i) => (
-        <Link
-          key={`${p.handle}-${i}`}
-          to={`/person/${p.gramps_id}`}
-          title={`${profileName(p)} ${lifespan(p.birth as EventProfile, p.death as EventProfile)}`}
-          className={cn('rounded-full transition-transform duration-150 ease-out hover:z-10 hover:-translate-y-0.5', i > 0 && '-ml-2.5')}
-        >
-          <Portrait mediaRef={portraits.get(p.handle ?? '')} name={profileName(p)} sex={p.sex} size={size} className={cn('ring-[3px]', ring)} />
-        </Link>
+        <NameTooltip key={`${p.handle}-${i}`} name={profileName(p)} detail={lifespan(p.birth as EventProfile, p.death as EventProfile)}>
+          <Link
+            to={`/person/${p.gramps_id}`}
+            aria-label={profileName(p)}
+            className={cn('rounded-full transition-transform duration-150 ease-out hover:z-10 hover:-translate-y-0.5 focus-visible:z-10', i > 0 && '-ml-2.5')}
+          >
+            <Portrait mediaRef={portraits.get(p.handle ?? '')} name={profileName(p)} sex={p.sex} size={size} className={cn('ring-[3px]', ring)} />
+          </Link>
+        </NameTooltip>
       ))}
       {people.length > shown.length && (
         <a
@@ -115,6 +118,17 @@ export function FaceStack({
           +{people.length - shown.length}
         </a>
       )}
+    </div>
+  )
+}
+
+/** Placeholder that fills an otherwise empty card (keeps rows of cards even). */
+export function EmptyCard({ icon: Icon, text, children }: { icon: LucideIcon; text: string; children?: ReactNode }) {
+  return (
+    <div className="flex min-h-40 flex-1 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border px-4 py-8 text-center">
+      <Icon className="size-7 text-muted-foreground/60" aria-hidden />
+      <p className="text-sm text-muted-foreground">{text}</p>
+      {children}
     </div>
   )
 }

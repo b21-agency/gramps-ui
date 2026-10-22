@@ -50,7 +50,7 @@ import {
 export function AdministrationSection() {
   const { can } = useAuth()
   return (
-    <div className="grid gap-6 2xl:grid-cols-2">
+    <div className="grid gap-6 2xl:grid-cols-2 2xl:[&>*:last-child:nth-child(odd)]:col-span-2">
       {can('UpgradeSchema') && <UpgradeBlock />}
       {can('EditTree') && <TreeNameBlock />}
       <ResearcherBlock />

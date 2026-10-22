@@ -69,7 +69,7 @@ export function InfoSection() {
   const deprecations = ((q.data as unknown as { deprecations?: Array<{ option: string; replacement?: string; message?: string; removed_in?: string }> }).deprecations ?? [])
 
   return (
-    <div className="grid gap-6 2xl:grid-cols-2">
+    <div className="grid gap-6 2xl:grid-cols-2 2xl:[&>*:last-child:nth-child(odd)]:col-span-2">
       {!!deprecations.length && (
         <SettingsBlock title={t('info.warnings')} description={t('info.warningsDescription')}>
           <ul className="grid gap-3">

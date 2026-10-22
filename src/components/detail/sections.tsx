@@ -171,13 +171,33 @@ export function NotesList({ handles }: { handles: string[] }) {
               {n.gramps_id}
             </Link>
           </div>
-          <NoteHtml
-            html={n.formatted?.html}
-            text={n.text.string}
-            className={cn('font-serif text-[1.02rem] leading-relaxed', n.format === 1 && 'whitespace-pre-wrap font-mono text-sm')}
-          />
+          <CollapsibleNote long={n.text.string.length > 700 || n.text.string.split('\n').length > 14}>
+            <NoteHtml
+              html={n.formatted?.html}
+              text={n.text.string}
+              className={cn('font-serif text-[1.02rem] leading-relaxed', n.format === 1 && 'whitespace-pre-wrap font-mono text-sm')}
+            />
+          </CollapsibleNote>
         </article>
       ))}
+    </div>
+  )
+}
+
+/** Long notes start collapsed (fade + "Show more") so one note can't stretch a whole row of cards. */
+function CollapsibleNote({ long, children }: { long: boolean; children: ReactNode }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  if (!long) return <>{children}</>
+  return (
+    <div>
+      <div className={cn('relative', !open && 'max-h-64 overflow-hidden')}>
+        {children}
+        {!open && <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card to-transparent" />}
+      </div>
+      <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 min-h-11 text-sm font-medium text-primary hover:underline">
+        {open ? t('actions.showLess') : t('actions.showAll')}
+      </button>
     </div>
   )
 }

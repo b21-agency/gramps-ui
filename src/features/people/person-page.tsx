@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
-import { ChartGantt, Dna, Home, Map as MapIcon, Network, Upload } from 'lucide-react'
+import { Image as ImageIcon, ChartGantt, Dna, Home, Map as MapIcon, Network, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PersonChip } from '@/components/person-chip'
@@ -30,6 +30,7 @@ import { usePortraits } from '@/hooks/use-portraits'
 import { useTitle } from '@/hooks/use-title'
 import { Panel } from '@/components/detail/panel'
 import { AlbumHero, FamilyPanel } from './album-hero'
+import { EmptyCard } from '@/components/detail/panel'
 import { AlbumFrame, AlbumGrid } from '@/features/objects/album'
 import { LifeStory } from './life-story'
 import { ExternalSearch } from './external-search'
@@ -133,7 +134,7 @@ export function PersonPage() {
             }
             extra={
               <>
-              {(person.media_list.length > 0 || canUpload) && (
+              {(
                 <Panel
                   id="gallery"
                   title={t('photosAndDocs')}
@@ -151,7 +152,16 @@ export function PersonPage() {
                   {person.media_list.length > 0 ? (
                     <Gallery refs={person.media_list} media={ext.media} />
                   ) : (
-                    <p className="text-sm text-muted-foreground">{t('noMedia')}</p>
+                    <EmptyCard icon={ImageIcon} text={t('noMedia')}>
+                      {canUpload && (
+                        <Button asChild size="sm" variant="secondary" className="rounded-full">
+                          <Link to={`/new_media${qs({ person: person.handle, personName: name })}`}>
+                            <Upload />
+                            {t('uploadMedia')}
+                          </Link>
+                        </Button>
+                      )}
+                    </EmptyCard>
                   )}
                 </Panel>
               )}

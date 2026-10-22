@@ -136,7 +136,7 @@ function YDnaView({ person }: { person: DnaPerson }) {
       {q.isError && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
       {q.isLoading && <RowsSkeleton rows={4} />}
       {q.data && (
-        <div className="grid gap-6 xl:grid-cols-2">
+        <div className="grid gap-6 xl:grid-cols-2 xl:[&>*:last-child:nth-child(odd)]:col-span-2">
           {leaf ? (
             <section className="min-w-0 rounded-3xl bg-card p-5 sm:p-6">
               <h2 className="mb-2 font-serif text-2xl font-medium">{t('ydna.haplogroup')}</h2>

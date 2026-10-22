@@ -28,36 +28,77 @@ export function AlbumFrame({ children }: { children: ReactNode }) {
  * - lg: narrow left column (aside, then extra) + wide main column
  * - 2xl: three columns: aside | main | extra
  */
+function itemsOf(node: ReactNode) {
+  return Children.toArray(isValidElement(node) && node.type === Fragment ? (node.props as { children?: ReactNode }).children : node)
+}
+
+/**
+ * Content grid below the hero, using the full width, laid out as rows of equal-height cards:
+ * row n holds the n-th card of each column (aside | main | extra). When a column has no card
+ * for a row, its neighbour spans into the free space, so there are no holes.
+ * - phones: one column (row by row)
+ * - lg: two columns (left = aside cards then extra cards, right = main cards)
+ * - 2xl: three columns (aside | main | extra)
+ */
 export function AlbumGrid({ aside, main, extra }: { aside?: ReactNode; main: ReactNode; extra?: ReactNode }) {
-  // columns stretch to the tallest one and their last card grows, so all columns end on one line
-  const col = 'flex min-w-0 flex-col gap-6 [&>*]:min-w-0 lg:[&>*:last-child]:grow'
-  // No explicit third column: keep the first side panel on the left and move the others to
-  // the right-hand column on wide screens (below 2xl both stack in the left column anyway).
-  if (extra === undefined) {
-    const items = Children.toArray(isValidElement(aside) && aside.type === Fragment ? (aside.props as { children?: ReactNode }).children : aside)
-    if (items.length > 1) {
-      aside = items[0]
-      extra = <>{items.slice(1)}</>
+  let A = itemsOf(aside)
+  let E = extra === undefined ? [] : itemsOf(extra)
+  // no explicit third column: the first side card stays left, the others move right on 2xl
+  if (extra === undefined && A.length > 1) {
+    E = A.slice(1)
+    A = A.slice(0, 1)
+  }
+  const M = itemsOf(main)
+  const three = E.length > 0
+  const L = [...A, ...E] // left column below 2xl
+
+  type Cell = { key: string; node: ReactNode; lg: [number, string]; xl: [number, string] }
+  const cells: Cell[] = []
+  const lgFor = (side: 'left' | 'main', row: number): [number, string] => {
+    const other = side === 'left' ? M[row] : L[row]
+    return [row + 1, other ? (side === 'left' ? '1 / 2' : '2 / 3') : '1 / -1']
+  }
+  const rows = Math.max(A.length, M.length, E.length, three ? 0 : L.length)
+  for (let r = 0; r < rows; r++) {
+    if (A[r]) {
+      const xl: [number, string] = three ? [r + 1, `1 / ${M[r] ? 2 : E[r] ? 3 : -1}`] : lgFor('left', r)
+      cells.push({ key: `a${r}`, node: A[r], lg: lgFor('left', r), xl })
+    }
+    if (M[r]) {
+      const xl: [number, string] = three ? [r + 1, `${A[r] ? 2 : 1} / ${E[r] ? 3 : -1}`] : lgFor('main', r)
+      cells.push({ key: `m${r}`, node: M[r], lg: lgFor('main', r), xl })
+    }
+    if (E[r]) {
+      const li = A.length + r
+      cells.push({ key: `e${r}`, node: E[r], lg: lgFor('left', li), xl: [r + 1, `${M[r] ? 3 : A[r] ? 2 : 1} / -1`] })
     }
   }
-  const hasExtra =
-    Children.toArray(isValidElement(extra) && extra.type === Fragment ? (extra.props as { children?: ReactNode }).children : extra)
-      .length > 0
+  // left-column cards that sit next to main rows beyond the 2xl rows are already covered by lg placement
+
   return (
     <div
       className={cn(
-        'mt-10 grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr]',
-        extra ? '2xl:grid-cols-[24rem_minmax(0,1fr)_26rem]' : '2xl:grid-cols-[24rem_minmax(0,1fr)]',
-        'lg:has-[>.album-aside:empty]:has-[>.album-extra:empty]:grid-cols-1',
+        'mt-10 grid gap-6',
+        L.length ? 'lg:grid-cols-[22rem_minmax(0,1fr)]' : 'lg:grid-cols-1',
+        three ? '2xl:grid-cols-[24rem_minmax(0,1fr)_26rem]' : L.length ? '2xl:grid-cols-[24rem_minmax(0,1fr)]' : '',
       )}
     >
-      <div className={cn('album-aside empty:hidden lg:col-start-1 lg:row-start-1', hasExtra ? '2xl:row-span-2' : 'lg:row-span-2', col)}>
-        {aside}
-      </div>
-      <div className={cn('lg:col-start-2 lg:row-span-2 lg:row-start-1', col)}>{main}</div>
-      <div className={cn(!hasExtra && 'hidden', 'album-extra empty:hidden lg:col-start-1 lg:row-start-2 2xl:col-start-3 2xl:row-span-2 2xl:row-start-1', col)}>
-        {extra}
-      </div>
+      {cells.map((c) => (
+        <div
+          key={c.key}
+          style={
+            {
+              '--lg-row': c.lg[0],
+              '--lg-col': c.lg[1],
+              '--xl-row': c.xl[0],
+              '--xl-col': c.xl[1],
+            } as React.CSSProperties
+          }
+          className="flex min-w-0 flex-col [&>*]:min-w-0 [&>*]:grow lg:[grid-column:var(--lg-col)] lg:[grid-row:var(--lg-row)] 2xl:[grid-column:var(--xl-col)] 2xl:[grid-row:var(--xl-row)]"
+        >
+          {c.node}
+        </div>
+      ))}
     </div>
   )
 }

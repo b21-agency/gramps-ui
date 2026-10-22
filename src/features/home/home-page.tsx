@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
+import { NameTooltip } from '@/components/name-tooltip'
 import { ArrowRight, CalendarHeart, FileUp, Network, Pencil, UserPlus, UserRound, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -18,7 +19,7 @@ import { apiLocale } from '@/i18n'
 import { useMetadata, useObjectByHandle, useObjectById, useObjectList } from '@/lib/queries'
 import { useHomePerson } from '@/lib/prefs'
 import { describeObject, kindIcon, objectPath } from '@/lib/objects'
-import { initials, isEmpty, profileName, timeAgo, yearOf } from '@/lib/format'
+import { initials, isEmpty, lifespan, profileName, timeAgo, yearOf } from '@/lib/format'
 import type { EventProfile, FamilyProfile, GEvent, MediaRef, ObjectKind, PersonProfile, Source } from '@/lib/types'
 import { usePortraits } from '@/hooks/use-portraits'
 import { useTitle } from '@/hooks/use-title'
@@ -375,14 +376,11 @@ function OnThisDay() {
                   {faces.length ? (
                     <span className="flex shrink-0">
                       {faces.map((p, i) => (
-                        <Portrait
-                          key={p.handle}
-                          mediaRef={portraits.get(p.handle)}
-                          name={profileName(p)}
-                          sex={p.sex}
-                          size={44}
-                          className={cn('ring-[3px] ring-card', i > 0 && '-ml-3')}
-                        />
+                        <NameTooltip key={p.handle} name={profileName(p)} detail={lifespan(p.birth as EventProfile, p.death as EventProfile)}>
+                          <span className={cn('rounded-full', i > 0 && '-ml-3')}>
+                            <Portrait mediaRef={portraits.get(p.handle)} name={profileName(p)} sex={p.sex} size={44} className="ring-[3px] ring-card" />
+                          </span>
+                        </NameTooltip>
                       ))}
                     </span>
                   ) : (

@@ -1,7 +1,8 @@
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { NameTooltip } from '@/components/name-tooltip'
 import { Heart, HeartHandshake, Tag } from 'lucide-react'
-import { profileName } from '@/lib/format'
+import { lifespan, profileName } from '@/lib/format'
 import type { EventProfile, FamilyProfile, PersonProfile } from '@/lib/types'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
@@ -29,8 +30,16 @@ function Partners({ f, sub }: { f: FamilyProfile; sub?: ReactNode }) {
     <RowLead
       visual={
         <span className="flex shrink-0">
-          <HandlePortrait person={father} size={42} />
-          <HandlePortrait person={mother} size={42} className="-ml-1" />
+          <NameTooltip name={names[0] || t('families.unknown')} detail={father ? lifespan(father.birth as EventProfile, father.death as EventProfile) : undefined}>
+            <span className="rounded-full">
+              <HandlePortrait person={father} size={42} />
+            </span>
+          </NameTooltip>
+          <NameTooltip name={names[1] || t('families.unknown')} detail={mother ? lifespan(mother.birth as EventProfile, mother.death as EventProfile) : undefined}>
+            <span className="-ml-1 rounded-full">
+              <HandlePortrait person={mother} size={42} />
+            </span>
+          </NameTooltip>
         </span>
       }
       title={

@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
+import { NameTooltip } from '@/components/name-tooltip'
 import { CalendarDays, ChartGantt, Map as MapIcon, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Portrait } from '@/components/portrait'
@@ -8,7 +9,7 @@ import { ObjectHistory } from '@/components/detail/object-history'
 import { ObjectToolbar } from '@/components/detail/object-header'
 import { FaceRow, FaceStack, Panel } from '@/components/detail/panel'
 import { CitationsList, FactsTable, Gallery, NotesList } from '@/components/detail/sections'
-import { isEmpty, profileName, typeStr, yearOf } from '@/lib/format'
+import { isEmpty, lifespan, profileName, typeStr, yearOf } from '@/lib/format'
 import type { EventProfile, FamilyProfile, GEvent, MediaRef, PersonProfile, Place } from '@/lib/types'
 import { usePortraits } from '@/hooks/use-portraits'
 import { coords, PlaceMap } from './place-map'
@@ -198,7 +199,11 @@ function FamilyChip({
       <span className="flex shrink-0 -space-x-3">
         {partners.length ? (
           partners.map((p) => (
-            <Portrait key={p.handle} mediaRef={portraits.get(p.handle)} name={profileName(p)} sex={p.sex} size={40} className="ring-[3px] ring-card" />
+            <NameTooltip key={p.handle} name={profileName(p)} detail={lifespan(p.birth as EventProfile, p.death as EventProfile)}>
+              <span className="rounded-full">
+                <Portrait mediaRef={portraits.get(p.handle)} name={profileName(p)} sex={p.sex} size={40} className="ring-[3px] ring-card" />
+              </span>
+            </NameTooltip>
           ))
         ) : (
           <span className="flex size-10 items-center justify-center rounded-full bg-secondary">
