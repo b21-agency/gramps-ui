@@ -101,7 +101,7 @@ export function FilterChips({
         ),
       )}
       {anyActive && onClear && (
-        <Button variant="ghost" className="h-10 rounded-full px-4 text-muted-foreground" onClick={onClear}>
+        <Button variant="ghost" className="ml-auto h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-muted-foreground" onClick={onClear}>
           {t('filters.clear')}
         </Button>
       )}

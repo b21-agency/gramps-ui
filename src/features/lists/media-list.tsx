@@ -179,12 +179,22 @@ export function MediaListPage() {
         ctl={ctl}
         noSelect={view !== 'table'}
         extra={
+          <>
+          {/* phones: one button that flips the view, so the search field keeps its width */}
+          <button
+            type="button"
+            onClick={() => ctl.state.setParam('view', view === 'table' ? null : 'table')}
+            aria-label={view === 'table' ? t('media.grid') : t('media.table')}
+            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-muted-foreground active:scale-[0.97] sm:hidden"
+          >
+            {view === 'table' ? <LayoutGrid className="size-5" /> : <List className="size-5" />}
+          </button>
           <ToggleGroup
             type="single"
             value={view}
             onValueChange={(v) => v && ctl.state.setParam('view', v === 'table' ? 'table' : null)}
             aria-label={t('media.view')}
-            className="shrink-0 gap-0.5 rounded-full bg-card p-1"
+            className="shrink-0 gap-0.5 rounded-full bg-card p-1 max-sm:hidden"
           >
             {(
               [
@@ -203,6 +213,7 @@ export function MediaListPage() {
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+          </>
         }
       />
       {view === 'table' ? <VirtualList config={config} ctl={ctl} /> : <MediaGrid ctl={ctl} />}
