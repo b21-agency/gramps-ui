@@ -370,7 +370,7 @@ export function TagsField({ value, onChange }: { value: string[]; onChange: (v: 
           title={t('addTag')}
           className="w-64 p-0"
           trigger={
-            <Button type="button" variant="outline" size="sm">
+            <Button type="button" variant="outline" size="sm" className="rounded-full max-md:h-11 max-md:px-4">
               <Plus /> {t('addTag')}
             </Button>
           }

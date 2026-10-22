@@ -60,7 +60,7 @@ export function PreferencesSection() {
               className="w-full sm:w-auto"
             >
               {themes.map(({ v, icon: Icon }) => (
-                <ToggleGroupItem key={v} value={v} className="flex-1 gap-1.5 px-3 sm:flex-none">
+                <ToggleGroupItem key={v} value={v} className="flex-1 gap-1.5 px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground sm:flex-none">
                   <Icon />
                   {t(`common:theme.${v}`)}
                 </ToggleGroupItem>

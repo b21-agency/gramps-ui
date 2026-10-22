@@ -72,7 +72,7 @@ export function UsersSection() {
 
   return (
     <SettingsBlock
-      title={t('users.title')}
+      title={t('users.accounts')}
       description={t('users.description')}
       action={
         <div className="flex flex-wrap gap-2">

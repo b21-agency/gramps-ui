@@ -44,6 +44,7 @@ export default {
     homePersonMissing: 'Die Person {{id}} wurde nicht gefunden.',
   },
   users: {
+    accounts: 'Konten',
     filter: 'Nach Name oder E-Mail suchen',
     allRoles: 'Alle Rollen',
     noMatch: 'Kein Konto passt zum Filter.',

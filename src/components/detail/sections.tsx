@@ -167,7 +167,7 @@ export function NotesList({ handles }: { handles: string[] }) {
         <article key={n.handle} className="min-w-0 overflow-x-auto rounded-lg border bg-card p-4 [overflow-wrap:anywhere]">
           <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
             <span>{typeStr(n.type)}</span>
-            <Link to={`/note/${n.gramps_id}`} className="ml-auto tabular-nums hover:text-foreground">
+            <Link to={`/note/${n.gramps_id}`} className="-my-2 ml-auto inline-flex min-h-11 items-center px-2 tabular-nums hover:text-foreground">
               {n.gramps_id}
             </Link>
           </div>

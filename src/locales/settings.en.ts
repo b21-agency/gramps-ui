@@ -44,6 +44,7 @@ export default {
     homePersonMissing: 'The person {{id}} could not be found.',
   },
   users: {
+    accounts: 'Accounts',
     filter: 'Search by name or e-mail',
     allRoles: 'All roles',
     noMatch: 'No user matches the filter.',
