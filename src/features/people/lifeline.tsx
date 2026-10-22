@@ -17,7 +17,10 @@ export function Lifeline({
   birth,
   death,
   related = [],
+  middle,
 }: {
+  /** short text between the start and end years, e.g. "married 1875 · 8 children" */
+  middle?: string
   events: Array<{ event?: GEvent; profile: EventProfile }>
   birth?: EventProfile
   death?: EventProfile
@@ -41,7 +44,7 @@ export function Lifeline({
   for (let d = Math.ceil(start / 10) * 10; d < end; d += 10) ticks.push(d)
 
   return (
-    <div className="mt-6" aria-label={`${start} – ${living ? t('living') : end}`}>
+    <div aria-label={`${start} – ${living ? t('living') : end}`}>
       <div className="relative h-10">
         {/* line */}
         <div
@@ -109,6 +112,7 @@ export function Lifeline({
       </div>
       <div className="flex justify-between font-serif text-sm tabular-nums text-muted-foreground">
         <span>{start}</span>
+        {middle && <span className="hidden text-center sm:block">{middle}</span>}
         <span>{living ? t('living') : end}</span>
       </div>
     </div>

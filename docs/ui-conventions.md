@@ -102,3 +102,20 @@ Rules:
 - **Writes**: use mutations (`const [save, { isLoading }] = useUpdateObjectMutation()`; `await save(arg).unwrap()`). Never clear caches by hand; if you must, `dispatch(api.util.invalidateTags([...]))`.
 - Raw `fetch`/`apiRaw` is only allowed for binary streams (file upload body, downloads) and task polling helpers; after such a write dispatch `api.util.invalidateTags(...)`.
 - Errors: RTK errors are `{ status, data }`; `ErrorState` handles them.
+
+## Visual direction (decided 2026-10-22)
+
+Chosen: **B "Family first"** screen designs, plus C's year timeline; shell unchanged.
+
+- Light theme: white ground `#FFFFFF`, soft section ground `#F3F5F4`, ink `#14201B`,
+  moss primary `#2F6B4A` (tint `#EAF2ED`, deep `#1F4D34`), brass `#A9833A` (text `#8A6A28`),
+  muted text `#5B6B64`, hairlines `#E6EBE8`, lineage `#B7C9BE`, story tint `#F8F4EA`.
+- Dark theme (from A): ground `#0E1A16`, surface `#15241F`, raised `#1F322B`, text `#E8EDE9`,
+  muted `#9AAAA2`, moss `#8CBF9B`, brass `#D2AD62`, hairlines `#1F322B`/`#2B4038`.
+- **App shell stays as is** (sidebar, header with search, phone tab bar + "Mehr" sheet). The redesign
+  is per screen only: modernise each page's content area.
+- Person page: family constellation header (parents → person card with brass ring → partner,
+  siblings stack, children row), then three columns: life timeline (years in serif brass), stories,
+  photos. Phone: centred card version (board B phone).
+- Radii: cards 18–24px, chips/buttons 12px, pills 999px. Soft shadow only on the focal card.
+- Names and years in Newsreader; everything else Instrument Sans.

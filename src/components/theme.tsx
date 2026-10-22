@@ -8,9 +8,9 @@ const ThemeContext = createContext<{ theme: Theme; setTheme: (t: Theme) => void 
 
 function stored(): Theme {
   try {
-    return (localStorage.getItem('gw.theme') as Theme) || 'system'
+    return (localStorage.getItem('gw.theme') as Theme) || 'dark'
   } catch {
-    return 'system'
+    return 'dark'
   }
 }
 
@@ -21,7 +21,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const apply = () => {
       const dark = theme === 'dark' || (theme === 'system' && mq.matches)
       document.documentElement.classList.toggle('dark', dark)
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#101a17' : '#f5f6f3')
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0e1a16' : '#f5f6f3')
     }
     apply()
     mq.addEventListener('change', apply)

@@ -1,37 +1,35 @@
+import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
 import { ChartGantt, Dna, Home, Map as MapIcon, Network, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Portrait } from '@/components/portrait'
 import { PersonChip } from '@/components/person-chip'
-import { TagList } from '@/components/tag-list'
 import { ErrorState } from '@/components/states'
 import { ObjectToolbar } from '@/components/detail/object-header'
 import { ObjectHistory } from '@/components/detail/object-history'
 import {
   CitationsList,
-  DetailSection,
-  EventsTable,
   FactsTable,
   Gallery,
   NotesList,
   ReferencesList,
-  SectionNav,
   type EventRow,
 } from '@/components/detail/sections'
-import { api, qs } from '@/lib/api'
+import { qs } from '@/lib/api'
+import { useGetRelationQuery } from '@/api/people-api-slice.gen'
 import { useAuth } from '@/lib/auth'
 import { apiLocale } from '@/i18n'
 import { useObjectById } from '@/lib/queries'
 import { useHomePerson, useRecordVisit } from '@/lib/prefs'
 import { displayName, isEmpty, profileName, typeStr } from '@/lib/format'
-import type { ChildRef, EventProfile, Family, FamilyProfile, Person, PersonProfile } from '@/lib/types'
+import type { ChildRef, EventProfile, Family, FamilyProfile, MediaRef, Person, PersonProfile } from '@/lib/types'
 import { usePortraits } from '@/hooks/use-portraits'
 import { useTitle } from '@/hooks/use-title'
-import { Lifeline } from './lifeline'
+import { AlbumHero, FamilyPanel, Panel } from './album-hero'
+import { LifeStory } from './life-story'
 import { ExternalSearch } from './external-search'
 import { AddRelativeMenu } from '@/features/editor/relationship-actions'
 
@@ -56,238 +54,189 @@ export function PersonPage() {
     event: eventsByHandle.get(ref.ref),
     profile: profile.events?.[i] ?? ({ type: '', date: '', place: '', place_name: '', summary: '' } as EventProfile),
   }))
-  const birth = profile.birth as EventProfile
-  const death = profile.death as EventProfile
   const names = [person.primary_name, ...person.alternate_names]
 
-  const nav = [
-    { id: 'family', label: t('detail:sections.family') },
-    { id: 'events', label: t('detail:sections.events'), count: eventRows.length },
-    person.media_list.length > 0 && { id: 'gallery', label: t('detail:sections.gallery'), count: person.media_list.length },
-    names.length > 1 && { id: 'names', label: t('detail:sections.names'), count: names.length },
-    (person.note_list?.length ?? 0) > 0 && { id: 'notes', label: t('detail:sections.notes'), count: person.note_list!.length },
-    (person.citation_list?.length ?? 0) > 0 && { id: 'sources', label: t('detail:sections.sources'), count: person.citation_list!.length },
-    (person.attribute_list.length || person.urls.length || person.address_list.length) > 0 && { id: 'facts', label: t('detail:sections.facts') },
-    person.person_ref_list.length > 0 && { id: 'associations', label: t('detail:sections.associations'), count: person.person_ref_list.length },
-  ].filter(Boolean) as Array<{ id: string; label: string; count?: number }>
+  const handles: string[] = []
+  const add = (x?: Partial<PersonProfile>) => x?.handle && handles.push(x.handle)
+  const ppf = profile.primary_parent_family as FamilyProfile | undefined
+  if (ppf && !isEmpty(ppf)) {
+    add(ppf.father as PersonProfile)
+    add(ppf.mother as PersonProfile)
+    ppf.children?.forEach(add)
+  }
+  for (const f of profile.families ?? []) {
+    add(f.father as PersonProfile)
+    add(f.mother as PersonProfile)
+    f.children?.forEach(add)
+  }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
       <ObjectToolbar kind="person" object={person} title={name} onSaved={() => q.refetch()} />
 
-      <PersonHero person={person} profile={profile} name={name} birth={birth} death={death} eventRows={eventRows} />
+      <AlbumHero
+        person={person}
+        profile={profile}
+        name={name}
+        eventRows={eventRows}
+        relation={<RelationToHome person={person} />}
+        actions={<PersonActions person={person} profile={profile} />}
+      />
 
-      <SectionNav items={nav} />
+      <PortraitsScope handles={handles}>
+        {(portraits) => (
+          <div className="mt-10 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+            <div className="grid min-w-0 gap-6 [&>*]:min-w-0">
+              <FamilyPanel profile={profile} portraits={portraits} action={<AddRelativeMenu person={person} />} />
 
-      <div className="grid gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-w-0 space-y-10">
-          <DetailSection id="family" title={t('detail:sections.family')} action={<AddRelativeMenu person={person} />}>
-            <FamilyBlock profile={profile} self={person.handle} childRefs={childRefsOf(person)} />
-          </DetailSection>
-
-          <DetailSection id="events" title={t('detail:sections.events')} count={eventRows.length}>
-            {eventRows.length ? (
-              <EventsTable rows={eventRows} showAge />
-            ) : (
-              <p className="text-sm text-muted-foreground">{t('noEvents')}</p>
-            )}
-          </DetailSection>
-
-          {(person.note_list?.length ?? 0) > 0 && (
-            <DetailSection id="notes" title={t('detail:sections.notes')} count={person.note_list!.length}>
-              <NotesList handles={person.note_list!} />
-            </DetailSection>
-          )}
-
-          {(person.citation_list?.length ?? 0) > 0 && (
-            <DetailSection id="sources" title={t('detail:sections.sources')} count={person.citation_list!.length}>
-              <CitationsList handles={person.citation_list!} />
-            </DetailSection>
-          )}
-        </div>
-
-        <aside className="min-w-0 space-y-10">
-          {(person.media_list.length > 0 || canUpload) && (
-            <DetailSection
-              id="gallery"
-              title={t('detail:sections.gallery')}
-              count={person.media_list.length || undefined}
-              action={
-                canUpload && (
-                  <Button asChild size="sm" variant="ghost">
-                    <Link to={`/new_media${qs({ person: person.handle, personName: name })}`}>
-                      <Upload />
-                      {t('uploadMedia')}
-                    </Link>
-                  </Button>
-                )
-              }
-            >
-              {person.media_list.length > 0 ? (
-                <Gallery refs={person.media_list} media={ext.media} />
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('noMedia')}</p>
+              {(person.media_list.length > 0 || canUpload) && (
+                <Panel
+                  id="gallery"
+                  title={t('photosAndDocs')}
+                  action={
+                    canUpload && (
+                      <Button asChild size="sm" variant="ghost">
+                        <Link to={`/new_media${qs({ person: person.handle, personName: name })}`}>
+                          <Upload />
+                          {t('uploadMedia')}
+                        </Link>
+                      </Button>
+                    )
+                  }
+                >
+                  {person.media_list.length > 0 ? (
+                    <Gallery refs={person.media_list} media={ext.media} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{t('noMedia')}</p>
+                  )}
+                </Panel>
               )}
-            </DetailSection>
-          )}
 
-          {names.length > 1 && (
-            <DetailSection id="names" title={t('detail:sections.names')} count={names.length}>
-              <ul className="space-y-3">
-                {names.map((n, i) => (
-                  <li key={i}>
-                    <div className="font-medium">{displayName(n)}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {[
-                        typeStr(n.type),
-                        n.nick && `${t('nickname')}: ${n.nick}`,
-                        n.call && `${t('callName')}: ${n.call}`,
-                        n.famnick && `${t('familyNick')}: ${n.famnick}`,
-                        ...(n.surname_list ?? [])
-                          .filter((sn) => sn.surname && typeStr(sn.origintype))
-                          .map((sn) => `${sn.surname} (${typeStr(sn.origintype)})`),
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </DetailSection>
-          )}
+              {(names.length > 1 || person.attribute_list.length > 0 || person.urls.length > 0 || person.address_list.length > 0) && (
+                <Panel id="facts" title={t('detail:sections.facts')}>
+                  {names.length > 1 && (
+                    <ul className="mb-5 space-y-3">
+                      {names.map((n, i) => (
+                        <li key={i}>
+                          <div className="font-medium">{displayName(n)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {[
+                              typeStr(n.type),
+                              n.nick && `${t('nickname')}: ${n.nick}`,
+                              n.call && `${t('callName')}: ${n.call}`,
+                              n.famnick && `${t('familyNick')}: ${n.famnick}`,
+                              ...(n.surname_list ?? [])
+                                .filter((sn) => sn.surname && typeStr(sn.origintype))
+                                .map((sn) => `${sn.surname} (${typeStr(sn.origintype)})`),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <FactsTable attributes={person.attribute_list} urls={person.urls} addresses={person.address_list} addressDates={(profile as { addresses?: Array<{ date_str?: string }> }).addresses?.map((a) => a.date_str ?? '')} />
+                </Panel>
+              )}
 
-          {(person.attribute_list.length || person.urls.length || person.address_list.length) > 0 && (
-            <DetailSection id="facts" title={t('detail:sections.facts')}>
-              <FactsTable attributes={person.attribute_list} urls={person.urls} addresses={person.address_list} addressDates={(profile as { addresses?: Array<{ date_str?: string }> }).addresses?.map((a) => a.date_str ?? '')} />
-            </DetailSection>
-          )}
+              {person.person_ref_list.length > 0 && (
+                <Panel id="associations" title={t('detail:sections.associations')}>
+                  <Associations person={person} />
+                </Panel>
+              )}
+            </div>
 
-          {person.person_ref_list.length > 0 && (
-            <DetailSection id="associations" title={t('detail:sections.associations')} count={person.person_ref_list.length}>
-              <Associations person={person} />
-            </DetailSection>
-          )}
+            <div className="grid min-w-0 gap-6 [&>*]:min-w-0">
+              <Panel id="life" title={t('lifeStory')}>
+                <LifeStory rows={eventRows} profile={profile} portraits={portraits} />
+              </Panel>
 
-          {ext.backlinks && Object.keys(ext.backlinks).some((k) => !['family', 'event'].includes(k) && ext.backlinks![k]?.length) && (
-            <DetailSection id="references" title={t('detail:sections.references')}>
-              <ReferencesList
-                backlinks={Object.fromEntries(Object.entries(ext.backlinks).filter(([k]) => !['family', 'event'].includes(k)))}
-              />
-            </DetailSection>
-          )}
+              {(person.note_list?.length ?? 0) > 0 && (
+                <Panel id="notes" title={t('stories')}>
+                  <NotesList handles={person.note_list!} />
+                </Panel>
+              )}
 
-          <ObjectHistory objClass="Person" handle={person.handle} lastChange={person.change} />
-        </aside>
-      </div>
+              <Panel id="family" title={t('familyDetails')}>
+                <FamilyBlock profile={profile} self={person.handle} childRefs={childRefsOf(person)} />
+              </Panel>
+
+              {(person.citation_list?.length ?? 0) > 0 && (
+                <Panel id="sources" title={t('detail:sections.sources')}>
+                  <CitationsList handles={person.citation_list!} />
+                </Panel>
+              )}
+
+              {ext.backlinks && Object.keys(ext.backlinks).some((k) => !['family', 'event'].includes(k) && ext.backlinks![k]?.length) && (
+                <Panel id="references" title={t('detail:sections.references')}>
+                  <ReferencesList
+                    backlinks={Object.fromEntries(Object.entries(ext.backlinks).filter(([k]) => !['family', 'event'].includes(k)))}
+                  />
+                </Panel>
+              )}
+
+              <ObjectHistory objClass="Person" handle={person.handle} lastChange={person.change} />
+            </div>
+          </div>
+        )}
+      </PortraitsScope>
     </div>
   )
 }
 
-function PersonHero({
-  person,
-  profile,
-  name,
-  birth,
-  death,
-  eventRows,
-}: {
-  person: Person
-  profile: PersonProfile
-  name: string
-  birth: EventProfile
-  death: EventProfile
-  eventRows: EventRow[]
-}) {
+function PortraitsScope({ handles, children }: { handles: string[]; children: (p: Map<string, MediaRef | undefined>) => ReactNode }) {
+  return <>{children(usePortraits(handles))}</>
+}
+
+function PersonActions({ person, profile }: { person: Person; profile: PersonProfile }) {
   const { t } = useTranslation(['person', 'common'])
   const [homeId, setHomeId] = useHomePerson()
   const isHome = homeId === person.gramps_id
-  const tags = person.extended?.tags
-  const vital = (e: EventProfile, sym: string) =>
-    !isEmpty(e) && (
-      <span className="whitespace-nowrap">
-        <span className="mr-1 text-muted-foreground">{sym}</span>
-        <span className="tabular-nums">{e.date || '?'}</span>
-        {e.place_name && <span className="text-muted-foreground"> · {e.place_name}</span>}
-      </span>
-    )
-
   return (
-    <header className="mb-8">
-      <div className="flex flex-col gap-6 max-sm:items-center max-sm:gap-4 max-sm:text-center sm:flex-row sm:items-start">
-        <Portrait mediaRef={person.media_list[0]} name={name} sex={profile.sex} size={128} className="ring-4" />
-        <div className="min-w-0 flex-1 max-sm:w-full">
-          <h1 className="text-4xl font-medium leading-[1.1] tracking-tight text-balance max-sm:text-[2.1rem] sm:text-5xl">{name}</h1>
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.95rem] max-sm:justify-center">
-            {vital(birth, '*')}
-            {vital(death, '†')}
-            {!isEmpty(death) && death.age && death.age !== 'unknown' && (
-              <span className="text-muted-foreground">({death.age})</span>
-            )}
-          </div>
-          <RelationToHome person={person} />
-          <TagList tags={tags} className="mt-3 max-sm:justify-center" />
-        </div>
-      </div>
-
-      <Lifeline events={eventRows} birth={birth} death={death} related={relatedMoments(profile, t)} />
-
-      <div className="mt-5 flex flex-wrap gap-2 max-sm:-mx-4 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:px-4 max-sm:pb-1 max-sm:[scrollbar-width:none] max-sm:[&>*]:h-10 max-sm:[&>*]:shrink-0 max-sm:[&>*]:rounded-full max-sm:[&>*]:px-4">
-        <Button asChild size="sm">
-          <Link to={`/tree/ancestor/${person.gramps_id}`}>
-            <Network />
-            {t('actions.tree')}
+    <div className="flex flex-wrap gap-2 max-sm:-mx-4 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:px-4 max-sm:pb-1 max-sm:[scrollbar-width:none] max-sm:[&>*]:h-10 max-sm:[&>*]:shrink-0 max-sm:[&>*]:rounded-full max-sm:[&>*]:px-4">
+      <Button asChild size="sm">
+        <Link to={`/tree/ancestor/${person.gramps_id}`}>
+          <Network />
+          {t('actions.tree')}
+        </Link>
+      </Button>
+      <Button asChild size="sm" variant="secondary">
+        <Link to={`/timeline?person=${person.gramps_id}`}>
+          <ChartGantt />
+          {t('actions.timeline')}
+        </Link>
+      </Button>
+      <Button asChild size="sm" variant="secondary">
+        <Link to={`/map?person=${person.gramps_id}`}>
+          <MapIcon />
+          {t('actions.map')}
+        </Link>
+      </Button>
+      {!isHome && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setHomeId(person.gramps_id)
+            toast.success(t('isHome'))
+          }}
+        >
+          <Home />
+          {t('actions.setHome')}
+        </Button>
+      )}
+      {person.person_ref_list.some((r) => r.rel === 'DNA') && (
+        <Button asChild size="sm" variant="ghost">
+          <Link to={`/dna-matches/${person.gramps_id}`}>
+            <Dna />
+            {t('dnaMatches')}
           </Link>
         </Button>
-        <Button asChild size="sm" variant="outline">
-          <Link to={`/timeline?person=${person.gramps_id}`}>
-            <ChartGantt />
-            {t('actions.timeline')}
-          </Link>
-        </Button>
-        <Button asChild size="sm" variant="outline">
-          <Link to={`/map?person=${person.gramps_id}`}>
-            <MapIcon />
-            {t('actions.map')}
-          </Link>
-        </Button>
-        {!isHome && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setHomeId(person.gramps_id)
-              toast.success(t('isHome'))
-            }}
-          >
-            <Home />
-            {t('actions.setHome')}
-          </Button>
-        )}
-        {person.person_ref_list.some((r) => r.rel === 'DNA') && (
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/dna-matches/${person.gramps_id}`}>
-              <Dna />
-              {t('dnaMatches')}
-            </Link>
-          </Button>
-        )}
-        <ExternalSearch profile={profile} />
-      </div>
-    </header>
+      )}
+      <ExternalSearch profile={profile} />
+    </div>
   )
-}
-
-function relatedMoments(profile: PersonProfile, t: (k: string, o?: Record<string, unknown>) => string) {
-  const out: Array<{ label: string; date: string; to?: string }> = []
-  for (const f of profile.families ?? []) {
-    const m = f.marriage as EventProfile | undefined
-    if (m && !isEmpty(m) && m.date) out.push({ label: m.type, date: m.date, to: `/family/${f.gramps_id}` })
-    for (const c of f.children ?? []) {
-      const b = c.birth as EventProfile | undefined
-      if (b && !isEmpty(b) && b.date) out.push({ label: t('childBorn', { name: profileName(c) }), date: b.date, to: `/person/${c.gramps_id}` })
-    }
-  }
-  return out
 }
 
 function RelationToHome({ person }: { person: Person }) {
@@ -298,20 +247,16 @@ function RelationToHome({ person }: { person: Person }) {
     keys: 'handle,profile',
   })
   const homeHandle = home.data?.handle
-  const { data } = useQuery({
-    queryKey: ['relations', homeHandle, person.handle, apiLocale()],
-    enabled: !!homeHandle && homeHandle !== person.handle,
-    staleTime: 10 * 60_000,
-    queryFn: () =>
-      api<{ relationship_string: string }>(`/relations/${homeHandle}/${person.handle}`, {
-        query: { depth: 20, locale: apiLocale() },
-      }),
-  })
+  const { data } = useGetRelationQuery(
+    homeHandle && homeHandle !== person.handle
+      ? { handle1: homeHandle, handle2: person.handle, depth: 20, locale: apiLocale() }
+      : skipToken,
+  )
   if (homeId === person.gramps_id)
-    return <p className="mt-2 text-sm text-brass">{t('isHome')}</p>
+    return <p className="text-sm font-semibold text-brass">{t('isHome')}</p>
   if (!data?.relationship_string || !home.data) return null
   return (
-    <p className="mt-2 text-sm text-brass">
+    <p className="text-sm font-semibold text-brass">
       {t('relationTo', { relation: data.relationship_string, name: profileName(home.data.profile) })}
     </p>
   )

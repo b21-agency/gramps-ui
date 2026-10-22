@@ -16,7 +16,7 @@
     <title>Family Archive</title>
     <script>
       try {
-        var t = localStorage.getItem('gw.theme') || 'system'
+        var t = localStorage.getItem('gw.theme') || 'dark'
         if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
           document.documentElement.classList.add('dark')
       } catch (e) {}
