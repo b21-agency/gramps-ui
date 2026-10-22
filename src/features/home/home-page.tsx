@@ -64,14 +64,14 @@ export function HomePage() {
       {(!meta || meta.object_counts.people > 0) && <HomeHero />}
       {!treeEmpty && <ArchiveCounts />}
 
-      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] 2xl:grid-cols-[28rem_minmax(0,1fr)]">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] 2xl:grid-cols-[28rem_minmax(0,1fr)]">
         {/* wide column first in the DOM so phones read the story before the side panels */}
-        <div className="grid min-w-0 gap-6 lg:col-start-2 lg:row-start-1 [&>*]:min-w-0">
+        <div className="flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-start-1 [&>*]:min-w-0 lg:[&>*:last-child]:grow">
           <GetStarted />
           <TreeHomeNote />
           {(!meta || meta.object_counts.events > 0) && <OnThisDay />}
         </div>
-        <div className="grid min-w-0 gap-6 lg:col-start-1 lg:row-start-1 [&>*]:min-w-0">
+        <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-1 [&>*]:min-w-0 lg:[&>*:last-child]:grow">
           {!treeEmpty && <LatestPost />}
           {!treeEmpty && <RecentlyChanged />}
         </div>

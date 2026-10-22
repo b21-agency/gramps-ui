@@ -14,7 +14,7 @@ import { AccessTokensBlock, DeveloperBlock, UsernameBlock } from './profile-extr
 
 export function ProfileSection() {
   return (
-    <div className="grid items-start gap-6 xl:grid-cols-2">
+    <div className="grid gap-6 xl:grid-cols-2">
       <AccountForm />
       <UsernameBlock />
       <PasswordForm />

@@ -29,7 +29,8 @@ export function AlbumFrame({ children }: { children: ReactNode }) {
  * - 2xl: three columns: aside | main | extra
  */
 export function AlbumGrid({ aside, main, extra }: { aside?: ReactNode; main: ReactNode; extra?: ReactNode }) {
-  const col = 'grid min-w-0 content-start gap-6 [&>*]:min-w-0'
+  // columns stretch to the tallest one and their last card grows, so all columns end on one line
+  const col = 'flex min-w-0 flex-col gap-6 [&>*]:min-w-0 lg:[&>*:last-child]:grow'
   // No explicit third column: keep the first side panel on the left and move the others to
   // the right-hand column on wide screens (below 2xl both stack in the left column anyway).
   if (extra === undefined) {
@@ -39,17 +40,22 @@ export function AlbumGrid({ aside, main, extra }: { aside?: ReactNode; main: Rea
       extra = <>{items.slice(1)}</>
     }
   }
+  const hasExtra =
+    Children.toArray(isValidElement(extra) && extra.type === Fragment ? (extra.props as { children?: ReactNode }).children : extra)
+      .length > 0
   return (
     <div
       className={cn(
-        'mt-10 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr]',
+        'mt-10 grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr]',
         extra ? '2xl:grid-cols-[24rem_minmax(0,1fr)_26rem]' : '2xl:grid-cols-[24rem_minmax(0,1fr)]',
         'lg:has-[>.album-aside:empty]:has-[>.album-extra:empty]:grid-cols-1',
       )}
     >
-      <div className={cn('album-aside empty:hidden lg:col-start-1 lg:row-start-1', col)}>{aside}</div>
+      <div className={cn('album-aside empty:hidden lg:col-start-1 lg:row-start-1', hasExtra ? '2xl:row-span-2' : 'lg:row-span-2', col)}>
+        {aside}
+      </div>
       <div className={cn('lg:col-start-2 lg:row-span-2 lg:row-start-1', col)}>{main}</div>
-      <div className={cn('album-extra empty:hidden lg:col-start-1 lg:row-start-2 2xl:col-start-3 2xl:row-span-2 2xl:row-start-1', col)}>
+      <div className={cn(!hasExtra && 'hidden', 'album-extra empty:hidden lg:col-start-1 lg:row-start-2 2xl:col-start-3 2xl:row-span-2 2xl:row-start-1', col)}>
         {extra}
       </div>
     </div>
