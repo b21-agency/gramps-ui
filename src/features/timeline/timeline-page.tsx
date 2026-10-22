@@ -11,7 +11,6 @@ import { useHomePerson } from '@/lib/prefs'
 import { lifespan, profileName } from '@/lib/format'
 import type { Person } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
-import { cn } from '@/lib/utils'
 import { GlobalTimeline } from './global-timeline'
 import { PersonTimeline } from './person-timeline'
 
@@ -33,36 +32,32 @@ export function TimelinePage() {
   const showPerson = (id: string) => setParams({ person: id }, { replace: true })
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:py-8">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="min-w-0">
-          <h1 className="text-3xl font-medium tracking-tight">{t('common:nav.timeline')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{personId ? t('personIntro') : t('globalIntro')}</p>
+          <h1 className="font-serif text-[2.6rem] leading-[1] font-medium tracking-[-0.02em] sm:text-6xl">{t('common:nav.timeline')}</h1>
+          <p className="mt-3 max-w-xl font-serif text-lg italic text-muted-foreground">{personId ? t('personIntro') : t('globalIntro')}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 max-sm:w-full">
-          <div className="inline-flex rounded-lg border bg-card p-0.5 max-sm:grid max-sm:w-full max-sm:grid-cols-2 max-sm:[&_button]:h-10" role="group">
-            <Button
-              size="sm"
-              variant={!personId ? 'secondary' : 'ghost'}
-              aria-pressed={!personId}
-              onClick={showAll}
-            >
-              <UsersRound />
-              {t('everyone')}
-            </Button>
-            <ObjectPicker
-              kinds={['person']}
-              value={person ? { handle: person.handle, title: name } : null}
-              placeholder={t('pickPerson')}
-              onChange={(o) => showPerson(o.gramps_id)}
-              trigger={
-                <Button size="sm" variant={personId ? 'secondary' : 'ghost'} aria-pressed={!!personId} className="max-w-56 max-sm:max-w-none">
-                  <UserRound />
-                  <span className="truncate">{personId ? name || personId : t('onePerson')}</span>
-                </Button>
-              }
-            />
-          </div>
+        <div
+          className="inline-flex rounded-full bg-card p-1 max-sm:grid max-sm:w-full max-sm:grid-cols-2 [&_button]:h-11 [&_button]:rounded-full [&_button]:px-4"
+          role="group"
+        >
+          <Button variant={!personId ? 'default' : 'ghost'} aria-pressed={!personId} onClick={showAll}>
+            <UsersRound />
+            {t('everyone')}
+          </Button>
+          <ObjectPicker
+            kinds={['person']}
+            value={person ? { handle: person.handle, title: name } : null}
+            placeholder={t('pickPerson')}
+            onChange={(o) => showPerson(o.gramps_id)}
+            trigger={
+              <Button variant={personId ? 'default' : 'ghost'} aria-pressed={!!personId} className="max-w-64 max-sm:max-w-none">
+                <UserRound />
+                <span className="truncate">{personId ? name || personId : t('onePerson')}</span>
+              </Button>
+            }
+          />
         </div>
       </div>
 
@@ -70,32 +65,45 @@ export function TimelinePage() {
         q.isError ? (
           <ErrorState error={q.error} onRetry={() => q.refetch()} />
         ) : !person ? (
-          <div className="space-y-4">
-            <Skeleton className="h-16 w-72" />
-            <Skeleton className="h-64 w-full" />
+          <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
+            <Skeleton className="h-72 rounded-3xl" />
+            <Skeleton className="h-[32rem] rounded-3xl" />
           </div>
         ) : (
-          <>
-            <div className="mb-6 flex items-center gap-4 rounded-xl border bg-card p-4">
-              <Portrait mediaRef={person.media_list?.[0]} name={name} sex={person.profile?.sex} size={56} />
-              <div className="min-w-0 flex-1">
-                <Link to={`/person/${person.gramps_id}`} className="font-serif text-2xl leading-tight hover:underline">
-                  {name}
-                </Link>
-                <div className="text-sm tabular-nums text-muted-foreground">
-                  {lifespan(person.profile?.birth as { date?: string }, person.profile?.death as { date?: string })}
-                  {home === person.gramps_id && <span className="ml-2 text-brass">{t('common:homePerson')}</span>}
+          <PersonTimeline
+            person={person}
+            hero={
+              <section className="rounded-3xl bg-card p-5 sm:p-6">
+                <div className="flex items-center gap-5 xl:flex-col xl:items-start">
+                  <Portrait
+                    mediaRef={person.media_list?.[0]}
+                    name={name}
+                    sex={person.profile?.sex}
+                    size={112}
+                    className="ring-brass/70 max-sm:size-20!"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      to={`/person/${person.gramps_id}`}
+                      className="block font-serif text-3xl leading-[1.05] font-medium tracking-[-0.01em] text-balance hover:underline sm:text-4xl"
+                    >
+                      {name}
+                    </Link>
+                    <div className="mt-2 font-serif text-xl tabular-nums text-brass">
+                      {lifespan(person.profile?.birth as { date?: string }, person.profile?.death as { date?: string })}
+                    </div>
+                    {home === person.gramps_id && <div className="mt-1 text-sm text-muted-foreground">{t('common:homePerson')}</div>}
+                  </div>
                 </div>
-              </div>
-              <Button asChild size="sm" variant="outline" className={cn('shrink-0')}>
-                <Link to={`/map?person=${person.gramps_id}`}>
-                  <MapIcon />
-                  <span className="hidden sm:inline">{t('onMap')}</span>
-                </Link>
-              </Button>
-            </div>
-            <PersonTimeline person={person} />
-          </>
+                <Button asChild variant="secondary" className="mt-5 h-11 rounded-full px-5 max-sm:w-full">
+                  <Link to={`/map?person=${person.gramps_id}`}>
+                    <MapIcon />
+                    {t('onMap')}
+                  </Link>
+                </Button>
+              </section>
+            }
+          />
         )
       ) : (
         <GlobalTimeline />

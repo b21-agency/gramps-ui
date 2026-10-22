@@ -71,7 +71,9 @@ export function Field({
   )
 }
 
-/** Heading + hairline section inside a form; optionally collapsible. */
+/** Album panel inside a form (serif title, card surface); optionally collapsible. */
+export const formPanel = 'min-w-0 rounded-3xl bg-card p-5 sm:p-6'
+
 export function FormSection({
   title,
   count,
@@ -90,14 +92,14 @@ export function FormSection({
   const [open, setOpen] = useState(defaultOpen)
   const head = (
     <span className="flex items-baseline gap-2">
-      <span className="font-serif text-lg">{title}</span>
-      {!!count && <span className="text-xs tabular-nums text-muted-foreground">{count}</span>}
+      <span className="font-serif text-2xl font-medium">{title}</span>
+      {!!count && <span className="text-sm tabular-nums text-muted-foreground">{count}</span>}
     </span>
   )
   if (!collapsible)
     return (
-      <section className="border-t pt-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      <section className={formPanel}>
+        <div className="mb-4 flex items-center justify-between gap-2">
           {head}
           {action}
         </div>
@@ -105,15 +107,15 @@ export function FormSection({
       </section>
     )
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="border-t pt-3">
+    <Collapsible open={open} onOpenChange={setOpen} className={cn(formPanel, 'py-3 sm:py-3.5')}>
       <div className="flex items-center justify-between gap-2">
-        <CollapsibleTrigger className="-mx-1 flex flex-1 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/60">
+        <CollapsibleTrigger className="-mx-2 flex min-h-11 flex-1 items-center gap-2 rounded-2xl px-2 text-left outline-none transition-colors duration-150 hover:bg-accent/60 focus-visible:ring-3 focus-visible:ring-ring/50">
           {head}
-          <ChevronDown className={cn('ml-auto size-4 text-muted-foreground transition-transform motion-reduce:transition-none', open && 'rotate-180')} />
+          <ChevronDown className={cn('ml-auto size-5 text-muted-foreground transition-transform duration-150 motion-reduce:transition-none', open && 'rotate-180 text-brass')} />
         </CollapsibleTrigger>
         {action}
       </div>
-      <CollapsibleContent className="flex flex-col gap-4 pt-3">{children}</CollapsibleContent>
+      <CollapsibleContent className="flex flex-col gap-4 pt-3 pb-2">{children}</CollapsibleContent>
     </Collapsible>
   )
 }

@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
+import { Portrait } from '@/components/portrait'
+import { usePortraits } from '@/hooks/use-portraits'
+import type { MediaRef } from '@/lib/types'
 import { profileName } from '@/lib/format'
 import { usePref } from '@/lib/prefs'
 import { cn } from '@/lib/utils'
@@ -165,6 +168,12 @@ export function GlobalTimeline() {
     return r?.kind === 'event' ? [r.ev.handle] : []
   })
   const detail = useEventDetails(visibleHandles)
+  const faces = usePortraits(
+    visibleHandles.map((h) => {
+      const pp = detail(h)?.profile?.participants
+      return pp?.people?.[0]?.person?.handle ?? pp?.families?.[0]?.family?.father?.handle ?? ''
+    }),
+  )
 
   // the decade/year at the top edge of the viewport, for the sticky header
   const topY = (v.scrollOffset ?? 0) - margin + 56 + 48
@@ -220,10 +229,12 @@ export function GlobalTimeline() {
   const toggleType = (tp: string) =>
     setTypes(activeTypes.includes(tp) ? activeTypes.filter((x) => x !== tp) : [...activeTypes, tp])
 
+  const currentDecade = current ? Math.floor(current.year / 10) * 10 : null
+
   return (
-    <div>
+    <div className="grid items-start gap-6 xl:grid-cols-[24rem_minmax(0,1fr)] 2xl:grid-cols-[26rem_minmax(0,1fr)]">
       {/* filters */}
-      <div className="space-y-4">
+      <aside className="min-w-0 space-y-5 rounded-3xl bg-card p-5 sm:p-6 xl:sticky xl:top-[calc(var(--header-h)+1.5rem)] xl:max-h-[calc(100dvh-var(--header-h)-3rem)] xl:overflow-y-auto">
         <ScopeFilter
           kind={scopeKind}
           id={scopeId}
@@ -232,7 +243,7 @@ export function GlobalTimeline() {
           loading={!!scopeKind && scope.isLoading}
           onChange={setScope}
         />
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('eventTypes')}>
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t('eventTypes')}>
           <Chip active={activeTypes.length === 0} onClick={() => setTypes([])}>
             {t('allTypes')}
             <span className="tabular-nums opacity-70">{all.length}</span>
@@ -244,24 +255,30 @@ export function GlobalTimeline() {
               <span className="tabular-nums opacity-70">{n}</span>
             </Chip>
           ))}
-          {q.isLoading && <Skeleton className="h-7 w-64 rounded-full" />}
+          {q.isLoading && <Skeleton className="h-10 w-64 rounded-full" />}
         </div>
 
         {decades.length > 1 && yr && extent && domain && (
-          <div className="rounded-xl border bg-card px-4 pb-3 pt-4">
-            <div className="flex h-16 items-end gap-px" aria-hidden>
+          <div className="rounded-2xl bg-secondary/60 px-4 pt-4 pb-3">
+            <div className="mb-3 flex items-baseline justify-between gap-2">
+              <span className="text-sm text-muted-foreground">{t('yearRange')}</span>
+              <span className="font-serif text-xl tabular-nums text-brass">
+                {fromLabel(yr[0])} – {yr[1]}
+              </span>
+            </div>
+            <div className="flex h-20 items-end gap-px" aria-hidden>
               {domain.hasEarlier && (
                 <button
                   type="button"
                   tabIndex={-1}
                   title={`${t('earlier')}: ${earlierCount}`}
                   onClick={() => v.scrollToIndex(0, { align: 'start' })}
-                  className="group mr-1.5 flex h-full w-3 shrink-0 items-end border-r border-dashed pr-1.5"
+                  className="group mr-1.5 flex h-full w-3 shrink-0 items-end border-r border-dashed border-lineage pr-1.5"
                 >
                   <span
                     className={cn(
-                      'block w-full rounded-t-sm transition-colors',
-                      yr[0] <= domain.min ? 'bg-brass/70 group-hover:bg-brass' : 'bg-muted-foreground/20',
+                      'block w-full rounded-t-[3px] transition-colors duration-150',
+                      yr[0] <= domain.min ? 'bg-chart-1/60 group-hover:bg-brass' : 'bg-muted-foreground/15',
                     )}
                     style={{ height: `${earlierCount ? Math.max(6, (earlierCount / maxCount) * 100) : 2}%` }}
                   />
@@ -280,8 +297,8 @@ export function GlobalTimeline() {
                   >
                     <span
                       className={cn(
-                        'block w-full rounded-t-sm transition-colors',
-                        inRange ? 'bg-primary/70 group-hover:bg-primary' : 'bg-muted-foreground/20',
+                        'block w-full rounded-t-[3px] transition-colors duration-150',
+                        !inRange ? 'bg-muted-foreground/15' : d.decade === currentDecade ? 'bg-brass' : 'bg-chart-1/60 group-hover:bg-brass/80',
                       )}
                       style={{ height: `${d.count ? Math.max(6, (d.count / maxCount) * 100) : 2}%` }}
                     />
@@ -298,23 +315,21 @@ export function GlobalTimeline() {
               onValueChange={(val) => setRange([val[0], val[1]] as [number, number])}
               aria-label={t('yearRange')}
             />
-            <div className="mt-2 flex items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
+            <div className="mt-2 flex items-center justify-between gap-2 font-serif text-sm tabular-nums text-muted-foreground">
               <span>{fromLabel(extent[0])}</span>
-              <span className="font-serif text-base text-brass">
-                {fromLabel(yr[0])} – {yr[1]}
-              </span>
               <span>{extent[1]}</span>
             </div>
           </div>
         )}
-      </div>
+      </aside>
 
+      <div className="min-w-0">
       {/* sticky "where am I" bar */}
       {current && rows.length > 0 && (
-        <div className="sticky top-[var(--header-h)] z-20 -mx-4 mt-4 border-b bg-background/90 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="sticky top-[calc(var(--header-h)+0.5rem)] z-20 rounded-2xl bg-card/90 px-5 py-2.5 shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)] ring-1 ring-foreground/[0.06] backdrop-blur-xl max-xl:mt-0">
           <div className="flex items-baseline gap-3">
-            <span className="font-serif text-xl">{t('decade', { decade: Math.floor(current.year / 10) * 10 })}</span>
-            <span className="text-sm tabular-nums text-brass">{current.year}</span>
+            <span className="font-serif text-2xl font-medium">{t('decade', { decade: Math.floor(current.year / 10) * 10 })}</span>
+            <span className="font-serif text-lg tabular-nums text-brass">{current.year}</span>
             <span className="ml-auto text-xs tabular-nums text-muted-foreground">
               {t('eventsCount', { count: filtered.length })}
             </span>
@@ -349,6 +364,9 @@ export function GlobalTimeline() {
       )}
 
       <div ref={listRef} className="relative" style={{ height: v.getTotalSize() }}>
+        {rows.length > 0 && (
+          <span aria-hidden className="absolute top-6 bottom-6 left-[4.81rem] w-0.5 rounded-full bg-lineage/70 sm:left-[6.56rem]" />
+        )}
         {items.map((it) => {
           const r = rows[it.index]
           return (
@@ -360,8 +378,8 @@ export function GlobalTimeline() {
               style={{ transform: `translateY(${it.start - margin}px)` }}
             >
               {r.kind === 'decade' ? (
-                <div className="flex items-baseline gap-2 pb-2 pt-6">
-                  <h2 className="text-2xl font-medium">{t('decade', { decade: r.decade })}</h2>
+                <div className="flex items-baseline gap-3 pt-8 pb-3 pl-[6.25rem] sm:pl-[8.25rem]">
+                  <h2 className="font-serif text-3xl font-medium tracking-[-0.01em] sm:text-4xl">{t('decade', { decade: r.decade })}</h2>
                   <span className="text-sm tabular-nums text-muted-foreground">{t('eventsCount', { count: r.count })}</span>
                 </div>
               ) : (
@@ -371,11 +389,13 @@ export function GlobalTimeline() {
                   detail={detail(r.ev.handle)}
                   typeLabel={label(r.ev.type)}
                   highlight={r.ev.gramps_id === focusEvent}
+                  faces={faces}
                 />
               )}
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )
@@ -388,8 +408,8 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 max-md:h-9 max-md:px-3.5',
-        active ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:bg-accent',
+        'inline-flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm transition-[color,background-color,transform] duration-150 ease-out outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] sm:h-9',
+        active ? 'bg-primary font-medium text-primary-foreground' : 'bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
       {children}
@@ -424,7 +444,7 @@ function ScopeFilter({
         placeholder={t('scope.pick')}
         onChange={(o) => onChange(o.kind === 'place' ? 'place' : 'person', o.gramps_id)}
         trigger={
-          <Button variant="outline" size="sm" className={cn('max-w-72 bg-card', kind && 'border-primary/40')}>
+          <Button variant="secondary" className={cn('h-11 max-w-full rounded-full px-4 sm:h-10', kind && 'ring-1 ring-primary/50')}>
             <Filter />
             <span className="truncate">{kind ? name || id : t('scope.pick')}</span>
           </Button>
@@ -432,7 +452,7 @@ function ScopeFilter({
       />
       {kind && (
         <>
-          <div className="inline-flex rounded-lg border bg-muted p-0.5" role="radiogroup" aria-label={t('scope.mode')}>
+          <div className="inline-flex flex-wrap rounded-full bg-secondary p-1" role="radiogroup" aria-label={t('scope.mode')}>
             {modes.map((m) => (
               <button
                 key={m}
@@ -441,15 +461,15 @@ function ScopeFilter({
                 aria-checked={mode === m}
                 onClick={() => onChange(kind, id, m)}
                 className={cn(
-                  'h-7 rounded-md px-2.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 max-md:h-8',
-                  mode === m ? 'bg-card font-medium shadow-xs' : 'text-muted-foreground hover:text-foreground',
+                  'h-10 rounded-full px-3.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-8',
+                  mode === m ? 'bg-primary font-medium text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {t(`scope.${m}`)}
               </button>
             ))}
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label={t('scope.clear')} onClick={() => onChange(null, null)}>
+          <Button variant="ghost" size="icon" className="size-10 rounded-full" aria-label={t('scope.clear')} onClick={() => onChange(null, null)}>
             <X />
           </Button>
           {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
@@ -465,7 +485,9 @@ function EventRow({
   detail,
   typeLabel,
   highlight,
+  faces,
 }: {
+  faces: Map<string, MediaRef | undefined>
   ev: DatedEvent
   firstOfYear: boolean
   detail?: EventDetail
@@ -486,46 +508,56 @@ function EventRow({
     })),
   ].filter((x) => x.name)
 
+  const face = people[0]?.person ?? fams[0]?.family?.father ?? null
   return (
-    <div className="grid grid-cols-[3.25rem_1.25rem_minmax(0,1fr)] sm:grid-cols-[4.5rem_1.5rem_minmax(0,1fr)]">
-      <div className="pt-2.5 text-right font-serif text-lg leading-none tabular-nums text-brass">
-        {firstOfYear ? ev.year : ''}
-      </div>
-      <div className="relative flex justify-center">
-        <span className="absolute inset-y-0 w-px bg-border" />
-        <span className={cn('relative mt-3 size-2.5 rounded-full ring-4 ring-background', typeTone(ev.type))} />
-      </div>
-      <div className={cn('min-w-0 py-2 pl-1', highlight && '-ml-1 rounded-lg bg-brass/10 pl-2')}>
-        <div className="flex items-baseline gap-2">
-          <Link to={`/event/${ev.gramps_id}`} className="font-medium hover:underline">
-            {p?.type || typeLabel}
-          </Link>
-          <span className="truncate text-xs tabular-nums text-muted-foreground">{p?.date}</span>
-        </div>
-        {detail ? (
-          <>
-            {who.length > 0 && (
-              <div className="flex flex-wrap gap-x-3 text-sm">
-                {who.map((w) => (
-                  <Link key={w.to} to={w.to} className="truncate hover:underline">
-                    {w.name}
-                  </Link>
-                ))}
-              </div>
-            )}
-            {p?.place_name && (
-              <div className="flex items-center gap-1 truncate text-sm text-muted-foreground">
-                <MapPin className="size-3.5 shrink-0" />
-                <span className="truncate">{p.place || p.place_name}</span>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="mt-1 space-y-1.5">
-            <Skeleton className="h-3.5 w-44" />
-            <Skeleton className="h-3 w-28" />
-          </div>
+    <div className="flex gap-4 py-2.5 sm:gap-5">
+      <span
+        className={cn(
+          'w-14 shrink-0 pt-0.5 text-right font-serif text-2xl leading-none tabular-nums text-brass sm:w-20',
+          !firstOfYear && 'invisible',
         )}
+      >
+        {ev.year}
+      </span>
+      <span aria-hidden className={cn('relative z-10 mt-1.5 size-3 shrink-0 rounded-full ring-4 ring-background', typeTone(ev.type))} />
+      <div className={cn('flex min-w-0 flex-1 items-start gap-3', highlight && '-my-1 -ml-2 rounded-xl bg-brass/10 py-1 pl-2')}>
+        {face && profileName(face) ? (
+          <Portrait mediaRef={faces.get(face.handle ?? '')} name={profileName(face)} sex={face.sex} size={36} className="max-sm:hidden" />
+        ) : (
+          <span className="size-9 shrink-0 max-sm:hidden" aria-hidden />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <Link to={`/event/${ev.gramps_id}`} className="text-[15px] font-semibold hover:underline">
+              {p?.type || typeLabel}
+            </Link>
+            {p?.date && p.date !== String(ev.year) && <span className="truncate text-xs tabular-nums text-muted-foreground">{p.date}</span>}
+          </div>
+          {detail ? (
+            <>
+              {who.length > 0 && (
+                <div className="flex flex-wrap gap-x-3 text-sm">
+                  {who.map((w) => (
+                    <Link key={w.to} to={w.to} className="truncate hover:underline">
+                      {w.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {p?.place_name && (
+                <div className="flex items-center gap-1 truncate text-sm text-muted-foreground">
+                  <MapPin className="size-3.5 shrink-0" />
+                  <span className="truncate">{p.place || p.place_name}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="mt-1 space-y-1.5">
+              <Skeleton className="h-3.5 w-44" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

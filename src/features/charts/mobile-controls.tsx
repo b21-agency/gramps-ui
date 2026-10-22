@@ -33,7 +33,7 @@ import { yearsText } from './person-card'
 
 type Update = <C extends ChartKind>(c: C, patch: Partial<ChartSettings[C]>) => void
 
-const pillBtn = 'size-11 rounded-lg active:scale-95 motion-reduce:active:scale-100'
+const pillBtn = 'size-11 rounded-xl active:scale-95 motion-reduce:active:scale-100'
 
 /** Chart type as one button that opens an action sheet. */
 export function MobileChartSwitcher({
@@ -57,7 +57,7 @@ export function MobileChartSwitcher({
           type="button"
           onClick={() => setOpen(true)}
           aria-label={`${t('chartType')}: ${t(`charts.${value}`)}`}
-          className="inline-flex h-11 min-w-0 items-center gap-1 rounded-lg pr-1.5 pl-3 text-[15px] font-medium active:bg-muted"
+          className="inline-flex h-11 min-w-0 items-center gap-1 rounded-xl pr-1.5 pl-3 font-serif text-[17px] font-medium active:bg-accent"
         >
           <span className="min-w-0 truncate">{t(`charts.${value}`)}</span>
           {loading ? (
@@ -257,7 +257,7 @@ function BigStepper({
 }) {
   const { t } = useTranslation('charts')
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border bg-card p-1.5" role="group" aria-label={label}>
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-card p-1.5" role="group" aria-label={label}>
       <Button variant="ghost" size="icon" className="size-11" aria-label={`${t('fewer')}: ${label}`} disabled={value <= range[0]} onClick={() => onChange(value - 1)}>
         <Minus />
       </Button>
@@ -274,7 +274,7 @@ function BigStepper({
 
 function Segmented<V extends string>({ value, options, onChange, label }: { value: V; options: { value: V; label: string }[]; onChange: (v: V) => void; label: string }) {
   return (
-    <div className="grid auto-cols-fr grid-flow-col rounded-xl border bg-muted p-1" role="radiogroup" aria-label={label}>
+    <div className="grid auto-cols-fr grid-flow-col rounded-2xl bg-muted p-1" role="radiogroup" aria-label={label}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -283,8 +283,8 @@ function Segmented<V extends string>({ value, options, onChange, label }: { valu
           aria-checked={o.value === value}
           onClick={() => onChange(o.value)}
           className={cn(
-            'h-10 rounded-lg px-2 text-[15px] transition-colors',
-            o.value === value ? 'bg-card font-medium shadow-sm' : 'text-muted-foreground',
+            'h-11 rounded-xl px-2 text-[15px] transition-colors',
+            o.value === value ? 'bg-primary font-medium text-primary-foreground shadow-sm' : 'text-muted-foreground',
           )}
         >
           {o.label}
@@ -367,8 +367,8 @@ function ChartOptions({ chart, settings, update }: { chart: ChartKind; settings:
                   aria-checked={s.colour === c}
                   onClick={() => update('fan', { colour: c })}
                   className={cn(
-                    'min-h-10 rounded-full border px-3.5 text-[15px] transition-colors',
-                    s.colour === c ? 'border-primary bg-primary text-primary-foreground' : 'bg-card',
+                    'min-h-11 rounded-full px-4 text-[15px] transition-colors',
+                    s.colour === c ? 'bg-primary text-primary-foreground' : 'bg-card',
                   )}
                 >
                   {t(`colour.${c}`)}
@@ -491,12 +491,12 @@ export function PersonPanel({
     return (
       <div className="pointer-events-none flex w-full min-w-0 flex-col gap-2">
         {hint}
-        <Pill className="w-full min-w-0 gap-1 py-1.5 pr-1 pl-1.5">
-          <button type="button" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-0.5 text-left active:bg-muted" onClick={onCentre}>
-            <Portrait mediaRef={person.media} name={person.name} sex={person.sex} size={40} />
+        <Pill className="w-full min-w-0 gap-1 rounded-3xl py-1.5 pr-1.5 pl-1.5">
+          <button type="button" className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-1 text-left active:bg-accent" onClick={onCentre}>
+            <Portrait mediaRef={person.media} name={person.name} sex={person.sex} size={44} className={isCentre ? 'ring-brass/80' : undefined} />
             <span className="min-w-0">
-              <span className="block truncate font-serif text-[15px] leading-tight font-medium">{person.name}</span>
-              <span className="block truncate text-xs text-muted-foreground tabular-nums">{years || ' '}</span>
+              <span className="block truncate font-serif text-[17px] leading-tight font-medium">{person.name}</span>
+              <span className="mt-0.5 block truncate font-serif text-sm text-brass tabular-nums">{years || ' '}</span>
             </span>
           </button>
           {relatives.length > 0 && (
@@ -512,25 +512,25 @@ export function PersonPanel({
       </div>
     )
 
-  const action = 'flex h-auto min-h-16 flex-col gap-1 rounded-xl px-1 py-2.5 text-[13px] leading-tight font-medium whitespace-normal [&_svg]:size-5'
+  const action = 'flex h-auto min-h-16 flex-col gap-1 rounded-2xl px-1 py-2.5 text-[13px] leading-tight font-medium whitespace-normal [&_svg]:size-5'
   return (
     <div
       data-no-pan
       {...swipe}
-      className="pointer-events-auto w-full touch-none rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur animate-in fade-in-0 slide-in-from-bottom-6 duration-200 supports-[backdrop-filter]:bg-background/85 motion-reduce:animate-none"
+      className="pointer-events-auto w-full touch-none rounded-3xl bg-card/95 p-4 shadow-[0_18px_48px_-16px_rgb(0_0_0/0.6)] ring-1 ring-foreground/[0.07] backdrop-blur-xl animate-in fade-in-0 slide-in-from-bottom-6 duration-200 supports-[backdrop-filter]:bg-card/85 motion-reduce:animate-none"
       role="dialog"
       aria-label={person.name}
     >
       <div className="mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-muted-foreground/25" aria-hidden />
-      <div className="flex items-center gap-3">
-        <Portrait mediaRef={person.media} name={person.name} sex={person.sex} size={56} />
+      <div className="flex items-center gap-3.5">
+        <Portrait mediaRef={person.media} name={person.name} sex={person.sex} size={64} className={isCentre ? 'ring-brass/80' : undefined} />
         <div className="min-w-0 flex-1">
-          <div className="line-clamp-2 font-serif text-lg leading-tight font-medium">{person.name}</div>
-          <div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground tabular-nums">
-            {years}
+          <div className="line-clamp-2 font-serif text-2xl leading-[1.05] font-medium tracking-[-0.01em]">{person.name}</div>
+          <div className="mt-1 flex items-center gap-2 text-sm tabular-nums">
+            <span className="font-serif text-base text-brass">{years}</span>
             {isHome && (
-              <span className="inline-flex items-center gap-1 text-brass">
-                <House className="size-3.5" />
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <House className="size-3.5 text-brass" />
                 {t('isHome')}
               </span>
             )}

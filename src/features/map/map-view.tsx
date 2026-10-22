@@ -276,7 +276,7 @@ export function MapView({
       el.type = 'button'
       const label = stop.numbers.length > 2 ? `${stop.numbers[0]}…` : stop.numbers.join(',')
       el.className =
-        'flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-card bg-brass px-1.5 text-xs font-semibold tabular-nums text-brass-foreground shadow-md outline-none transition-transform hover:scale-110 focus-visible:ring-3 focus-visible:ring-ring/50'
+        'flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-card bg-brass px-1.5 font-serif text-sm font-semibold tabular-nums text-brass-foreground shadow-[0_0_0_5px_color-mix(in_oklab,var(--brass)_22%,transparent),0_6px_16px_-6px_rgb(0_0_0/0.6)] outline-none transition-transform duration-150 ease-out hover:scale-110 focus-visible:ring-3 focus-visible:ring-ring/50'
       el.textContent = label
       el.setAttribute('aria-label', stop.numbers.join(', '))
       el.addEventListener('click', (ev) => {
@@ -357,8 +357,9 @@ function addLayers(
     buildings?: WikidataBuilding[]
   },
 ) {
-  const primary = cssVar('--primary')
-  const onPrimary = cssVar('--primary-foreground', '#ffffff')
+  // Album palette: gold clusters with a soft halo, moss places, gold selection
+  const moss = cssVar('--chart-1', '#3e6a4e')
+  const onBrass = cssVar('--brass-foreground', '#2b2310')
   const card = cssVar('--card', '#ffffff')
   const brass = cssVar('--brass', '#a9833a')
   const ink = cssVar('--foreground', '#18242a')
@@ -416,17 +417,29 @@ function addLayers(
     paint: { 'line-color': brass, 'line-width': 3, 'line-opacity': 0.85 },
   })
   addLayer(map, {
+    id: 'clusters-halo',
+    type: 'circle',
+    source: 'places',
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': brass,
+      'circle-opacity': 0.16,
+      'circle-blur': 0.35,
+      'circle-radius': ['step', ['get', 'point_count'], 22, 10, 27, 50, 33, 200, 39],
+    },
+  })
+  addLayer(map, {
     id: 'clusters',
     type: 'circle',
     source: 'places',
     filter: ['has', 'point_count'],
     paint: {
-      'circle-color': primary,
-      'circle-opacity': 0.9,
+      'circle-color': brass,
+      'circle-opacity': 0.95,
       'circle-radius': ['step', ['get', 'point_count'], 14, 10, 18, 50, 23, 200, 28],
-      'circle-stroke-width': 3,
+      'circle-stroke-width': 2,
       'circle-stroke-color': card,
-      'circle-stroke-opacity': 0.8,
+      'circle-stroke-opacity': 0.9,
     },
   })
   addLayer(map, {
@@ -440,7 +453,7 @@ function addLayers(
       'text-size': 12,
       'text-allow-overlap': true,
     },
-    paint: { 'text-color': onPrimary },
+    paint: { 'text-color': onBrass },
   })
   addLayer(map, {
     id: 'place',
@@ -448,8 +461,8 @@ function addLayers(
     source: 'places',
     filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': primary,
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 5, 12, 7],
+      'circle-color': moss,
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 5, 12, 7.5],
       'circle-stroke-width': 2,
       'circle-stroke-color': card,
     },
@@ -464,6 +477,7 @@ function addLayers(
       'circle-radius': 10,
       'circle-stroke-width': 3,
       'circle-stroke-color': card,
+      'circle-stroke-opacity': 0.95,
     },
   })
   addLayer(map, {

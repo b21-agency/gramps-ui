@@ -44,14 +44,14 @@ export function ResetPasswordDialog({ defaultUser }: { defaultUser: string }) {
       }}
     >
       <DialogTrigger asChild>
-        <button type="button" className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+        <button type="button" className="-my-2 py-2 text-sm text-muted-foreground underline-offset-4 hover:text-brass hover:underline">
           {t('forgot')}
         </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-3xl sm:max-w-md">
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{t('reset.title')}</DialogTitle>
+            <DialogTitle className="font-serif text-2xl font-medium">{t('reset.title')}</DialogTitle>
             <DialogDescription>{t('reset.description')}</DialogDescription>
           </DialogHeader>
           {state === 'sent' ? (
@@ -59,7 +59,7 @@ export function ResetPasswordDialog({ defaultUser }: { defaultUser: string }) {
           ) : (
             <div className="space-y-2">
               <Label htmlFor="reset-user">{t('username')}</Label>
-              <Input id="reset-user" required value={user} onChange={(e) => setUser(e.target.value)} />
+              <Input id="reset-user" required value={user} onChange={(e) => setUser(e.target.value)} className="h-11 rounded-xl" />
               {state === 'error' && <p className="text-sm text-destructive">{t('reset.error')}</p>}
               {state === 'notFound' && <p className="text-sm text-destructive">{t('reset.notFound')}</p>}
               {state === 'mailFailed' && <p className="text-sm text-destructive">{t('reset.mailFailed')}</p>}
@@ -68,11 +68,11 @@ export function ResetPasswordDialog({ defaultUser }: { defaultUser: string }) {
           )}
           <DialogFooter>
             {state === 'sent' ? (
-              <Button type="button" onClick={() => setOpen(false)}>
+              <Button type="button" className="h-11 rounded-full px-5" onClick={() => setOpen(false)}>
                 {t('common:actions.close')}
               </Button>
             ) : (
-              <Button type="submit" disabled={state === 'busy'}>
+              <Button type="submit" className="h-11 rounded-full px-5" disabled={state === 'busy'}>
                 {t('reset.submit')}
               </Button>
             )}

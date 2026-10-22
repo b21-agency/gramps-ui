@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { login } from '@/lib/api'
+import { authInput, authSubmit } from './styles'
 
 /**
  * A fresh server without any user hands out a one-time token for creating the first
@@ -83,15 +84,15 @@ export function FirstRunForm({ token }: { token: string }) {
   const field = (id: string, label: string, value: string, set: (v: string) => void, props: Record<string, unknown> = {}) => (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} value={value} onChange={(e) => set(e.target.value)} className="h-11" required {...props} />
+      <Input id={id} value={value} onChange={(e) => set(e.target.value)} className={authInput} required {...props} />
     </div>
   )
 
   return (
-    <form onSubmit={submit} className="mx-auto w-full max-w-sm space-y-6 py-12">
+    <form onSubmit={submit} className="mx-auto w-full max-w-sm space-y-8 py-12">
       <div>
-        <h1 className="text-4xl font-medium tracking-tight">{t('firstRun.title')}</h1>
-        <p className="mt-2 text-muted-foreground">{t('firstRun.subtitle')}</p>
+        <h1 className="font-serif text-5xl leading-[1] font-medium tracking-[-0.02em] text-balance sm:text-6xl">{t('firstRun.title')}</h1>
+        <p className="mt-4 font-serif text-xl italic text-muted-foreground">{t('firstRun.subtitle')}</p>
       </div>
       <div className="space-y-4">
         {field('fr-user', t('username'), name, (v) => setName(v.trim()), { autoComplete: 'username', autoCapitalize: 'none', autoFocus: true, 'aria-invalid': !!name && !nameOk })}
@@ -102,11 +103,11 @@ export function FirstRunForm({ token }: { token: string }) {
         <p className="text-xs text-muted-foreground">{t('firstRun.hint')}</p>
       </div>
       {error && (
-        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <p role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </p>
       )}
-      <Button type="submit" className="h-11 w-full text-base" disabled={!valid || busy}>
+      <Button type="submit" className={authSubmit} disabled={!valid || busy}>
         {busy && <Loader2 className="animate-spin" />}
         {t('firstRun.submit')}
       </Button>

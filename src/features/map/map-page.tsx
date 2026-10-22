@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { useGetPersonTimelineQuery } from '@/api/people-api-slice.gen'
@@ -12,13 +12,13 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/compone
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ObjectPicker } from '@/components/object-picker'
-import { PersonChip } from '@/components/person-chip'
+import { Portrait } from '@/components/portrait'
 import { ErrorState } from '@/components/states'
 import { apiLocale } from '@/i18n'
 import { useObjectById } from '@/lib/queries'
 import { getPref, usePref } from '@/lib/prefs'
-import { profileName } from '@/lib/format'
-import type { Person, Place } from '@/lib/types'
+import { lifespan, profileName, yearOf } from '@/lib/format'
+import type { EventProfile, Person, Place } from '@/lib/types'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
@@ -191,7 +191,7 @@ export function MapPage() {
   ) : selected ? (
     <div>
       {personMode && (
-        <Button variant="ghost" size="sm" className="-ml-2 mb-2" onClick={() => setSelected(null)}>
+        <Button variant="ghost" size="sm" className="-ml-2 mb-3 h-10 rounded-full" onClick={() => setSelected(null)}>
           <ArrowLeft />
           {t('backToLife')}
         </Button>
@@ -203,7 +203,15 @@ export function MapPage() {
   ) : null
 
   return (
-    <div className="relative h-[calc(100dvh-3.5rem-var(--tabbar-h))] overflow-hidden bg-muted">
+    <div
+      className={cn(
+        'relative h-[calc(100dvh-3.5rem-var(--tabbar-h))] overflow-hidden bg-muted',
+        // MapLibre's own controls as Album glass panels
+        '[&_.maplibregl-ctrl-group]:overflow-hidden [&_.maplibregl-ctrl-group]:rounded-2xl! [&_.maplibregl-ctrl-group]:bg-card/90! [&_.maplibregl-ctrl-group]:shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)]! [&_.maplibregl-ctrl-group]:ring-1 [&_.maplibregl-ctrl-group]:ring-foreground/[0.07] [&_.maplibregl-ctrl-group]:backdrop-blur-xl',
+        '[&_.maplibregl-ctrl-group_button]:size-11! [&_.maplibregl-ctrl-group_button+button]:border-foreground/10! [&_.maplibregl-ctrl-group_button:hover]:bg-accent!',
+        'dark:[&_.maplibregl-ctrl-icon]:invert dark:[&_.maplibregl-ctrl-icon]:hue-rotate-180 [&_.maplibregl-ctrl-attrib]:rounded-full! [&_.maplibregl-ctrl-attrib]:bg-card/80! [&_.maplibregl-ctrl-attrib]:text-muted-foreground',
+      )}
+    >
       <MapView
         places={personMode ? [] : visiblePlaces}
         base={layerPrefs.base}
@@ -232,7 +240,7 @@ export function MapPage() {
 
       {/* toolbar */}
       <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-start gap-2 md:right-auto">
-        <div className="pointer-events-auto flex items-center gap-1 rounded-xl border bg-card/95 p-1 shadow-sm backdrop-blur">
+        <div className="pointer-events-auto flex items-center gap-1 rounded-2xl bg-card/95 shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)] ring-1 ring-foreground/[0.07] backdrop-blur-xl supports-[backdrop-filter]:bg-card/80 p-1 [&_[data-slot=button]]:rounded-xl max-md:[&_[data-slot=button]]:h-11 max-md:[&_[data-slot=button][data-size=icon]]:w-11">
           <ObjectPicker
             kinds={['place']}
             placeholder={t('searchPlace')}
@@ -294,13 +302,13 @@ export function MapPage() {
           <ExternalSearch onPick={(h) => apiRef.current?.flyTo(h.long, h.lat, 11)} />
         </div>
         {(coords.isLoading || life.loading) && (
-          <div className="pointer-events-auto flex h-10 items-center gap-2 rounded-xl border bg-card/95 px-3 text-sm text-muted-foreground shadow-sm">
+          <div className="pointer-events-auto flex h-11 items-center gap-2 rounded-2xl bg-card/95 shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)] ring-1 ring-foreground/[0.07] backdrop-blur-xl supports-[backdrop-filter]:bg-card/80 px-3.5 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
             {t('loading')}
           </div>
         )}
         {isMobile && personMode && !sheetOpen && (
-          <Button className="pointer-events-auto h-10 shadow-sm" variant="outline" onClick={() => setSheetOpen(true)}>
+          <Button className="pointer-events-auto h-11 rounded-full px-4 shadow-md" onClick={() => setSheetOpen(true)}>
             <List />
             {t('showList')}
           </Button>
@@ -308,15 +316,15 @@ export function MapPage() {
       </div>
 
       {coords.isError && (
-        <div className="absolute inset-x-3 top-20 z-10 mx-auto max-w-md rounded-xl border bg-card shadow-sm">
+        <div className="absolute inset-x-3 top-20 z-10 mx-auto max-w-md rounded-3xl bg-card shadow-lg">
           <ErrorState error={coords.error} onRetry={() => coords.refetch()} />
         </div>
       )}
 
       {coords.data && coords.data.length === 0 && !personMode && (
-        <div className="absolute inset-x-3 top-20 z-10 mx-auto max-w-sm rounded-xl border bg-card p-5 text-center shadow-sm">
+        <div className="absolute inset-x-3 top-20 z-10 mx-auto max-w-sm rounded-3xl bg-card p-6 text-center shadow-lg">
           <MapPinOff className="mx-auto size-6 text-muted-foreground" />
-          <p className="mt-2 font-serif text-lg">{t('noPlaces')}</p>
+          <p className="mt-2 font-serif text-2xl">{t('noPlaces')}</p>
           <p className="mt-1 text-sm text-muted-foreground">{t('noPlacesHint')}</p>
         </div>
       )}
@@ -334,7 +342,7 @@ export function MapPage() {
             setActiveSnapPoint={setSnap}
           >
             <DrawerContent
-              className="h-[calc(100dvh-var(--header-h)-0.5rem)] max-h-none! rounded-t-2xl shadow-[0_-8px_30px_-12px_rgb(0_0_0/0.25)]"
+              className="h-[calc(100dvh-var(--header-h)-0.5rem)] max-h-none! rounded-t-3xl border-0 bg-card shadow-[0_-12px_40px_-12px_rgb(0_0_0/0.45)]"
               onInteractOutside={(e) => e.preventDefault()}
               onOpenAutoFocus={(e) => e.preventDefault()}
             >
@@ -353,7 +361,7 @@ export function MapPage() {
               )}
               <div
                 className={cn(
-                  'min-h-0 flex-1 overscroll-contain px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]',
+                  'min-h-0 flex-1 overscroll-contain px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]',
                   snap === 1 ? 'overflow-y-auto' : 'overflow-hidden',
                 )}
               >
@@ -362,12 +370,12 @@ export function MapPage() {
             </DrawerContent>
           </Drawer>
         ) : (
-          <aside className="absolute bottom-3 left-3 top-[4.25rem] z-10 flex w-[22rem] flex-col overflow-hidden rounded-xl border bg-card/97 shadow-md backdrop-blur">
+          <aside className="absolute bottom-3 left-3 top-[4.5rem] z-10 flex w-[24rem] flex-col overflow-hidden rounded-3xl bg-card/95 shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)] ring-1 ring-foreground/[0.07] backdrop-blur-xl supports-[backdrop-filter]:bg-card/80">
             {(selected || buildingObj) && !personMode && (
               <Button
                 variant="ghost"
-                size="icon-sm"
-                className="absolute right-2 top-2 z-10"
+                size="icon"
+                className="absolute right-3 top-3 z-10 rounded-full bg-card/80 backdrop-blur"
                 aria-label={t('common:actions.close')}
                 onClick={() => {
                   setSelected(null)
@@ -377,7 +385,7 @@ export function MapPage() {
                 <X />
               </Button>
             )}
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">{panelBody}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">{panelBody}</div>
           </aside>
         ))}
 
@@ -385,8 +393,8 @@ export function MapPage() {
       {((filtersOpen && !personMode) || layerPrefs.base === 'ohm') && (
         <div
           className={cn(
-            'absolute bottom-3 z-10 max-h-[45dvh] space-y-3 overflow-y-auto rounded-xl border bg-card/95 p-3 shadow-md backdrop-blur',
-            isMobile ? 'inset-x-3 bottom-10' : selected || personMode ? 'left-[23.5rem] right-16' : 'left-1/2 w-[min(36rem,calc(100%-8rem))] -translate-x-1/2',
+            'absolute bottom-3 z-10 max-h-[45dvh] space-y-3 overflow-y-auto rounded-2xl bg-card/95 shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)] ring-1 ring-foreground/[0.07] backdrop-blur-xl supports-[backdrop-filter]:bg-card/80 p-4',
+            isMobile ? 'inset-x-3 bottom-10' : selected || personMode ? 'left-[25.5rem] right-16' : 'left-1/2 w-[min(36rem,calc(100%-8rem))] -translate-x-1/2',
           )}
         >
           {layerPrefs.base === 'ohm' && (
@@ -569,18 +577,28 @@ function LifePanel({ life, onFocus, onClose }: { life: Life; onFocus: (h: string
   const person = life.person
   return (
     <div>
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-4">
         {person?.profile ? (
-          <PersonChip person={person.profile} mediaRef={person.media_list?.[0]} size={44} className="-ml-2 min-w-0 flex-1" />
+          <Link to={`/person/${person.gramps_id}`} className="group flex min-w-0 flex-1 items-center gap-4 rounded-2xl outline-none">
+            <Portrait mediaRef={person.media_list?.[0]} name={profileName(person.profile)} sex={person.profile.sex} size={72} className="ring-brass/70" />
+            <span className="min-w-0">
+              <span className="line-clamp-2 font-serif text-[1.75rem] leading-[1.05] font-medium tracking-[-0.01em] group-hover:underline">
+                {profileName(person.profile)}
+              </span>
+              <span className="mt-1 block font-serif text-lg tabular-nums text-brass">
+                {lifespan(person.profile.birth as EventProfile, person.profile.death as EventProfile)}
+              </span>
+            </span>
+          </Link>
         ) : (
-          <Skeleton className="h-12 flex-1" />
+          <Skeleton className="h-[72px] flex-1 rounded-2xl" />
         )}
-        <Button variant="ghost" size="icon-sm" aria-label={t('common:actions.close')} onClick={onClose}>
+        <Button variant="ghost" size="icon" className="-mt-1 -mr-2 shrink-0 rounded-full" aria-label={t('common:actions.close')} onClick={onClose}>
           <X />
         </Button>
       </div>
-      <div className="mt-4 flex items-baseline gap-2 border-b pb-1.5">
-        <h2 className="text-lg font-medium">{t('lifePlaces')}</h2>
+      <div className="mt-7 mb-3 flex items-baseline gap-2">
+        <h2 className="font-serif text-2xl font-medium">{t('lifePlaces')}</h2>
         <span className="text-sm tabular-nums text-muted-foreground">{life.stops.length}</span>
       </div>
       {life.loading && (
@@ -595,23 +613,31 @@ function LifePanel({ life, onFocus, onClose }: { life: Life; onFocus: (h: string
           {t('noLifeEvents', { name: profileName(person?.profile) })}
         </p>
       )}
-      <ol className="relative mt-1">
-        {life.entries.map(({ item, number, placeHandle }) => {
+      <ol className="relative">
+        {life.entries.length > 0 && <span aria-hidden className="absolute top-4 bottom-4 left-[4.44rem] w-0.5 rounded-full bg-lineage/70" />}
+        {life.entries.map(({ item, number, placeHandle }, i) => {
           const placeName = item.place?.display_name || item.place?.name
+          const year = yearOf(item.date)
+          const showYear = i === 0 || yearOf(life.entries[i - 1].item.date) !== year
           const body = (
             <>
+              <span className={cn('w-12 shrink-0 pt-1 text-right font-serif text-xl leading-none tabular-nums text-brass', !showYear && 'invisible')}>
+                {year ?? '—'}
+              </span>
               <span
                 className={cn(
-                  'mt-0.5 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-xs font-semibold tabular-nums',
-                  number ? 'bg-brass text-brass-foreground' : 'border border-dashed text-muted-foreground',
+                  'relative z-10 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-xs font-semibold tabular-nums ring-4 ring-card',
+                  number ? 'bg-brass text-brass-foreground' : 'bg-secondary text-muted-foreground',
                 )}
               >
                 {number ?? '·'}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
-                  <span className="truncate font-medium">{item.label || item.type}</span>
-                  <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">{item.date || '—'}</span>
+                  <span className="truncate text-[15px] font-semibold">{item.label || item.type}</span>
+                  {item.date && item.date !== String(year) && (
+                    <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">{item.date}</span>
+                  )}
                 </span>
                 <span className="block truncate text-sm text-muted-foreground">
                   {placeName || t('noPlace')}
@@ -626,12 +652,12 @@ function LifePanel({ life, onFocus, onClose }: { life: Life; onFocus: (h: string
                 <button
                   type="button"
                   onClick={() => onFocus(placeHandle)}
-                  className="flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
+                  className="-mx-2 flex w-[calc(100%+1rem)] items-start gap-3 rounded-xl px-2 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-accent/70 focus-visible:bg-accent"
                 >
                   {body}
                 </button>
               ) : (
-                <div className="flex items-start gap-3 px-2 py-2 opacity-70">{body}</div>
+                <div className="flex items-start gap-3 py-2.5 opacity-70">{body}</div>
               )}
             </li>
           )

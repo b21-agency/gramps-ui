@@ -21,6 +21,10 @@ export default {
     notFound: 'Dieses Konto gibt es nicht oder es hat keine E-Mail-Adresse.',
     mailFailed: 'Der Server konnte die E-Mail nicht verschicken. Frag den Eigentümer des Stammbaums.',
   },
+  art: {
+    quote: 'Jeder Name ist eine Geschichte. Jede Geschichte führt zu jemandem zurück.',
+    caption: 'Fünf Generationen, eine Familie',
+  },
   firstRun: {
     title: 'Willkommen',
     subtitle: 'Leg das erste Konto an. Es wird Eigentümer dieses Stammbaums.',

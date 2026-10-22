@@ -69,7 +69,11 @@ export function NewPersonInline({
       </Grid>
       <ToggleGroup type="single" variant="outline" value={String(gender)} onValueChange={(v) => v && setGender(Number(v))} className="flex-wrap justify-start">
         {GENDERS.map((g) => (
-          <ToggleGroupItem key={g.value} value={String(g.value)} className="px-3">
+          <ToggleGroupItem
+            key={g.value}
+            value={String(g.value)}
+            className="h-10 rounded-full! px-4 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:font-medium data-[state=on]:text-primary-foreground pointer-coarse:h-11"
+          >
             {t(`person.genders.${g.key}`)}
           </ToggleGroupItem>
         ))}

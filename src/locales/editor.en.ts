@@ -1,6 +1,12 @@
 export default {
   editTitle: 'Edit {{what}}',
   newTitle: 'New {{what}}',
+  newPreview: {
+    title: 'Preview',
+    untitled: 'Not named yet',
+    hint: 'Start with the essentials; the other sections are optional and can be filled in later.',
+    shortcut: 'Save with Ctrl + Enter',
+  },
   create: 'Create',
   saveChanges: 'Save changes',
   saved: 'Changes saved',

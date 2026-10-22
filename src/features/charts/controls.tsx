@@ -51,7 +51,7 @@ export function Pill({ children, className }: { children: ReactNode; className?:
     <div
       data-no-pan
       className={cn(
-        'pointer-events-auto flex items-center gap-0.5 rounded-xl border bg-background/92 p-1 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80',
+        'pointer-events-auto flex items-center gap-0.5 rounded-2xl bg-card/95 p-1 shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)] ring-1 ring-foreground/[0.07] backdrop-blur-xl supports-[backdrop-filter]:bg-card/75 [&_[data-slot=button]]:rounded-xl',
         className,
       )}
     >
@@ -103,8 +103,8 @@ export function ChartSwitcher({ value, onChange }: { value: ChartKind; onChange:
                   aria-label={t(`charts.${c}`)}
                   onClick={() => onChange(c)}
                   className={cn(
-                    'inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
-                    active && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
+                    'inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-xl px-2.5 text-sm font-medium text-muted-foreground transition-[color,background-color,transform] duration-150 ease-out outline-none hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] motion-reduce:active:scale-100',
+                    active && 'bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground',
                   )}
                 >
                   <Icon className={cn('size-4', c === 'ancestor' && 'rotate-180')} aria-hidden />
@@ -190,7 +190,7 @@ export function DepthControls({
       {o === 'horizontal' ? <ArrowDownUp /> : <ArrowRightLeft />}
     </IconButton>
   )
-  const sep = <span className="mx-0.5 h-5 w-px bg-border" aria-hidden />
+  const sep = <span className="mx-1 h-5 w-px bg-foreground/10" aria-hidden />
   switch (chart) {
     case 'ancestor':
     case 'descendant': {
@@ -396,7 +396,7 @@ export function ZoomControls({
       <IconButton label={t('zoomOut')} onClick={onZoomOut} side="left">
         <ZoomOut />
       </IconButton>
-      <span className="my-0.5 h-px w-5 bg-border" aria-hidden />
+      <span className="my-1 h-px w-5 bg-foreground/10" aria-hidden />
       <IconButton label={t('fit')} onClick={onFit} side="left">
         <Maximize />
       </IconButton>

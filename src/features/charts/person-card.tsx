@@ -70,27 +70,38 @@ export const PersonCard = memo(function PersonCard({
         aria-label={centre ? `${person.name}${years ? `, ${years}` : ''}` : t('showInCentre', { name: person.name })}
         onClick={(e) => handlers.onActivate(person.handle, e.currentTarget)}
         className={cn(
-          'flex size-full rounded-xl border bg-card text-left shadow-xs outline-none transition-[border-color,box-shadow,background-color] duration-150',
-          'hover:border-primary/50 hover:shadow-sm focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/40',
-          vertical ? 'flex-col items-center justify-center gap-2 px-2.5 pt-1 text-center' : 'items-center gap-3 px-3',
-          node.role === 'partner' && 'border-dashed bg-card/70',
-          node.role === 'target' && 'border-2 border-brass',
+          'flex size-full rounded-2xl bg-card text-left shadow-[0_6px_20px_-12px_rgb(0_0_0/0.5)] ring-1 ring-foreground/[0.05] outline-none transition-[box-shadow,background-color] duration-150 ease-out',
+          'hover:bg-secondary hover:ring-primary/40 focus-visible:ring-4 focus-visible:ring-ring/50',
+          vertical ? 'flex-col items-center justify-center gap-2 px-2.5 pt-1 text-center' : 'items-center gap-3 pr-3 pl-2.5',
+          node.role === 'partner' && 'bg-card/70 shadow-none outline-1 -outline-offset-1 outline-dashed outline-lineage ring-0',
+          node.role === 'target' && 'ring-2 ring-brass',
           centre &&
-            'border-2 border-brass bg-[color-mix(in_oklab,var(--brass)_9%,var(--card))] shadow-md ring-4 ring-[color-mix(in_oklab,var(--brass)_18%,transparent)] hover:border-brass',
+            'bg-[color-mix(in_oklab,var(--brass)_10%,var(--card))] shadow-[0_0_0_6px_color-mix(in_oklab,var(--brass)_14%,transparent),0_0_44px_-6px_color-mix(in_oklab,var(--brass)_50%,transparent)] ring-2 ring-brass hover:bg-[color-mix(in_oklab,var(--brass)_14%,var(--card))] hover:ring-brass',
         )}
       >
-        <Portrait mediaRef={person.media} name={person.name} sex={person.sex} size={vertical ? 60 : 52} />
+        <Portrait
+          mediaRef={person.media}
+          name={person.name}
+          sex={person.sex}
+          size={vertical ? 64 : 56}
+          className={centre ? 'ring-brass/80' : undefined}
+        />
         <span className={cn('min-w-0', vertical ? 'w-full' : 'flex-1 pr-4')}>
           <span
             className={cn(
-              'line-clamp-2 font-serif leading-[1.15] text-pretty text-foreground',
-              centre ? 'text-[16px] font-semibold' : 'text-[15px] font-medium',
+              'line-clamp-2 font-serif leading-[1.12] tracking-[-0.01em] text-pretty text-foreground',
+              centre ? 'text-[17px] font-semibold' : 'text-[16px] font-medium',
             )}
           >
             {person.name}
           </span>
           {years && (
-            <span className={cn('mt-0.5 block truncate text-[13px] tabular-nums', centre ? 'text-brass' : 'text-muted-foreground')}>
+            <span
+              className={cn(
+                'mt-1 block truncate font-serif text-[14px] leading-none tabular-nums',
+                centre ? 'text-brass' : 'text-brass/80',
+              )}
+            >
               {years}
             </span>
           )}
@@ -103,7 +114,7 @@ export const PersonCard = memo(function PersonCard({
         title={t('openProfile')}
         data-no-pan
         className={cn(
-          'absolute top-1 right-1 grid size-7 place-items-center rounded-md text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground',
+          'absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground',
           'opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 pointer-coarse:opacity-70',
           centre && 'opacity-100',
         )}
@@ -127,7 +138,7 @@ export const PersonCard = memo(function PersonCard({
               : t('moreChildren', { count: node.stub.count ?? 0, name: person.name })
           }
           className={cn(
-            'absolute z-10 flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-full border bg-background px-1 text-xs text-muted-foreground shadow-xs transition-colors hover:border-primary/50 hover:text-foreground',
+            'absolute z-10 flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-full bg-secondary px-1 text-xs text-muted-foreground shadow-sm ring-1 ring-lineage transition-colors hover:text-brass hover:ring-brass/60 pointer-coarse:after:absolute pointer-coarse:after:-inset-2',
             stubPos[node.stub.side],
           )}
         >
@@ -153,7 +164,7 @@ export const BoxChart = memo(function BoxChart({
   return (
     <>
       <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>
-        <g fill="none" stroke="var(--lineage)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <g fill="none" stroke="var(--lineage)" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round">
           {layout.links.map((d, i) => (
             <path key={i} d={d} />
           ))}

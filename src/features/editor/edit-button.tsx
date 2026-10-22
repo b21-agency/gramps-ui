@@ -123,9 +123,9 @@ export function EditSheet({
         <SheetContent
           side={isMobile ? 'bottom' : 'right'}
           className={cn(
-            'w-full gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl',
+            'w-full gap-0 bg-background p-0 data-[side=right]:w-full data-[side=right]:border-l-0 data-[side=right]:sm:max-w-2xl',
             // phones: a page sheet that rises from the bottom, leaving a sliver of the page above
-            'data-[side=bottom]:h-[calc(100dvh-env(safe-area-inset-top,0px)-0.75rem)] data-[side=bottom]:overflow-hidden data-[side=bottom]:rounded-t-2xl data-[side=bottom]:data-open:slide-in-from-bottom data-[side=bottom]:data-closed:slide-out-to-bottom',
+            'data-[side=bottom]:h-[calc(100dvh-env(safe-area-inset-top,0px)-0.75rem)] data-[side=bottom]:overflow-hidden data-[side=bottom]:rounded-t-3xl data-[side=bottom]:border-t-0 data-[side=bottom]:data-open:slide-in-from-bottom data-[side=bottom]:data-closed:slide-out-to-bottom',
             'max-md:[&>[data-slot=sheet-close]]:top-2.5 max-md:[&>[data-slot=sheet-close]]:right-2.5 max-md:[&>[data-slot=sheet-close]]:size-10',
           )}
           onEscapeKeyDown={(e) => {
@@ -194,11 +194,13 @@ function EditSheetBody({
   const title = q.data ? describeObject(kind, q.data).title : ''
   return (
     <>
-      <SheetHeader className="border-b px-4 py-3 pr-14 sm:px-6 sm:pr-12">
-        <SheetTitle className="font-serif text-xl font-medium">{t('editor:editTitle', { what: t(`common:object.${kind}`) })}</SheetTitle>
-        <SheetDescription className="truncate">
+      <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-14 sm:px-6 sm:pt-6 sm:pr-14">
+        <SheetTitle className="font-serif text-3xl leading-[1.05] font-medium tracking-[-0.01em] sm:text-4xl">
+          {t('editor:editTitle', { what: t(`common:object.${kind}`) })}
+        </SheetTitle>
+        <SheetDescription className="truncate font-serif text-lg italic">
           {title}
-          {q.data?.gramps_id && <span className="ml-2 tabular-nums">{q.data.gramps_id}</span>}
+          {q.data?.gramps_id && <span className="ml-2 font-sans text-sm not-italic tabular-nums text-brass">{q.data.gramps_id}</span>}
         </SheetDescription>
       </SheetHeader>
       {q.isError ? (
@@ -214,8 +216,8 @@ function EditSheetBody({
           seeds={[q.data, ...extendedObjects(q.data)]}
           onDirtyChange={onDirtyChange}
           onCancel={onCancel}
-          bodyClassName="overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
-          footerClassName="bg-popover px-4 sm:px-6 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
+          bodyClassName="overflow-y-auto overscroll-contain px-3 pt-2 pb-6 sm:px-6"
+          footerClassName="px-4 sm:px-6 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
           onSaved={onSaved}
         />
         </Suspense>

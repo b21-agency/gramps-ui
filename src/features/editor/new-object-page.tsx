@@ -1,14 +1,15 @@
 import { lazy, Suspense, useMemo, useState, type ComponentType } from 'react'
+import { Portrait } from '@/components/portrait'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
 import { Lock, UserRoundPlus } from 'lucide-react'
-import { Page, PageSkeleton } from '@/components/app-shell'
+import { PageSkeleton } from '@/components/app-shell'
 import { EmptyState, ErrorState } from '@/components/states'
 import { useGetObjectQuery } from '@/api/enhanced/objects'
 import { useAuth } from '@/lib/auth'
-import { describeObject, objectPath } from '@/lib/objects'
+import { describeObject, kindIcon, objectPath } from '@/lib/objects'
 import { surnameOf } from '@/lib/format'
 import type { ObjectKind } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
@@ -81,6 +82,7 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
   const related = { ...relatedQ, data: relatedQ.data as AnyObj | undefined }
 
   // participants of a new event: the person/family it was started from, plus any added in the form
+  const [draft, setDraft] = useState<AnyObj | null>(null)
   const [participants, setParticipants] = useState<Participant[]>(() =>
     eventOwner && eventOwnerHandle
       ? [{ kind: eventOwner, handle: eventOwnerHandle, role: params.get('role') ?? (eventOwner === 'family' ? 'Family' : 'Primary') }]
@@ -157,28 +159,61 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
       ? t('editor:relationHint.eventOf', { name: relTitle })
       : null
 
+  const pageTitle = relation ? t(`editor:relationTitle.${relation}`) : t('editor:newTitle', { what })
+  const preview = draft ? describeObject(kind, draft).title : ''
+  const Icon = kindIcon[kind]
+
   return (
-    <Page title={relation ? t(`editor:relationTitle.${relation}`) : t('editor:newTitle', { what })}>
-      <div className="mx-auto max-w-2xl">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">
+      <div className="mb-8">
+        <h1 className="font-serif text-[2.6rem] leading-[1] font-medium tracking-[-0.02em] text-balance sm:text-6xl">{pageTitle}</h1>
+        {relationHint && (
+          <p className="mt-3 flex items-center gap-2 font-serif text-xl italic text-muted-foreground">
+            <UserRoundPlus className="size-5 shrink-0 text-brass" />
+            {relationHint}
+          </p>
+        )}
+      </div>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
         <ObjectEditor
           kind={kind}
           mode="create"
           initial={initial}
           seeds={[related.data, ...(related.data?.extended?.father ? [related.data.extended.father] : []), ...(related.data?.extended?.mother ? [related.data.extended.mother] : [])].filter(Boolean) as AnyObj[]}
-          header={
-            relationHint ? (
-              <p className="mb-6 flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 text-sm">
-                <UserRoundPlus className="size-4 shrink-0 text-primary" />
-                {relationHint}
-              </p>
-            ) : null
-          }
-          footer={kind === 'event' && can('EditObject') ? <div className="mt-6"><ParticipantsField value={participants} onChange={setParticipants} /></div> : null}
+          onDraftChange={setDraft}
+          formClassName="2xl:[&>div]:grid 2xl:[&>div]:grid-cols-2 2xl:[&>div]:items-start 2xl:[&>div]:gap-6 2xl:[&>div>section:first-child]:col-span-2"
+          footer={kind === 'event' && can('EditObject') ? <div className="mt-6 rounded-3xl bg-card p-5 sm:p-6"><ParticipantsField value={participants} onChange={setParticipants} /></div> : null}
           onCancel={() => navigate(-1)}
           onSaved={afterCreate}
-          footerClassName="sticky bottom-[var(--tabbar-h)] mt-8 -mx-4 px-4 sm:-mx-6 sm:px-6"
+          footerClassName="sticky bottom-[var(--tabbar-h)] z-10 mt-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-3xl lg:px-5"
         />
+        <aside className="order-first min-w-0 rounded-3xl bg-card p-5 max-xl:hidden sm:p-6 xl:sticky xl:top-[calc(var(--header-h)+1.5rem)] xl:order-none">
+          <div className="text-sm text-muted-foreground">{t('editor:newPreview.title')}</div>
+          <div className="mt-4 flex items-center gap-4">
+            {kind === 'person' ? (
+              <Portrait name={preview || '?'} sex={draft?.gender === 0 ? 'F' : draft?.gender === 1 ? 'M' : undefined} size={72} />
+            ) : (
+              <span className="flex size-[72px] shrink-0 items-center justify-center rounded-2xl bg-secondary ring-1 ring-inset ring-brass/30">
+                <Icon className="size-7 text-brass" aria-hidden />
+              </span>
+            )}
+            <div className="min-w-0">
+              <div className={preview ? 'font-serif text-3xl leading-[1.05] font-medium [overflow-wrap:anywhere]' : 'font-serif text-2xl italic text-muted-foreground'}>
+                {preview || t('editor:newPreview.untitled')}
+              </div>
+              <div className="mt-1 text-sm text-muted-foreground">{what}</div>
+            </div>
+          </div>
+          {relationHint && (
+            <p className="mt-5 flex items-start gap-2 rounded-2xl bg-secondary/70 px-4 py-3 text-sm">
+              <UserRoundPlus className="mt-0.5 size-4 shrink-0 text-brass" />
+              {relationHint}
+            </p>
+          )}
+          <p className="mt-5 font-serif text-lg leading-snug italic text-muted-foreground">{t('editor:newPreview.hint')}</p>
+          <p className="mt-3 text-xs text-muted-foreground">{t('editor:newPreview.shortcut')}</p>
+        </aside>
       </div>
-    </Page>
+    </div>
   )
 }

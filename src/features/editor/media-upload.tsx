@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { CircleAlert, CircleCheck, FileImage, Loader2, Upload, X } from 'lucide-react'
-import { Page } from '@/components/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ObjectPicker } from '@/components/object-picker'
@@ -149,8 +148,13 @@ export function MediaUpload() {
   const ready = items.filter((x) => x.status === 'ready' || x.status === 'error').length
 
   return (
-    <Page title={t('editor:media.uploadTitle')} description={t('editor:media.uploadDescription')}>
-      <div className="mx-auto flex max-w-2xl flex-col gap-6">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">
+      <div className="mb-8">
+        <h1 className="font-serif text-[2.6rem] leading-[1] font-medium tracking-[-0.02em] text-balance sm:text-6xl">{t('editor:media.uploadTitle')}</h1>
+        <p className="mt-3 max-w-2xl font-serif text-xl italic text-muted-foreground">{t('editor:media.uploadDescription')}</p>
+      </div>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="flex min-w-0 flex-col gap-6">
         <div
           role="button"
           tabIndex={0}
@@ -167,12 +171,14 @@ export function MediaUpload() {
             if (e.dataTransfer.files?.length) add(e.dataTransfer.files)
           }}
           className={cn(
-            'flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-            drag ? 'border-primary bg-primary/5' : 'hover:bg-muted/50',
+            'flex min-h-64 cursor-pointer flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-brass/35 bg-card px-6 py-12 text-center transition-colors duration-150 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+            drag ? 'border-brass bg-brass/10' : 'hover:border-brass/60 hover:bg-secondary',
           )}
         >
-          <Upload className="size-7 text-muted-foreground" />
-          <p className="font-serif text-lg">{t('editor:media.drop')}</p>
+          <span className="flex size-14 items-center justify-center rounded-full bg-secondary">
+            <Upload className="size-6 text-brass" />
+          </span>
+          <p className="font-serif text-3xl font-medium">{t('editor:media.drop')}</p>
           <p className="text-sm text-muted-foreground">{t('editor:media.dropHint')}</p>
           <input
             ref={input}
@@ -187,10 +193,10 @@ export function MediaUpload() {
         </div>
 
         {items.length > 0 && (
-          <ul className="flex flex-col divide-y rounded-xl border">
+          <ul className="flex flex-col divide-y rounded-3xl bg-card p-2">
             {items.map((it) => (
               <li key={it.key} className="flex items-center gap-3 p-2.5">
-                <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary">
                   {it.preview ? <img src={it.preview} alt="" className="size-full object-cover" /> : <FileImage className="size-5 text-muted-foreground" />}
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -226,7 +232,8 @@ export function MediaUpload() {
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon"
+                      className="rounded-full"
                       aria-label={t('editor:remove')}
                       disabled={running}
                       onClick={() => setItems((list) => list.filter((x) => x.key !== it.key))}
@@ -240,7 +247,9 @@ export function MediaUpload() {
           </ul>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      </div>
+      <aside className="flex min-w-0 flex-col gap-5 rounded-3xl bg-card p-5 max-md:[&_[data-slot=button]]:h-11 max-md:[&_[data-slot=select-trigger]]:h-11 sm:p-6 xl:sticky xl:top-[calc(var(--header-h)+1.5rem)]">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
           <DateInput label={t('editor:media.dateAll')} value={date} onChange={setDate} />
           <Field label={t('editor:media.linkPerson')} hint={t('editor:media.linkPersonHint')}>
             <div className="flex gap-1">
@@ -259,16 +268,17 @@ export function MediaUpload() {
           </Field>
         </div>
 
-        <div className="flex justify-end gap-2 border-t pt-4">
+        <div className="flex justify-end gap-2 [&>button]:h-11 [&>button]:rounded-full [&>button]:px-5 max-sm:[&>button]:flex-1">
           <Button type="button" variant="ghost" onClick={() => navigate(-1)} disabled={running}>
             {t('common:actions.cancel')}
           </Button>
-          <Button type="button" onClick={run} disabled={running || ready === 0}>
+          <Button type="button" className="font-semibold" onClick={run} disabled={running || ready === 0}>
             {running ? <Loader2 className="animate-spin" /> : <Upload />}
             {t('editor:media.uploadCount', { count: ready })}
           </Button>
         </div>
+      </aside>
       </div>
-    </Page>
+    </div>
   )
 }

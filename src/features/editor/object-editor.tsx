@@ -18,6 +18,8 @@ export interface ObjectEditorProps {
   onSaved: (tx: Transaction, obj: AnyObj) => void | Promise<void>
   onCancel?: () => void
   onDirtyChange?: (dirty: boolean) => void
+  /** Called with every change of the draft (e.g. for a live preview next to the form). */
+  onDraftChange?: (draft: AnyObj) => void
   /** Extra content above the form (e.g. relation hint on new pages). */
   header?: ReactNode
   /** Extra content below the form, inside the editor session (e.g. participants of a new event). */
@@ -26,6 +28,8 @@ export interface ObjectEditorProps {
   /** Classes for the scrolling body / sticky footer. */
   bodyClassName?: string
   footerClassName?: string
+  /** Classes for the wrapper around the form fields (e.g. a multi-column layout). */
+  formClassName?: string
 }
 
 /** Form + save/cancel footer for one object, with its own editor session. */
@@ -44,11 +48,13 @@ function EditorInner({
   onSaved,
   onCancel,
   onDirtyChange,
+  onDraftChange,
   header,
   footer,
   saveLabel,
   bodyClassName,
   footerClassName,
+  formClassName,
 }: ObjectEditorProps) {
   const { t } = useTranslation(['editor', 'common'])
   const session = useEditorSession()
@@ -58,6 +64,7 @@ function EditorInner({
   const [error, setError] = useState<string | null>(null)
   const dirty = draft !== base || session.dirty
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
+  useEffect(() => onDraftChange?.(draft), [draft, onDraftChange])
 
   const save = async () => {
     const problem = validateObject(kind, draft)
@@ -97,22 +104,29 @@ function EditorInner({
     >
       <div className={cn('flex-1', bodyClassName)}>
         {header}
-        <ObjectForm kind={kind} value={draft} onChange={setDraft} />
+        {/* the forms' first (unnamed) section becomes a panel like the named ones */}
+        <div className={cn('pointer-coarse:[&_[data-slot=button][data-size=sm]]:h-11 [&>div]:gap-4 [&>div>section:first-child]:rounded-3xl [&>div>section:first-child]:bg-card [&>div>section:first-child]:p-5 sm:[&>div>section:first-child]:p-6', formClassName)}>
+          <ObjectForm kind={kind} value={draft} onChange={setDraft} />
+        </div>
         {footer}
       </div>
-      <div className={cn('flex flex-col gap-2 border-t bg-background/95 py-3 backdrop-blur', footerClassName)}>
+      <div className={cn('flex flex-col gap-2 bg-background/90 py-3 backdrop-blur-xl', footerClassName)}>
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <div className="flex items-center justify-end gap-2 max-md:[&>button]:h-11 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">
+        <div className="flex items-center justify-end gap-2 [&>button]:h-11 [&>button]:rounded-full [&>button]:px-5 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">
           {onCancel && (
-            <Button type="button" variant="ghost" className="max-md:bg-muted" onClick={onCancel} disabled={saving}>
+            <Button type="button" variant="ghost" className="max-md:bg-secondary" onClick={onCancel} disabled={saving}>
               {t('common:actions.cancel')}
             </Button>
           )}
-          <Button type="submit" disabled={saving || (mode === 'edit' && !dirty)}>
+          <Button
+            type="submit"
+            className="font-semibold shadow-[0_10px_30px_-12px_color-mix(in_oklab,var(--primary)_60%,transparent)] transition-transform duration-150 ease-out active:scale-[0.97] motion-reduce:active:scale-100"
+            disabled={saving || (mode === 'edit' && !dirty)}
+          >
             {saving && <Loader2 className="animate-spin" />}
             {saving ? t('common:actions.saving') : (saveLabel ?? (mode === 'create' ? t('create') : t('saveChanges')))}
           </Button>

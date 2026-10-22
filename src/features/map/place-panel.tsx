@@ -52,18 +52,37 @@ export function PlaceDetails({ handle, range }: { handle: string; range?: [numbe
     return !!y && y >= range[0] && y <= range[1]
   }
 
+  const media = (place.media_list ?? []).map((ref, i) => ({ ref, m: (place.extended?.media as Media[] | undefined)?.[i] }))
+  const heroPhoto = media.find(({ m }) => !m || m.mime?.startsWith('image'))
+  const rest = media.filter((x) => x !== heroPhoto)
+  const name = p?.name || place.title || place.gramps_id
+
   return (
     <div className="min-w-0">
-      <div className="flex items-start gap-3">
-        <span className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <MapPin className="size-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-2xl font-medium leading-tight">{p?.name || place.title || place.gramps_id}</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {[p?.type, parents.join(', ')].filter(Boolean).join(' · ')}
-          </p>
-        </div>
+      {heroPhoto && (
+        <Link
+          to={heroPhoto.m ? `/media/${heroPhoto.m.gramps_id}` : '#'}
+          className="mb-5 block h-44 overflow-hidden rounded-2xl bg-secondary sm:h-48"
+          title={heroPhoto.m?.desc}
+        >
+          <img
+            src={
+              heroPhoto.ref.rect
+                ? mediaCroppedUrl(heroPhoto.ref.ref, heroPhoto.ref.rect, 700, { square: false })
+                : mediaThumbUrl(heroPhoto.ref.ref, 700, { square: false })
+            }
+            alt=""
+            onError={(e) => ((e.currentTarget.parentElement as HTMLElement).style.display = 'none')}
+            className="size-full object-cover [filter:sepia(0.18)_contrast(1.04)] transition-transform duration-500 ease-out hover:scale-[1.02]"
+          />
+        </Link>
+      )}
+      <div className="pr-10">
+        <MapPin className="mb-2 size-5 text-brass" aria-hidden />
+        <h2 className="font-serif text-4xl leading-[1.02] font-medium tracking-[-0.02em] text-balance [overflow-wrap:anywhere]">{name}</h2>
+        {(p?.type || parents.length > 0) && (
+          <p className="mt-2 font-serif text-lg italic text-muted-foreground">{[p?.type, parents.join(', ')].filter(Boolean).join(' · ')}</p>
+        )}
       </div>
       {!validCoords(place.lat, place.long) && (
         <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -71,31 +90,28 @@ export function PlaceDetails({ handle, range }: { handle: string; range?: [numbe
           {t('noCoordsShort')}
         </p>
       )}
-      {(place.media_list?.length ?? 0) > 0 && (
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {(place.media_list ?? []).map((ref, i) => {
-            const m = (place.extended?.media as Media[] | undefined)?.[i]
-            return (
-              <Link key={`${ref.ref}-${i}`} to={m ? `/media/${m.gramps_id}` : '#'} className="shrink-0" title={m?.desc}>
-                {m && !m.mime?.startsWith('image') ? (
-                  <span className="flex size-16 items-center justify-center rounded-md border bg-muted text-muted-foreground">
-                    <FileText className="size-6" />
-                  </span>
-                ) : (
-                  <img
-                    src={ref.rect ? mediaCroppedUrl(ref.ref, ref.rect, 120, { square: true }) : mediaThumbUrl(ref.ref, 120, { square: true })}
-                    alt={m?.desc ?? ''}
-                    className="size-16 rounded-md border object-cover"
-                    loading="lazy"
-                  />
-                )}
-              </Link>
-            )
-          })}
+      {rest.length > 0 && (
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          {rest.map(({ ref, m }, i) => (
+            <Link key={`${ref.ref}-${i}`} to={m ? `/media/${m.gramps_id}` : '#'} className="shrink-0" title={m?.desc}>
+              {m && !m.mime?.startsWith('image') ? (
+                <span className="flex size-16 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+                  <FileText className="size-6" />
+                </span>
+              ) : (
+                <img
+                  src={ref.rect ? mediaCroppedUrl(ref.ref, ref.rect, 120, { square: true }) : mediaThumbUrl(ref.ref, 120, { square: true })}
+                  alt={m?.desc ?? ''}
+                  className="size-16 rounded-xl object-cover"
+                  loading="lazy"
+                />
+              )}
+            </Link>
+          ))}
         </div>
       )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="outline">
+      <div className="mt-5 flex flex-wrap gap-2">
+        <Button asChild className="h-11 rounded-full px-5">
           <Link to={`/place/${place.gramps_id}`}>
             {t('openPlace')}
             <ArrowUpRight />
@@ -103,20 +119,21 @@ export function PlaceDetails({ handle, range }: { handle: string; range?: [numbe
         </Button>
       </div>
 
-      <div className="mt-5 flex items-baseline gap-2 border-b pb-1.5">
-        <h3 className="text-base font-medium">{t('eventsHere')}</h3>
+      <div className="mt-7 mb-3 flex items-baseline gap-2">
+        <h3 className="font-serif text-2xl font-medium">{t('eventsHere')}</h3>
         <span className="text-sm tabular-nums text-muted-foreground">{eventHandles.length}</span>
       </div>
-      {eventHandles.length === 0 && <p className="py-3 text-sm text-muted-foreground">{t('noEventsHere')}</p>}
+      {eventHandles.length === 0 && <p className="py-1 text-sm text-muted-foreground">{t('noEventsHere')}</p>}
       {events.isLoading && (
         <div className="space-y-2 py-2">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-10 w-full" />
+            <Skeleton key={i} className="h-10 w-full rounded-xl" />
           ))}
         </div>
       )}
-      <ol className="divide-y">
-        {list.slice(0, limit).map((e) => {
+      <ol className="relative">
+        {list.length > 0 && <span aria-hidden className="absolute top-3 bottom-3 left-[4.06rem] w-0.5 rounded-full bg-lineage/70" />}
+        {list.slice(0, limit).map((e, i, arr) => {
           const prof = e.profile
           const people = prof?.participants?.people ?? []
           const fams = prof?.participants?.families ?? []
@@ -128,32 +145,51 @@ export function PlaceDetails({ handle, range }: { handle: string; range?: [numbe
               name: [profileName(x.family.father), profileName(x.family.mother)].filter(Boolean).join(' & '),
             })),
           ].filter((x) => x.name)
+          const year = yearOfEvent(e)
+          const showYear = i === 0 || yearOfEvent(arr[i - 1]) !== year
           return (
-            <li key={e.handle} className={cn('py-2.5', !inRange(e) && 'opacity-45')}>
-              <div className="flex items-baseline gap-2 text-sm">
-                <Link to={`/event/${e.gramps_id}`} className="font-medium hover:underline">
-                  {prof?.type || String(e.type)}
-                </Link>
-                <span className="ml-auto shrink-0 tabular-nums text-xs text-muted-foreground">{prof?.date || '—'}</span>
-              </div>
-              {who.length > 0 && (
-                <div className="mt-0.5 flex flex-wrap gap-x-2 text-sm">
-                  {who.map((w) => (
-                    <Link key={w.id} to={`/${w.kind}/${w.id}`} className="truncate text-muted-foreground hover:text-foreground hover:underline">
-                      {w.name}
-                    </Link>
-                  ))}
-                </div>
-              )}
+            <li key={e.handle} className={cn('flex gap-3 py-2', !inRange(e) && 'opacity-45')}>
+              <span
+                className={cn(
+                  'w-12 shrink-0 pt-0.5 text-right font-serif text-xl leading-none tabular-nums text-brass',
+                  !showYear && 'invisible',
+                )}
+              >
+                {year ?? '—'}
+              </span>
+              <span aria-hidden className="relative z-10 mt-1 size-3 shrink-0 rounded-full bg-primary ring-4 ring-card" />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline gap-2">
+                  <Link to={`/event/${e.gramps_id}`} className="text-[15px] font-semibold hover:underline">
+                    {prof?.type || String(e.type)}
+                  </Link>
+                  {prof?.date && prof.date !== String(year) && (
+                    <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">{prof.date}</span>
+                  )}
+                </span>
+                {who.length > 0 && (
+                  <span className="mt-0.5 flex flex-wrap gap-x-2 text-sm">
+                    {who.map((w) => (
+                      <Link key={w.id} to={`/${w.kind}/${w.id}`} className="truncate text-muted-foreground hover:text-foreground hover:underline">
+                        {w.name}
+                      </Link>
+                    ))}
+                  </span>
+                )}
+              </span>
             </li>
           )
         })}
       </ol>
       {list.length > limit && (
-        <Button variant="ghost" size="sm" className="mt-1 w-full" onClick={() => setLimit((l) => l + PAGE)}>
+        <Button variant="secondary" className="mt-2 h-11 w-full rounded-full" onClick={() => setLimit((l) => l + PAGE)}>
           {t('showMore', { count: list.length - limit })}
         </Button>
       )}
     </div>
   )
+}
+
+function yearOfEvent(e: GEvent): number | null {
+  return e.date?.year || e.date?.dateval?.[2] || null
 }

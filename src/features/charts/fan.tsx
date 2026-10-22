@@ -76,14 +76,26 @@ function clip(s: string, maxChars: number) {
 
 const charW = (size: number) => size * 0.52
 
-// family line colours: father's father, father's mother, mother's father, mother's mother
-const LINE = ['--chart-3', '--chart-1', '--chart-2', '--chart-4']
-const GEN = ['--chart-1', '--chart-3', '--chart-2', '--chart-4', '--chart-5']
+// family line colours (Album palette: moss for the father's side, gold for the mother's):
+// father's father, father's mother, mother's father, mother's mother
+const LINE = [
+  'var(--chart-1)',
+  'color-mix(in oklab, var(--chart-1) 45%, var(--chart-3))',
+  'var(--chart-2)',
+  'color-mix(in oklab, var(--chart-2) 65%, var(--destructive))',
+]
+const GEN = [
+  'var(--chart-2)',
+  'var(--chart-1)',
+  'color-mix(in oklab, var(--chart-2) 50%, var(--chart-1))',
+  'var(--chart-5)',
+  'color-mix(in oklab, var(--chart-2) 65%, var(--destructive))',
+]
 
 const tint = (c: string, mix: number) => `color-mix(in oklab, ${c} ${mix}%, var(--card))`
 const NO_VALUE = 'var(--muted)'
-/** cool -> warm scale for a share 0..1 */
-const scale = (v: number) => tint(`color-mix(in oklab, var(--destructive) ${Math.round(v * 100)}%, var(--chart-3))`, Math.round(30 + v * 45))
+/** moss -> gold scale for a share 0..1 */
+const scale = (v: number) => tint(`color-mix(in oklab, var(--chart-2) ${Math.round(v * 100)}%, var(--chart-1))`, Math.round(22 + v * 55))
 const CATEGORY = [
   'var(--chart-1)',
   'var(--chart-2)',
@@ -218,7 +230,7 @@ export function fanGeometry(
         gen,
         person: p,
         d: sector(r0 + 1, r1 - 1, a0 + 0.15, a1 - 0.15),
-        fill: tint(`var(${colour === 'generation' ? GEN[(gen - 1) % GEN.length] : LINE[line]})`, Math.max(14, 34 - (gen - 1) * 3)),
+        fill: tint(colour === 'generation' ? GEN[(gen - 1) % GEN.length] : LINE[line], Math.max(16, 38 - (gen - 1) * 4)),
         cx: f(cx),
         cy: f(cy),
         transform: '',
@@ -354,7 +366,7 @@ export const FanChart = memo(function FanChart({ geo, handlers }: { geo: FanGeom
                     y={l.dy}
                     fontSize={l.size}
                     fontWeight={l.weight}
-                    className={l.muted ? 'fill-muted-foreground font-sans tabular-nums' : 'fill-foreground font-serif'}
+                    className={l.muted ? 'fill-brass/90 font-serif tabular-nums' : 'fill-foreground font-serif'}
                   >
                     {l.text}
                   </text>
@@ -386,7 +398,10 @@ export const FanChart = memo(function FanChart({ geo, handlers }: { geo: FanGeom
       >
         <circle
           r={FAN_R0 - 2}
-          style={{ fill: 'color-mix(in oklab, var(--brass) 12%, var(--card))' }}
+          style={{
+            fill: 'color-mix(in oklab, var(--brass) 12%, var(--card))',
+            filter: 'drop-shadow(0 0 18px color-mix(in oklab, var(--brass) 40%, transparent))',
+          }}
           className="stroke-brass stroke-2 group-focus-visible/seg:stroke-ring group-focus-visible/seg:stroke-[4]"
         />
         <defs>
@@ -422,7 +437,7 @@ export const FanChart = memo(function FanChart({ geo, handlers }: { geo: FanGeom
             </tspan>
           )}
           {years && (
-            <tspan x={0} y={c.given && c.surname ? 52 : 36} fontSize={11.5} className="fill-brass font-sans tabular-nums">
+            <tspan x={0} y={c.given && c.surname ? 53 : 37} fontSize={13} className="fill-brass font-serif tabular-nums">
               {years}
             </tspan>
           )}

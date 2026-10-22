@@ -21,6 +21,10 @@ export default {
     notFound: 'This user does not exist or has no e-mail address.',
     mailFailed: 'The server could not send the e-mail. Ask the tree owner for help.',
   },
+  art: {
+    quote: 'Every name is a story. Every story leads back to someone.',
+    caption: 'Five generations, one family',
+  },
   firstRun: {
     title: 'Welcome',
     subtitle: 'Create the first account. It becomes the owner of this family tree.',

@@ -1,6 +1,12 @@
 export default {
   editTitle: '{{what}} bearbeiten',
   newTitle: 'Neu: {{what}}',
+  newPreview: {
+    title: 'Vorschau',
+    untitled: 'Noch ohne Namen',
+    hint: 'Fang mit dem Wichtigsten an; die übrigen Bereiche sind freiwillig und lassen sich später ergänzen.',
+    shortcut: 'Speichern mit Strg + Enter',
+  },
   create: 'Anlegen',
   saveChanges: 'Änderungen speichern',
   saved: 'Änderungen gespeichert',

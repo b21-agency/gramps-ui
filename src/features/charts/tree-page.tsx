@@ -102,7 +102,7 @@ function ChooseStart({ chart, notFound }: { chart: ChartKind; notFound?: boolean
   }
   return (
     <div className="grid size-full place-items-center p-4">
-      <div className="w-full max-w-md rounded-2xl border bg-card p-2 shadow-sm">
+      <div className="w-full max-w-md rounded-3xl bg-card p-2 shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)]">
         <EmptyState icon={notFound ? undefined : UserRound} title={notFound ? t('notFound.title') : t('empty.title')} className="py-8">
           {notFound ? t('notFound.text') : t('empty.text')}
         </EmptyState>
@@ -560,12 +560,12 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
         <div
           data-no-pan
           className={cn(
-            'pointer-events-auto absolute left-2 max-w-[11rem] rounded-xl border bg-background/92 p-2.5 shadow-sm backdrop-blur sm:left-3',
+            'pointer-events-auto absolute left-2 max-w-[11rem] rounded-2xl bg-card/95 p-3 shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)] ring-1 ring-foreground/[0.07] backdrop-blur-xl supports-[backdrop-filter]:bg-card/75 sm:left-3',
             isMobile ? 'top-[4.5rem]' : 'top-[4.25rem]',
           )}
           aria-label={t(`colour.${settings.fan.colour}`)}
         >
-          <div className="mb-1.5 text-xs font-medium">{t(`colour.${settings.fan.colour}`)}</div>
+          <div className="mb-2 font-serif text-sm font-medium">{t(`colour.${settings.fan.colour}`)}</div>
           <FanLegendView legend={fan.legend} className="space-y-1" />
         </div>
       )}
@@ -676,7 +676,7 @@ function MobileBottom({
   const hint = !hintDismissed ? (
     <Pill className="items-start gap-2 py-2 pr-1 pl-3 text-xs text-muted-foreground">
       <span className="flex-1 pt-1">{alone ? t('alone', { name: centre.given || centre.name }) : t('hints.touchSelect')}</span>
-      <Button variant="ghost" size="icon" className="size-8" aria-label={t('common:actions.close')} onClick={() => setHintDismissed(true)}>
+      <Button variant="ghost" size="icon" className="size-11" aria-label={t('common:actions.close')} onClick={() => setHintDismissed(true)}>
         <X />
       </Button>
     </Pill>
@@ -733,25 +733,25 @@ function CentrePanel({
   return (
     <div className="pointer-events-none flex min-w-0 flex-col items-start gap-2">
       {!hintDismissed && (
-        <Pill className="max-w-[min(26rem,calc(100vw-5.5rem))] items-start gap-2 py-2 pr-1 pl-3 text-xs text-muted-foreground">
+        <Pill className="max-w-[min(26rem,calc(100vw-5.5rem))] items-start gap-2 py-2 pr-1 pl-3.5 text-xs text-muted-foreground">
           <span className="pt-0.5">{coarse ? t('hints.touch') : t('hints.keyboard')}</span>
           <Button variant="ghost" size="icon-xs" aria-label={t('common:actions.close')} onClick={() => setHintDismissed(true)}>
             <X />
           </Button>
         </Pill>
       )}
-      <Pill className="max-w-[calc(100vw-5.5rem)] min-w-0 gap-1 py-1.5 pr-1.5 pl-2">
-        <Portrait mediaRef={person.media} name={person.name} sex={person.sex} size={36} className="hidden sm:inline-flex" />
-        <div className="mr-1 min-w-0 sm:ml-1.5">
-          <div className="truncate font-serif text-[15px] leading-tight font-medium">{person.name}</div>
-          <div className="truncate text-xs text-muted-foreground tabular-nums">
-            {alone ? t('alone', { name: person.given || person.name }) : years || ' '}
+      <Pill className="max-w-[calc(100vw-5.5rem)] min-w-0 gap-1.5 rounded-3xl py-2 pr-2 pl-2.5">
+        <Portrait mediaRef={person.media} name={person.name} sex={person.sex} size={52} className="hidden ring-brass/80 sm:inline-flex" />
+        <div className="mr-2 min-w-0 sm:ml-1.5">
+          <div className="truncate font-serif text-xl leading-tight font-medium tracking-[-0.01em]">{person.name}</div>
+          <div className={cn('mt-0.5 truncate text-sm tabular-nums', alone ? 'text-muted-foreground' : 'font-serif text-brass')}>
+            {alone ? t('alone', { name: person.given || person.name }) : years || ' '}
           </div>
         </div>
         {children.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-9" aria-label={t('children')} title={t('children')}>
+              <Button variant="ghost" size="icon" className="size-10" aria-label={t('children')} title={t('children')}>
                 <Baby />
               </Button>
             </DropdownMenuTrigger>
@@ -762,20 +762,20 @@ function CentrePanel({
                   <Portrait mediaRef={c.media} name={c.name} sex={c.sex} size={28} />
                   <span className="min-w-0">
                     <span className="block truncate font-serif">{c.name}</span>
-                    <span className="block text-xs text-muted-foreground tabular-nums">{yearsText(c, t)}</span>
+                    <span className="block font-serif text-xs text-brass tabular-nums">{yearsText(c, t)}</span>
                   </span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        {full.data && <AddRelativeMenu person={full.data} className="h-9 border-0 bg-transparent px-2.5 shadow-none" />}
+        {full.data && <AddRelativeMenu person={full.data} className="h-10 rounded-full border-0 bg-secondary px-3.5 shadow-none hover:bg-accent" />}
         {!isHome && (
-          <Button variant="ghost" size="icon" className="size-9" aria-label={t('setHome')} title={t('setHome')} onClick={onHome}>
+          <Button variant="ghost" size="icon" className="size-10" aria-label={t('setHome')} title={t('setHome')} onClick={onHome}>
             <House />
           </Button>
         )}
-        <Button asChild variant="ghost" className="h-9 gap-1.5 px-2.5">
+        <Button asChild className="h-10 gap-1.5 rounded-full px-4 max-sm:w-10 max-sm:px-0">
           <Link to={`/person/${person.id}`}>
             <UserRound />
             <span className="hidden sm:inline">{t('openProfile')}</span>

@@ -10,7 +10,6 @@ import { FAN_R0 } from './fan'
 import { yearsText } from './person-card'
 
 const SERIF = "Newsreader, Georgia, 'Times New Roman', serif"
-const SANS = "'Instrument Sans', system-ui, sans-serif"
 
 let ctx: CanvasRenderingContext2D | null = null
 function canvas2d() {
@@ -125,7 +124,7 @@ export async function boxChartSvg(layout: Layout, people: Map<string, GPerson>, 
     if (!p) return
     const centre = n.role === 'centre' || n.role === 'target'
     parts.push(
-      `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="12" fill="${centre ? centreFill : c.card}" stroke="${centre ? c.brass : c.border}" stroke-width="${centre ? 2 : 1}"${n.role === 'partner' ? ' stroke-dasharray="5 4"' : ''}/>`,
+      `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="16" fill="${centre ? centreFill : c.card}" stroke="${centre ? c.brass : n.role === 'partner' ? c.lineage : c.border}" stroke-width="${centre ? 2 : 1}"${n.role === 'partner' ? ' stroke-dasharray="5 4"' : ''}/>`,
     )
     const ps = vertical ? 60 : 52
     const px = vertical ? n.x + n.w / 2 - ps / 2 : n.x + 12
@@ -154,7 +153,7 @@ export async function boxChartSvg(layout: Layout, people: Map<string, GPerson>, 
     })
     if (years)
       parts.push(
-        `<text x="${tx}" y="${ty + 1}" text-anchor="${anchor}" font-family="${esc(SANS)}" font-size="13" fill="${centre ? c.brass : c['muted-foreground']}">${esc(years)}</text>`,
+        `<text x="${tx}" y="${ty + 1}" text-anchor="${anchor}" font-family="${esc(SERIF)}" font-size="14" fill="${c.brass}">${esc(years)}</text>`,
       )
   })
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x0 - pad} ${y0 - pad} ${w} ${h}"><rect x="${x0 - pad}" y="${y0 - pad}" width="${w}" height="${h}" fill="${c.background}"/>${parts.join('')}</svg>`
@@ -182,7 +181,7 @@ export async function fanChartSvg(geo: FanGeometry, t: TFunction): Promise<{ svg
     parts.push(`<g transform="${s.transform}" text-anchor="middle">`)
     for (const l of s.lines)
       parts.push(
-        `<text y="${l.dy}" font-size="${l.size}" font-weight="${l.weight}" font-family="${esc(l.muted ? SANS : SERIF)}" fill="${l.muted ? c['muted-foreground'] : c.foreground}">${esc(l.text)}</text>`,
+        `<text y="${l.dy}" font-size="${l.size}" font-weight="${l.weight}" font-family="${esc(SERIF)}" fill="${l.muted ? c.brass : c.foreground}">${esc(l.text)}</text>`,
       )
     parts.push('</g>')
   }
@@ -206,7 +205,7 @@ export async function fanChartSvg(geo: FanGeometry, t: TFunction): Promise<{ svg
   const years = yearsText(cp, t)
   if (years)
     parts.push(
-      `<text y="${20 + lines.length * 16}" text-anchor="middle" font-size="11.5" font-family="${esc(SANS)}" fill="${c.brass}">${esc(years)}</text>`,
+      `<text y="${20 + lines.length * 16}" text-anchor="middle" font-size="13" font-family="${esc(SERIF)}" fill="${c.brass}">${esc(years)}</text>`,
     )
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x0 - pad} ${y0 - pad} ${w} ${h}"><rect x="${x0 - pad}" y="${y0 - pad}" width="${w}" height="${h}" fill="${c.background}"/>${parts.join('')}</svg>`
   return { svg, w, h }

@@ -10,6 +10,7 @@ import { ApiError, login } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { ResetPasswordDialog } from './reset-password-dialog'
 import { FirstRunForm, useOwnerSetupToken } from './first-run'
+import { authInput, authSubmit } from './styles'
 
 export function LoginPage() {
   const { t } = useTranslation('auth')
@@ -49,22 +50,22 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-[1fr_minmax(0,1.1fr)]">
-      <div className="flex flex-col px-6 py-8 sm:px-12">
-        <div className="flex items-center gap-2.5">
-          <Logo className="size-8" />
-          <span className="font-serif text-lg">{t('common:appName')}</span>
+    <div className="grid min-h-svh bg-background lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+      <div className="flex flex-col px-6 py-8 sm:px-12 lg:px-16">
+        <div className="flex items-center gap-3">
+          <Logo className="size-9" />
+          <span className="font-serif text-xl">{t('common:appName')}</span>
         </div>
         <div className="flex flex-1 items-center">
           {ownerToken ? (
             <FirstRunForm token={ownerToken} />
           ) : (
-            <form onSubmit={submit} className="mx-auto w-full max-w-sm space-y-6 py-12">
+            <form onSubmit={submit} className="mx-auto w-full max-w-sm space-y-8 py-12">
               <div>
-                <h1 className="text-4xl font-medium tracking-tight">{t('title')}</h1>
-                <p className="mt-2 text-muted-foreground">{t('subtitle')}</p>
+                <h1 className="font-serif text-5xl leading-[1] font-medium tracking-[-0.02em] text-balance sm:text-6xl">{t('title')}</h1>
+                <p className="mt-4 font-serif text-xl italic text-muted-foreground">{t('subtitle')}</p>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="username">{t('username')}</Label>
                   <Input
@@ -76,7 +77,7 @@ export function LoginPage() {
                     autoFocus
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="h-11"
+                    className={authInput}
                   />
                 </div>
                 <div className="space-y-2">
@@ -91,16 +92,16 @@ export function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-11"
+                    className={authInput}
                   />
                 </div>
               </div>
               {error && (
-                <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <p role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
                   {error}
                 </p>
               )}
-              <Button type="submit" className="h-11 w-full text-base" disabled={busy}>
+              <Button type="submit" className={authSubmit} disabled={busy}>
                 {busy && <Loader2 className="animate-spin" />}
                 {t('submit')}
               </Button>
@@ -113,36 +114,56 @@ export function LoginPage() {
   )
 }
 
-/** A quiet pedigree drawing: generations fanning out from one person. */
+/** The pedigree drawn in gold on ink: generations fanning out from one person, framed like an album page. */
 function LoginArt() {
+  const { t } = useTranslation('auth')
   const gens = 5
   const lines: React.ReactNode[] = []
-  const dots: React.ReactNode[] = []
+  const frames: React.ReactNode[] = []
   const W = 600
   const H = 720
   for (let g = 0; g < gens; g++) {
     const n = 2 ** g
-    const y = H - 90 - g * 140
+    const y = H - 130 - g * 128
     for (let i = 0; i < n; i++) {
       const x = ((i + 0.5) / n) * W
-      dots.push(<circle key={`d${g}-${i}`} cx={x} cy={y} r={Math.max(3, 11 - g * 2)} />)
+      const r = [26, 17, 11, 7, 4][g]
+      frames.push(
+        <g key={`d${g}-${i}`}>
+          <circle cx={x} cy={y} r={r} className="fill-card stroke-brass" strokeWidth={g === 0 ? 2.5 : 1.5} strokeOpacity={g === 0 ? 1 : 0.85 - g * 0.12} />
+          {g < 3 && <circle cx={x} cy={y} r={r * 0.42} className="fill-brass" fillOpacity={g === 0 ? 0.9 : 0.45} />}
+        </g>,
+      )
       if (g + 1 < gens) {
-        const ny = y - 140
+        const ny = y - 128
         for (const j of [2 * i, 2 * i + 1]) {
           const nx = ((j + 0.5) / (n * 2)) * W
-          lines.push(<path key={`l${g}-${j}`} d={`M${x} ${y} C ${x} ${y - 80}, ${nx} ${ny + 80}, ${nx} ${ny}`} />)
+          lines.push(<path key={`l${g}-${j}`} d={`M${x} ${y} C ${x} ${y - 72}, ${nx} ${ny + 72}, ${nx} ${ny}`} strokeOpacity={0.75 - g * 0.13} />)
         }
       }
     }
   }
   return (
-    <div className="relative hidden overflow-hidden bg-[#2f5440] lg:block dark:bg-[#17291f]">
-      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" preserveAspectRatio="xMidYMid slice" aria-hidden>
-        <g fill="none" stroke="#e8efe9" strokeOpacity="0.28" strokeWidth="1.5">
+    <div className="relative m-3 hidden overflow-hidden rounded-3xl bg-secondary lg:block dark:bg-card">
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-x-0 top-0 h-[78%] w-full" preserveAspectRatio="xMidYMid meet" aria-hidden>
+        <defs>
+          <radialGradient id="login-glow">
+            <stop offset="0%" stopColor="var(--brass)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--brass)" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx={W / 2} cy={H - 130} r={110} fill="url(#login-glow)" />
+        <g fill="none" className="stroke-brass" strokeWidth="1.5" strokeLinecap="round">
           {lines}
         </g>
-        <g fill="#e8efe9" fillOpacity="0.55">{dots}</g>
+        {frames}
       </svg>
+      <figure className="absolute inset-x-0 bottom-0 px-12 pb-12 xl:px-16 xl:pb-16">
+        <blockquote className="max-w-lg font-serif text-3xl leading-[1.15] italic text-balance text-foreground/90 xl:text-4xl">
+          {t('art.quote')}
+        </blockquote>
+        <figcaption className="mt-4 font-serif text-lg text-brass">{t('art.caption')}</figcaption>
+      </figure>
     </div>
   )
 }
