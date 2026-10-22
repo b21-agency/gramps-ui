@@ -17,7 +17,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { ErrorState } from '@/components/states'
-import { DetailSection, Gallery, NotesList } from '@/components/detail/sections'
+import { Gallery, NotesList } from '@/components/detail/sections'
+import { Panel } from '@/components/detail/panel'
+import { albumFrame, pill } from '@/components/album-page'
+import { cn } from '@/lib/utils'
 import { useInvalidateOnUnmount } from '@/api/enhanced/editor'
 import { useAuth } from '@/lib/auth'
 import { useObjectById } from '@/lib/queries'
@@ -26,7 +29,7 @@ import { useTitle } from '@/hooks/use-title'
 import { TagList } from '@/components/tag-list'
 import type { Tag } from '@/lib/types'
 import { deleteTaggedSource } from '@/features/blog/tagged-source'
-import { PriorityBadge, StatusIcon, taskPriority, taskStatus, useUpdateTask, type Task } from './task-model'
+import { PriorityBadge, StatusIcon, priorityLevel, taskPriority, taskStatus, useUpdateTask, type Task } from './task-model'
 import { StatusMenu } from './tasks-page'
 import { TaskEditor } from './task-editor'
 
@@ -89,19 +92,21 @@ export function TaskPage() {
     }
   }
 
+  const tags = ((task.extended as { tags?: Tag[] } | undefined)?.tags ?? []).filter((x) => x.name !== 'ToDo')
+  const level = priorityLevel(taskPriority(task))
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-8">
+    <div className={albumFrame}>
       <div className="mb-6 flex items-center gap-2">
-        <Button asChild variant="ghost" size="sm" className="-ml-2">
+        <Button asChild variant="ghost" className="-ml-3 h-11 rounded-full px-3 text-muted-foreground hover:text-foreground sm:h-10">
           <Link to="/tasks">
             <ArrowLeft />
             {t('backToTasks')}
           </Link>
         </Button>
-        <span className="text-sm tabular-nums text-muted-foreground">{task.gramps_id}</span>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1.5">
           {can('EditObject') && (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Button variant="secondary" className={pill} onClick={() => setEditing(true)}>
               <Pencil />
               {t('edit')}
             </Button>
@@ -109,7 +114,7 @@ export function TaskPage() {
           <ResponsiveMenu
             title={t('more')}
             trigger={
-              <Button variant="ghost" size="icon-sm" className="max-md:size-10" aria-label={t('more')}>
+              <Button variant="ghost" size="icon" className="size-11 rounded-full sm:size-10" aria-label={t('more')}>
                 <Ellipsis />
               </Button>
             }
@@ -123,21 +128,36 @@ export function TaskPage() {
         </div>
       </div>
 
-      <header className="mb-8">
+      <header className="max-w-5xl">
+        <p className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-brass">
+          <span className="tabular-nums">{task.gramps_id}</span>
+          {level === 'high' && !done && (
+            <>
+              <span aria-hidden>·</span>
+              <span>{t('priority.high')}</span>
+            </>
+          )}
+        </p>
         <h1
-          className={
-            done
-              ? 'text-3xl font-medium tracking-tight text-muted-foreground line-through decoration-1 sm:text-4xl'
-              : 'text-3xl font-medium tracking-tight text-balance sm:text-4xl'
-          }
+          className={cn(
+            'mt-3 font-serif text-[2.4rem] font-medium leading-[1.02] tracking-[-0.02em] text-balance [overflow-wrap:anywhere] sm:text-6xl lg:text-[4rem]',
+            done && 'text-muted-foreground line-through decoration-2 decoration-muted-foreground/50',
+          )}
         >
           {task.title || task.gramps_id}
         </h1>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <TagList tags={tags} className="mt-3" />
+        <div className="mt-7 flex flex-wrap items-center gap-2">
+          {can('EditObject') && (
+            <Button variant={done ? 'secondary' : 'default'} className={pill} onClick={toggleDone} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" /> : done ? <RotateCcw /> : <CircleCheck />}
+              {done ? t('reopen') : t('markDone')}
+            </Button>
+          )}
           <StatusMenu
             task={task}
             trigger={(s, pending) => (
-              <Button variant="outline" size="sm" disabled={pending}>
+              <Button variant="secondary" className={pill} disabled={pending}>
                 {pending ? <Loader2 className="animate-spin" /> : <StatusIcon status={s} />}
                 {t(`status.${s}`)}
                 <ChevronDown className="opacity-60" />
@@ -145,37 +165,54 @@ export function TaskPage() {
             )}
           />
           {!can('EditObject') && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-sm">
+            <span className="inline-flex h-10 items-center gap-2 rounded-full bg-secondary px-4 text-sm">
               <StatusIcon status={status} />
               {t(`status.${status}`)}
             </span>
           )}
-          <PriorityBadge priority={taskPriority(task)} className="h-7 px-2.5 text-sm" />
-          {task.author && <span className="text-sm text-muted-foreground">· {task.author}</span>}
-          <TagList tags={((task.extended as { tags?: Tag[] } | undefined)?.tags ?? []).filter((x) => x.name !== 'ToDo')} />
-          {can('EditObject') && (
-            <Button variant={done ? 'ghost' : 'default'} size="sm" className="sm:ml-auto" onClick={toggleDone} disabled={busy}>
-              {busy ? <Loader2 className="animate-spin" /> : done ? <RotateCcw /> : <CircleCheck />}
-              {done ? t('reopen') : t('markDone')}
-            </Button>
-          )}
         </div>
       </header>
 
-      <div className="space-y-10">
-        <DetailSection title={t('descriptionTitle')}>
-          {descNote ? (
-            <NotesList handles={[descNote, ...otherNotes]} />
-          ) : (
-            <p className="text-sm text-muted-foreground">{t('noDescription')}</p>
+      <div className="mt-10 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
+        <div className="grid min-w-0 gap-6">
+          <Panel title={t('descriptionTitle')}>
+            <div className="max-w-[70ch]">
+              {descNote ? (
+                <NotesList handles={[descNote, ...otherNotes]} />
+              ) : (
+                <p className="font-serif text-lg italic text-muted-foreground">{t('noDescription')}</p>
+              )}
+            </div>
+          </Panel>
+          {(task.media_list?.length ?? 0) > 0 && (
+            <Panel title={t('attachments')} count={task.media_list!.length}>
+              <Gallery refs={task.media_list!} media={task.extended?.media} />
+            </Panel>
           )}
-        </DetailSection>
-
-        {(task.media_list?.length ?? 0) > 0 && (
-          <DetailSection title={t('attachments')} count={task.media_list!.length}>
-            <Gallery refs={task.media_list!} media={task.extended?.media} />
-          </DetailSection>
-        )}
+        </div>
+        <Panel title={t('details')}>
+          <dl className="grid gap-5">
+            <div>
+              <dt className="text-sm text-muted-foreground">{t('status.label')}</dt>
+              <dd className="mt-1 flex items-center gap-2 font-serif text-2xl leading-tight">
+                <StatusIcon status={status} className="size-5" />
+                {t(`status.${status}`)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm text-muted-foreground">{t('priority.label')}</dt>
+              <dd className="mt-1.5">
+                <PriorityBadge priority={taskPriority(task)} className="h-8 px-3 text-sm" />
+              </dd>
+            </div>
+            {task.author && (
+              <div>
+                <dt className="text-sm text-muted-foreground">{t('createdBy')}</dt>
+                <dd className="mt-1 font-serif text-2xl leading-tight">{task.author}</dd>
+              </div>
+            )}
+          </dl>
+        </Panel>
       </div>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
@@ -205,7 +242,7 @@ export function TaskPage() {
 
 function TaskSkeleton() {
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-10">
+    <div className={cn(albumFrame, 'space-y-4')}>
       <Skeleton className="h-10 w-3/4" />
       <Skeleton className="h-8 w-64" />
       <Skeleton className="mt-6 h-32 w-full" />

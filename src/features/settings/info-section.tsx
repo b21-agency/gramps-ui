@@ -13,7 +13,7 @@ type Meta = Record<string, Record<string, unknown> | undefined>
 
 function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
-    <div className="grid gap-0.5 py-2 sm:grid-cols-[14rem_minmax(0,1fr)] sm:gap-4">
+    <div className="grid gap-0.5 py-2 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-sm break-words tabular-nums">{children}</dd>
     </div>
@@ -69,7 +69,7 @@ export function InfoSection() {
   const deprecations = ((q.data as unknown as { deprecations?: Array<{ option: string; replacement?: string; message?: string; removed_in?: string }> }).deprecations ?? [])
 
   return (
-    <div className="space-y-10">
+    <div className="grid items-start gap-6 2xl:grid-cols-2">
       {!!deprecations.length && (
         <SettingsBlock title={t('info.warnings')} description={t('info.warningsDescription')}>
           <ul className="grid gap-3">
@@ -112,7 +112,7 @@ export function InfoSection() {
           </div>
         }
       >
-        <dl className="divide-y">
+        <dl className="divide-y divide-border/60">
           <Row label="Gramps">{version('gramps')}</Row>
           <Row label="Gramps Web API">{version('gramps_webapi')}</Row>
           <Row label={t('info.apiSchema')}>{(m.gramps_webapi?.schema as string) ?? '–'}</Row>
@@ -123,7 +123,7 @@ export function InfoSection() {
       </SettingsBlock>
 
       <SettingsBlock title={t('info.database')}>
-        <dl className="divide-y">
+        <dl className="divide-y divide-border/60">
           <Row label={t('info.dbName')}>{(db.name as string) ?? '–'}</Row>
           {tree && tree !== db.id && (
             <Row label={t('info.treeId')}>
@@ -145,7 +145,7 @@ export function InfoSection() {
       </SettingsBlock>
 
       <SettingsBlock title={t('info.server')}>
-        <dl className="divide-y">
+        <dl className="divide-y divide-border/60">
           {features.map(([k, v]) => (
             <Row key={k} label={t(`info.features.${k}`)}>
               <YesNo value={v} />

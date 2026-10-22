@@ -27,7 +27,7 @@ export function PreferencesSection() {
   const lang = i18n.resolvedLanguage ?? 'en'
 
   return (
-    <div className="space-y-10">
+    <div className="grid items-start gap-6 xl:grid-cols-2">
       <SettingsBlock title={t('prefs.appearance')} description={t('prefs.appearanceDescription')}>
         <div className="grid max-w-md gap-6">
           <div className="grid gap-2">

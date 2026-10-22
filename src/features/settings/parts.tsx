@@ -17,13 +17,13 @@ export function SettingsBlock({
   className?: string
 }) {
   return (
-    <section className={cn('space-y-4', className)}>
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-2">
+    <section className={cn('min-w-0 space-y-5 rounded-3xl bg-card p-5 sm:p-6 max-sm:[&_[data-slot=button]]:min-h-11 max-sm:[&_[data-slot=select-trigger]]:min-h-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:h-11', className)}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-medium">{title}</h2>
-          {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
+          <h2 className="font-serif text-2xl font-medium">{title}</h2>
+          {description && <p className="mt-1 max-w-prose text-sm text-muted-foreground">{description}</p>}
         </div>
-        {action}
+        {action && <div className="flex flex-wrap gap-2">{action}</div>}
       </div>
       {children}
     </section>

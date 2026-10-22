@@ -403,7 +403,7 @@ function HomePageObject({ kind, configKey, config }: { kind: 'note' | 'media'; c
       <p className="-mt-1 text-sm text-muted-foreground">{kind === 'note' ? t('custom.homeNoteHint') : t('custom.homeImageHint')}</p>
       <div className="flex flex-wrap items-center gap-2">
         {handle && (
-          <span className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm">
+          <span className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-xl bg-secondary px-3 py-1.5 text-sm">
             {obj.data ? (
               <Link to={objectPath(kind, obj.data.gramps_id)} className="min-w-0 truncate hover:underline">
                 <span className="tabular-nums text-muted-foreground">{obj.data.gramps_id}</span> {title}
@@ -566,7 +566,7 @@ export function VerifyBlock() {
           </Button>
         </div>
         {showOptions && (
-          <div className="grid gap-4 rounded-xl border bg-card p-4">
+          <div className="grid gap-4 rounded-2xl bg-secondary/50 p-4">
             <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
               {verifyInts.map(([k]) => (
                 <label key={k} className="flex items-center justify-between gap-3 text-sm">
@@ -615,7 +615,7 @@ export function VerifyBlock() {
                 </Button>
               ))}
             </div>
-            <ul className="max-h-[32rem] divide-y overflow-auto rounded-xl border bg-card">
+            <ul className="max-h-[32rem] divide-y divide-border/60 overflow-auto rounded-2xl bg-secondary/40">
               {shown.map((i, n) => {
                 const kind = normalizeKind(i.object_type.toLowerCase())
                 return (
@@ -691,7 +691,7 @@ export function DangerZoneBlock() {
   }
   return (
     <SettingsBlock title={t('danger.title')} description={t('danger.description')}>
-      <div className="grid max-w-2xl gap-3 rounded-xl border border-destructive/40 p-4">
+      <div className="grid max-w-2xl gap-3 rounded-2xl bg-destructive/10 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
             <p className="font-medium">{t('danger.deleteAll')}</p>

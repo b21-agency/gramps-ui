@@ -10,7 +10,7 @@ import type { Tag } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ResponsiveMenu } from '@/components/responsive-menu'
-import { Page } from '@/components/app-shell'
+import { AlbumPage, pill } from '@/components/album-page'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { useDebounced } from '@/components/command-search'
 import { useGetObjectsQuery } from '@/api/enhanced/objects'
@@ -25,6 +25,7 @@ import {
   StatusIcon,
   TODO_TAG,
   levelValue,
+  priorityLevel,
   sortTasks,
   taskPriority,
   taskStatus,
@@ -117,7 +118,7 @@ export function TasksPage() {
 
   const total = q.data?.length ?? 0
   const newButton = can('AddObject') && (
-    <Button asChild>
+    <Button asChild className={pill}>
       <Link to="/new_task">
         <Plus />
         {t('newTask')}
@@ -129,20 +130,24 @@ export function TasksPage() {
   const shown = visible.reduce((n, s) => n + groups.get(s)!.length, 0)
 
   return (
-    <Page title={t('title')} description={t('description')} actions={total > 0 && newButton}>
+    <AlbumPage title={t('title')} description={t('description')} actions={total > 0 && newButton}>
       {q.isError ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       ) : q.isLoading ? (
-        <RowsSkeleton rows={6} />
+        <div className="rounded-3xl bg-card p-5 sm:p-6">
+          <RowsSkeleton rows={6} />
+        </div>
       ) : total === 0 ? (
-        <EmptyState icon={ListChecks} title={t('empty.title')} className="py-24">
-          <p>{can('AddObject') ? t('empty.body') : t('empty.bodyReadOnly')}</p>
-          {newButton && <div className="mt-5">{newButton}</div>}
-        </EmptyState>
+        <div className="rounded-3xl bg-card">
+          <EmptyState icon={ListChecks} title={t('empty.title')} className="py-24">
+            <p>{can('AddObject') ? t('empty.body') : t('empty.bodyReadOnly')}</p>
+            {newButton && <div className="mt-5">{newButton}</div>}
+          </EmptyState>
+        </div>
       ) : (
-        <div className="mx-auto max-w-4xl">
+        <div>
           <div className="mb-6 flex flex-wrap items-center gap-3">
-            <div className="-mx-1 flex flex-wrap gap-1" role="tablist" aria-label={t('status.label')}>
+            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t('status.label')}>
               <FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label={t('all')} count={total} />
               {STATUSES.map((s) => (
                 <FilterChip
@@ -155,21 +160,21 @@ export function TasksPage() {
                 />
               ))}
             </div>
-            <div className="relative ml-auto w-full sm:w-60">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative ml-auto w-full sm:w-72">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t('searchPlaceholder')}
-                className="pl-8"
+                className="h-11 rounded-full bg-card pl-10 sm:h-10 dark:bg-card"
                 aria-label={t('searchPlaceholder')}
               />
             </div>
             {(usedTags.length > 0 || can('EditObject')) && (
-              <div className="flex w-full flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 max-sm:w-full">
                 {usedTags.length > 0 && (
                   <Select value={tagFilter} onValueChange={setTagFilter}>
-                    <SelectTrigger size="sm" className="w-48" aria-label={t('tagFilter')}>
+                    <SelectTrigger className="h-11 w-48 rounded-full bg-card sm:h-10 dark:bg-card" aria-label={t('tagFilter')}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -185,8 +190,7 @@ export function TasksPage() {
                 {can('EditObject') && (
                   <Button
                     variant={selecting ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="ml-auto"
+                    className="h-11 rounded-full px-4 max-sm:ml-auto sm:h-10"
                     onClick={() => {
                       setSelecting((v) => !v)
                       setSelected(new Set())
@@ -199,13 +203,13 @@ export function TasksPage() {
               </div>
             )}
             {selecting && (
-              <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
+              <div className="flex w-full flex-wrap items-center gap-2 rounded-3xl bg-brass/10 px-4 py-2.5 sm:rounded-full sm:pl-5">
                 <span className="mr-auto text-sm tabular-nums">{t('bulk.selected', { count: selected.size })}</span>
                 {bulkBusy && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
                 <ResponsiveMenu
                   title={t('bulk.setStatus')}
                   trigger={
-                    <Button variant="outline" size="sm" disabled={!selected.size || bulkBusy}>
+                    <Button variant="secondary" className="h-11 rounded-full sm:h-9" disabled={!selected.size || bulkBusy}>
                       {t('bulk.setStatus')}
                       <ChevronDown className="opacity-60" />
                     </Button>
@@ -222,7 +226,7 @@ export function TasksPage() {
                 <ResponsiveMenu
                   title={t('bulk.setPriority')}
                   trigger={
-                    <Button variant="outline" size="sm" disabled={!selected.size || bulkBusy}>
+                    <Button variant="secondary" className="h-11 rounded-full sm:h-9" disabled={!selected.size || bulkBusy}>
                       {t('bulk.setPriority')}
                       <ChevronDown className="opacity-60" />
                     </Button>
@@ -242,13 +246,14 @@ export function TasksPage() {
           {dq && shown === 0 ? (
             <EmptyState title={t('noMatches', { q: search.trim() })} />
           ) : (
-            <div className="space-y-10">
+            <div className={cn('grid items-start gap-6', boardCols[visible.length])}>
               {visible.map((s) => (
                 <TaskGroup
                   key={s}
                   status={s}
                   tasks={groups.get(s)!}
                   hideWhenEmpty={filter === 'all'}
+                  wide={visible.length === 1}
                   selection={selecting ? { selected, toggle: toggleSelected } : undefined}
                 />
               ))}
@@ -257,7 +262,7 @@ export function TasksPage() {
 
           {filter === 'all' && !dq && counts.Done > 0 && (
             <div className="mt-8 flex justify-center">
-              <Button variant="ghost" onClick={() => setShowDone((v) => !v)}>
+              <Button variant="secondary" className={pill} onClick={() => setShowDone((v) => !v)}>
                 <ChevronDown className={cn('transition-transform', showDone && 'rotate-180')} />
                 {showDone ? t('hideDone') : t('showDone', { count: counts.Done })}
               </Button>
@@ -265,9 +270,11 @@ export function TasksPage() {
           )}
         </div>
       )}
-    </Page>
+    </AlbumPage>
   )
 }
+
+const boardCols: Record<number, string> = { 2: 'xl:grid-cols-2', 3: 'xl:grid-cols-3', 4: 'xl:grid-cols-4' }
 
 function FilterChip({
   active,
@@ -289,13 +296,13 @@ function FilterChip({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        active ? 'border-primary/40 bg-primary/10 text-foreground' : 'bg-card text-muted-foreground hover:text-foreground',
+        'inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] sm:h-10',
+        active ? 'bg-primary text-primary-foreground [&_svg]:text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
       {icon}
       {label}
-      <span className="tabular-nums text-muted-foreground">{count}</span>
+      <span className={cn('tabular-nums', active ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{count}</span>
     </button>
   )
 }
@@ -310,27 +317,34 @@ function TaskGroup({
   tasks,
   hideWhenEmpty,
   selection,
+  wide,
 }: {
   status: TaskStatus
   tasks: Task[]
   hideWhenEmpty: boolean
   selection?: Selection
+  wide?: boolean
 }) {
   const { t } = useTranslation('tasks')
-  if (hideWhenEmpty && tasks.length === 0) return null
   return (
-    <section aria-labelledby={`group-${status}`}>
-      <div className="mb-1 flex items-baseline gap-2 border-b pb-2">
-        <StatusIcon status={status} className="translate-y-0.5" />
-        <h2 id={`group-${status}`} className="text-xl font-medium">
+    <section
+      aria-labelledby={`group-${status}`}
+      // on the board every column stays visible; stacked, empty groups are left out
+      className={cn('min-w-0 rounded-3xl bg-card p-4 sm:p-5', hideWhenEmpty && tasks.length === 0 && 'max-xl:hidden')}
+    >
+      <div className="mb-4 flex items-center gap-2.5 px-1">
+        <span className={cn('flex size-9 items-center justify-center rounded-full bg-secondary', status === 'Done' && 'bg-primary/15')}>
+          <StatusIcon status={status} className="size-[18px]" />
+        </span>
+        <h2 id={`group-${status}`} className="font-serif text-2xl font-medium">
           {t(`status.${status}`)}
         </h2>
         <span className="text-sm tabular-nums text-muted-foreground">{tasks.length}</span>
       </div>
       {tasks.length === 0 ? (
-        <p className="py-4 text-sm text-muted-foreground">{t('groupEmpty')}</p>
+        <p className="rounded-2xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">{t('groupEmpty')}</p>
       ) : (
-        <ul className="divide-y">
+        <ul className={cn('grid gap-2', wide && 'lg:grid-cols-2 2xl:grid-cols-3')}>
           {tasks.map((task) => (
             <TaskRow key={task.handle} task={task} selection={selection} />
           ))}
@@ -405,35 +419,41 @@ export function StatusMenu({
 function TaskRow({ task, selection }: { task: Task; selection?: Selection }) {
   const desc = excerpt(descriptionOf(task), 140)
   const done = taskStatus(task) === 'Done'
+  const high = priorityLevel(taskPriority(task)) === 'high' && !done
   return (
-    <li className="flex items-start gap-2 py-3">
+    <li
+      className={cn(
+        'relative flex items-start gap-2 overflow-hidden rounded-2xl bg-secondary/60 py-3 pr-4 pl-2 transition-colors duration-150 has-[a:hover]:bg-accent',
+        high && 'pl-3 before:absolute before:inset-y-3 before:left-0 before:w-1 before:rounded-r-full before:bg-brass',
+      )}
+    >
       {selection && (
         <Checkbox
-          className="mt-2 ml-1"
+          className="relative z-10 mt-3 ml-1"
           checked={selection.selected.has(task.handle)}
           onCheckedChange={() => selection.toggle(task.handle)}
           aria-label={task.title || task.gramps_id}
         />
       )}
-      <div className="pt-0.5">
+      <div className="relative z-10 shrink-0">
         <StatusMenu task={task} />
       </div>
-      <Link to={`/task/${task.gramps_id}`} className="group min-w-0 flex-1 py-0.5">
+      <Link to={`/task/${task.gramps_id}`} className="group min-w-0 flex-1 py-1 outline-none after:absolute after:inset-0 focus-visible:underline">
         <span
           className={cn(
-            'block font-medium group-hover:underline group-hover:underline-offset-2',
-            done && 'text-muted-foreground line-through decoration-muted-foreground/50',
+            'block text-[15px] leading-snug font-semibold [overflow-wrap:anywhere]',
+            done && 'font-normal text-muted-foreground line-through decoration-muted-foreground/50',
           )}
         >
           {task.title || task.gramps_id}
         </span>
-        {desc && <span className="mt-0.5 block truncate text-sm text-muted-foreground">{desc}</span>}
-        <TagList tags={extraTags(task)} className="mt-1.5" />
+        {desc && <span className="mt-1 line-clamp-2 block text-sm text-muted-foreground">{desc}</span>}
+        <span className="mt-2 flex flex-wrap items-center gap-2">
+          <PriorityBadge priority={taskPriority(task)} quiet />
+          <span className="text-xs tabular-nums text-muted-foreground">{task.gramps_id}</span>
+          <TagList tags={extraTags(task)} />
+        </span>
       </Link>
-      <div className="flex shrink-0 items-center gap-3 pt-1">
-        <PriorityBadge priority={taskPriority(task)} quiet />
-        <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">{task.gramps_id}</span>
-      </div>
     </li>
   )
 }

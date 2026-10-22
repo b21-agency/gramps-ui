@@ -58,7 +58,7 @@ export function withInlineImages(html: string | undefined, handles: string[]) {
     img.src = mediaThumbUrl(h, 1000)
     img.alt = ''
     img.loading = 'lazy'
-    img.className = 'my-4 max-h-[70vh] rounded-lg border'
+    img.className = 'my-6 max-h-[70vh] rounded-2xl'
     a.textContent = ''
     a.append(img)
   }

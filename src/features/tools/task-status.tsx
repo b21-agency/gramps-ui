@@ -24,15 +24,15 @@ export function TaskStatusLine({
   if (phase === 'running') {
     const pct = progress?.progress != null ? Math.round(progress.progress * 100) : null
     return (
-      <div className={cn('space-y-2', className)} role="status" aria-live="polite">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
+      <div className={cn('w-full space-y-3 rounded-2xl bg-secondary/60 p-4', className)} role="status" aria-live="polite">
+        <div className="flex items-center gap-2.5 text-sm">
+          <Loader2 className="size-4 animate-spin text-brass" />
           <span className="min-w-0 flex-1 truncate">{progress?.title || runningLabel || t('task.running')}</span>
-          {pct != null && <span className="tabular-nums">{pct}%</span>}
+          {pct != null && <span className="font-serif text-lg leading-none tabular-nums text-brass">{pct}%</span>}
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="h-2 overflow-hidden rounded-full bg-background/60">
           <div
-            className={cn('h-full rounded-full bg-primary transition-[width] duration-500', pct == null && 'w-1/3 animate-pulse')}
+            className={cn('h-full rounded-full bg-brass transition-[width] duration-500', pct == null && 'w-1/3 animate-pulse')}
             style={pct != null ? { width: `${Math.max(4, pct)}%` } : undefined}
           />
         </div>
@@ -41,13 +41,13 @@ export function TaskStatusLine({
   }
   if (phase === 'success')
     return (
-      <p className={cn('flex items-center gap-2 text-sm text-primary', className)} role="status">
+      <p className={cn('flex w-full items-center gap-2.5 rounded-2xl bg-chart-1/12 px-4 py-3 text-sm text-chart-1', className)} role="status">
         <CircleCheck className="size-4" />
         {successLabel ?? t('task.done')}
       </p>
     )
   return (
-    <p className={cn('flex items-start gap-2 text-sm text-destructive', className)} role="alert">
+    <p className={cn('flex w-full items-start gap-2.5 rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive', className)} role="alert">
       <CircleAlert className="mt-0.5 size-4 shrink-0" />
       <span>{taskErrorText(t, error)}</span>
     </p>

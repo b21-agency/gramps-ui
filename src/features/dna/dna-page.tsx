@@ -29,6 +29,8 @@ import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { lifespan, profileName } from '@/lib/format'
 import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
+import { AlbumHeader, albumFrame, pill } from '@/components/album-page'
+import { Panel } from '@/components/detail/panel'
 import { ChromosomeBrowser, type Lane } from './chromosome-browser'
 import {
   deleteDnaMatch,
@@ -61,7 +63,7 @@ export function DnaPage() {
   if (people.isError) return <ErrorState error={people.error} onRetry={() => people.refetch()} />
 
   const addButton = can('EditObject') && (
-    <Button onClick={() => setAdding(true)}>
+    <Button className={pill} onClick={() => setAdding(true)}>
       <Plus />
       {t('edit.addTitle')}
     </Button>
@@ -76,48 +78,37 @@ export function DnaPage() {
 
   if (people.data && people.data.length === 0) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-8">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="text-3xl font-medium tracking-tight">{t('title')}</h1>
-          {addButton}
-        </div>
-        <div className="mt-6">
-          <DnaTabs />
-        </div>
-        <Explainer />
+      <div className={albumFrame}>
+        <AlbumHeader title={t('title')} description={t('intro')} actions={addButton} />
+        <DnaTabs />
+        <Explainer className="max-w-4xl" />
         {addDialog}
       </div>
     )
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-8">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-3xl font-medium tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('intro')}</p>
-        </div>
-        {addButton}
-      </div>
+    <div className={albumFrame}>
+      <AlbumHeader title={t('title')} description={t('intro')} actions={addButton} />
       <DnaTabs id={id} />
       {addDialog}
-      <div className="grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className={cn('min-w-0', id && 'hidden lg:block')}>
-          <div className="mb-2 flex items-baseline gap-2 border-b pb-2">
-            <h2 className="text-lg font-medium">{t('testedPeople')}</h2>
-            {people.data && <span className="text-sm tabular-nums text-muted-foreground">{people.data.length}</span>}
-          </div>
-          {people.isLoading ? <RowsSkeleton rows={5} /> : <PeopleList people={people.data ?? []} current={id} />}
+      <div className="grid items-start gap-6 lg:grid-cols-[20rem_minmax(0,1fr)] 2xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <aside className={cn('min-w-0 lg:sticky lg:top-20', id && 'hidden lg:block')}>
+          <Panel title={t('testedPeople')} count={people.data?.length} className="p-4 sm:p-5">
+            {people.isLoading ? <RowsSkeleton rows={5} /> : <PeopleList people={people.data ?? []} current={id} />}
+          </Panel>
         </aside>
         <section className={cn('min-w-0', !id && 'hidden lg:block')}>
           {selected ? (
             <MatchesView person={selected} matchId={match} />
           ) : id && people.data ? (
-            <EmptyState title={t('notTested')}>{t('notTestedHint')}</EmptyState>
+            <div className="rounded-3xl bg-card">
+              <EmptyState title={t('notTested')}>{t('notTestedHint')}</EmptyState>
+            </div>
           ) : id ? (
             <RowsSkeleton rows={4} />
           ) : (
-            <EmptyState icon={Dna} title={t('pickPerson')} className="rounded-xl border border-dashed">
+            <EmptyState icon={Dna} title={t('pickPerson')} className="rounded-3xl bg-card">
               {t('pickPersonHint')}
             </EmptyState>
           )}
@@ -141,13 +132,13 @@ function PeopleList({ people, current }: { people: DnaPerson[]; current?: string
               to={`/dna-matches/${p.gramps_id}`}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-2 py-1.5 outline-none transition-colors hover:bg-accent focus-visible:bg-accent',
+                '-mx-1 flex items-center gap-3 rounded-2xl px-2 py-1.5 outline-none transition-colors duration-150 hover:bg-accent focus-visible:bg-accent',
                 active && 'bg-accent',
               )}
             >
-              <Portrait mediaRef={p.media_list?.[0]} name={name} sex={p.profile?.sex} size={36} />
+              <Portrait mediaRef={p.media_list?.[0]} name={name} sex={p.profile?.sex} size={44} className={cn(active && 'ring-2 ring-brass')} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium leading-tight">{name}</span>
+                <span className="block truncate text-[15px] font-semibold leading-tight">{name}</span>
                 <span className="block text-xs text-muted-foreground">{t('matchCount', { count: n })}</span>
               </span>
               <ChevronRight className="size-4 text-muted-foreground lg:hidden" />
@@ -233,26 +224,38 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
 
   return (
     <div className="min-w-0">
-      <div className="mb-5 flex items-center gap-3">
-        <Button variant="ghost" size="icon-sm" className="lg:hidden" asChild aria-label={t('common:actions.back')}>
-          <Link to="/dna-matches">
-            <ArrowLeft />
-          </Link>
-        </Button>
-        <PersonChip person={person.profile} mediaRef={person.media_list?.[0]} size={48} className="-ml-2 min-w-0" />
-      </div>
+      <Button variant="ghost" className="-ml-3 mb-3 h-11 rounded-full px-3 text-muted-foreground lg:hidden" asChild>
+        <Link to="/dna-matches">
+          <ArrowLeft />
+          {t('testedPeople')}
+        </Link>
+      </Button>
+      <header className="mb-8 flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
+        <Link to={`/person/${person.gramps_id}`} className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Portrait mediaRef={person.media_list?.[0]} name={name} sex={person.profile?.sex} size={112} className="ring-4 ring-card" />
+        </Link>
+        <div className="min-w-0">
+          <h2 className="font-serif text-[2.4rem] font-medium leading-[1.02] tracking-[-0.02em] text-balance sm:text-5xl lg:text-6xl">
+            <Link to={`/person/${person.gramps_id}`} className="outline-none hover:text-brass focus-visible:text-brass">
+              {name}
+            </Link>
+          </h2>
+          <p className="mt-2 text-muted-foreground">
+            {[lifespan(person.profile?.birth as { date?: string }, person.profile?.death as { date?: string }), q.data && t('matchCount', { count: q.data.length })]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        </div>
+      </header>
 
-      <div className="mb-3 flex items-baseline gap-2 border-b pb-2">
-        <h2 className="text-xl font-medium">{t('matches')}</h2>
-        {q.data && <span className="text-sm tabular-nums text-muted-foreground">{q.data.length}</span>}
-      </div>
+      <Panel title={t('matches')} count={q.data?.length}>
 
       {q.isError && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
       {q.isLoading && <RowsSkeleton rows={3} />}
       {q.data && q.data.length === 0 && <EmptyState icon={Dna} title={t('noMatches', { name })}>{t('noMatchesHint')}</EmptyState>}
 
       {rows.length > 0 && (
-        <ol className="divide-y rounded-xl border bg-card">
+        <ol className="grid gap-1">
           {rows.map(({ m, s, p }) => {
             const active = current?.m.handle === m.handle
             const mName = profileName(p?.profile)
@@ -264,19 +267,19 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
                     p && navigate(active ? `/dna-matches/${person.gramps_id}` : `/dna-matches/${person.gramps_id}/${p.gramps_id}`, { replace: true })
                   }
                   className={cn(
-                    'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3 py-3 text-left outline-none transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-accent/60 focus-visible:bg-accent sm:grid-cols-[minmax(0,1fr)_6rem_5rem_5rem]',
-                    active && 'bg-accent',
+                    'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 rounded-2xl px-3 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-accent focus-visible:bg-accent sm:grid-cols-[minmax(0,1fr)_6rem_6rem_7rem]',
+                    active && 'bg-accent ring-2 ring-primary/60',
                   )}
                   aria-pressed={active}
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     {p ? (
-                      <Portrait mediaRef={p.media_list?.[0]} name={mName} sex={p.profile?.sex} size={40} />
+                      <Portrait mediaRef={p.media_list?.[0]} name={mName} sex={p.profile?.sex} size={44} />
                     ) : (
-                      <Skeleton className="size-10 rounded-full" />
+                      <Skeleton className="size-11 rounded-full" />
                     )}
                     <span className="min-w-0">
-                      <span className="block truncate font-medium">{mName || '…'}</span>
+                      <span className="block truncate text-[15px] font-semibold">{mName || '…'}</span>
                       <span className="block truncate text-sm text-muted-foreground">
                         {m.relation || t('relationUnknown')}
                         {p && <span className="tabular-nums"> · {lifespan(p.profile?.birth as { date?: string }, p.profile?.death as { date?: string })}</span>}
@@ -284,7 +287,7 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
                     </span>
                   </span>
                   <span className="text-right">
-                    <span className="font-serif text-2xl tabular-nums leading-none">{fmtCm(s.total)}</span>
+                    <span className="font-serif text-2xl tabular-nums leading-none text-brass">{fmtCm(s.total)}</span>
                     <span className="ml-1 text-xs text-muted-foreground">cM</span>
                   </span>
                   <span className="hidden text-right text-sm tabular-nums text-muted-foreground sm:block">
@@ -299,11 +302,12 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
           })}
         </ol>
       )}
+      </Panel>
 
       {rows.length > 0 && (
-        <div className="mt-8 scroll-mt-20" ref={browserRef}>
-          <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b pb-2">
-            <h2 className="text-xl font-medium">{t('browser')}</h2>
+        <section className="mt-6 scroll-mt-20 rounded-3xl bg-card p-5 sm:p-6" ref={browserRef}>
+          <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="font-serif text-2xl font-medium">{t('browser')}</h2>
             <span className="text-sm text-muted-foreground">
               {current ? t('browserOne', { name: profileName(current.p?.profile) }) : t('browserAll', { count: allLanes.length })}
             </span>
@@ -318,18 +322,20 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
                 isolated={isolated}
                 onToggle={(k) => setIsolated((v) => (v === k ? null : k))}
               />
-              <ChromosomeBrowser lanes={lanes} />
+              <div className="rounded-2xl bg-background/50 p-4 sm:p-5">
+                <ChromosomeBrowser lanes={lanes} />
+              </div>
             </>
           )}
           {current && (
             <>
               {can('EditObject') && (
                 <div className="mt-6 flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  <Button variant="secondary" className={pill} onClick={() => setEditing(true)}>
                     <Pencil />
                     {t('edit.editData')}
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setDeleting(true)}>
+                  <Button variant="ghost" className={cn(pill, 'text-destructive')} onClick={() => setDeleting(true)}>
                     <Trash2 />
                     {t('edit.delete')}
                   </Button>
@@ -359,7 +365,7 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
               </AlertDialog>
             </>
           )}
-        </div>
+        </section>
       )}
     </div>
   )
@@ -441,7 +447,7 @@ function MatchDetails({
     return na - nb || a.start - b.start
   })
   return (
-    <div className="mt-8 grid gap-8 md:grid-cols-2">
+    <div className="mt-6 grid gap-6 rounded-2xl bg-secondary/40 p-4 sm:p-5 md:grid-cols-2">
       <div>
         <dl className="grid grid-cols-3 gap-3">
           <Stat label={t('sharedCm')} value={fmtCm(stats.total)} />
@@ -449,7 +455,7 @@ function MatchDetails({
           <Stat label={t('largest')} value={fmtCm(stats.largest)} />
         </dl>
         {matchPerson && (
-          <Button asChild variant="outline" size="sm" className="mt-4">
+          <Button asChild variant="secondary" className={cn(pill, 'mt-4')}>
             <Link to={`/tree/relationship/${person.gramps_id}?with=${matchPerson.gramps_id}`}>
               <Network />
               {t('showConnection')}
@@ -458,7 +464,7 @@ function MatchDetails({
         )}
       </div>
       <div>
-        <h3 className="mb-2 text-base font-medium">{t('commonAncestors')}</h3>
+        <h3 className="mb-2 font-serif text-xl font-medium">{t('commonAncestors')}</h3>
         {match.ancestor_handles?.length ? (
           <div className="space-y-1">
             {match.ancestor_handles.map((h, i) => {
@@ -481,15 +487,15 @@ function MatchDetails({
       {segs.length > 0 && (
         <Collapsible open={open} onOpenChange={setOpen} className="md:col-span-2">
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="-ml-2">
+            <Button variant="ghost" className="-ml-2 h-11 rounded-full sm:h-9">
               <ChevronRight className={cn('transition-transform', open && 'rotate-90')} />
               {t('segmentTable')}
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 overflow-x-auto rounded-xl border">
+            <div className="mt-2 overflow-x-auto rounded-2xl bg-card">
               <table className="w-full text-sm tabular-nums">
-                <thead className="bg-muted/50 text-left text-muted-foreground">
+                <thead className="text-left text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t('chromosome')}</th>
                     <th className="px-3 py-2 text-right font-medium">{t('start')}</th>
@@ -499,7 +505,7 @@ function MatchDetails({
                     <th className="px-3 py-2 font-medium">{t('sideLabel')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-border/60">
                   {segs.map((s, i) => (
                     <tr key={i}>
                       <td className="px-3 py-1.5">{normChromosome(s.chromosome)}</td>
@@ -524,9 +530,9 @@ function MatchDetails({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border bg-card p-3">
+    <div className="rounded-2xl bg-card px-4 py-3">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 font-serif text-2xl tabular-nums leading-none">{value}</dd>
+      <dd className="mt-1.5 font-serif text-3xl tabular-nums leading-none text-brass">{value}</dd>
     </div>
   )
 }
@@ -534,22 +540,22 @@ function Stat({ label, value }: { label: string; value: string }) {
 function Explainer({ className }: { className?: string }) {
   const { t } = useTranslation('dna')
   return (
-    <div className={cn('rounded-xl border bg-card p-6 sm:p-8', className)}>
-      <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Dna className="size-5" />
+    <div className={cn('rounded-3xl bg-card p-6 sm:p-10', className)}>
+      <div className="flex items-center gap-4">
+        <span className="flex size-14 items-center justify-center rounded-2xl bg-brass/15 text-brass">
+          <Dna className="size-7" />
         </span>
-        <h2 className="text-2xl font-medium">{t('emptyTitle')}</h2>
+        <h2 className="font-serif text-3xl font-medium sm:text-4xl">{t('emptyTitle')}</h2>
       </div>
       <p className="mt-4 max-w-prose text-muted-foreground">{t('emptyBody')}</p>
-      <h3 className="mt-6 text-lg font-medium">{t('howTitle')}</h3>
+      <h3 className="mt-8 font-serif text-2xl font-medium">{t('howTitle')}</h3>
       <ol className="mt-2 max-w-prose list-decimal space-y-2 pl-5 text-sm">
         <li>{t('how1')}</li>
         <li>{t('how2')}</li>
         <li>{t('how3')}</li>
         <li>{t('how4')}</li>
       </ol>
-      <pre className="mt-4 overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
+      <pre className="mt-5 overflow-x-auto rounded-2xl bg-secondary p-4 text-xs leading-relaxed">
         {'Chromosome,Start Location,End Location,Centimorgans,Matching SNPs\n1,72017318,98757599,26.4,5120\n7,5103231,13845900,12.1,2410'}
       </pre>
     </div>

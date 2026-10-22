@@ -1,20 +1,14 @@
 import { Link, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { skipToken } from '@reduxjs/toolkit/query'
-import { ChevronLeft, ChevronRight, History, ShieldOff, Undo2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Page } from '@/components/app-shell'
-import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
+import { ChevronLeft, ShieldOff } from 'lucide-react'
+import { AlbumPage } from '@/components/album-page'
+import { EmptyState } from '@/components/states'
 import { useTransactionHistoryPageQuery } from '@/api/enhanced/revisions'
 import { useAuth } from '@/lib/auth'
-import { formatTimestamp, timeAgo } from '@/lib/format'
 import { useTitle } from '@/hooks/use-title'
-import { isUndo, summarize, useTypeMaps, type Transaction, type TypeMaps } from './history'
-import { ClassIcon } from './parts'
 import { ObjectRevisions, objectClassName } from './object-revisions'
-import type { TFunction } from 'i18next'
-
-const PAGE_SIZE = 20
+import { PAGE_SIZE, RevisionTimeline, RevisionsSplit, useMinWidth } from './timeline'
+import { RevisionDetail } from './revision-page'
 
 export function RevisionsPage() {
   const { t } = useTranslation('revisions')
@@ -22,11 +16,13 @@ export function RevisionsPage() {
   useTitle(t('title'))
   if (!can('ViewPrivate'))
     return (
-      <Page title={t('title')}>
-        <EmptyState icon={ShieldOff} title={t('noAccess.title')}>
-          {t('noAccess.body')}
-        </EmptyState>
-      </Page>
+      <AlbumPage title={t('title')}>
+        <div className="rounded-3xl bg-card">
+          <EmptyState icon={ShieldOff} title={t('noAccess.title')}>
+            {t('noAccess.body')}
+          </EmptyState>
+        </div>
+      </AlbumPage>
     )
   return <RevisionsList />
 }
@@ -35,107 +31,49 @@ export function RevisionsPage() {
 function ObjectHistory({ cls, handle }: { cls: string; handle: string }) {
   const { t } = useTranslation('revisions')
   return (
-    <Page title={t('object.title')} description={t('object.description', { object: t(`objectClass.${objectClassName(cls)}`, { defaultValue: cls }) })}>
-      <Link to="/revisions" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="size-4" />
-        {t('title')}
-      </Link>
-      <ObjectRevisions cls={cls} handle={handle} />
-    </Page>
+    <AlbumPage
+      back={
+        <Link
+          to="/revisions"
+          className="inline-flex h-11 items-center gap-1.5 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground sm:h-9"
+        >
+          <ChevronLeft className="size-4" />
+          {t('title')}
+        </Link>
+      }
+      title={t('object.title')}
+      description={t('object.description', { object: t(`objectClass.${objectClassName(cls)}`, { defaultValue: cls }) })}
+    >
+      <div className="max-w-3xl rounded-3xl bg-card p-5 sm:p-6">
+        <ObjectRevisions cls={cls} handle={handle} />
+      </div>
+    </AlbumPage>
   )
 }
 
 function RevisionsList() {
-  const { t, i18n } = useTranslation('revisions')
+  const { t } = useTranslation('revisions')
   const [params, setParams] = useSearchParams()
   const page = Math.max(1, Number(params.get('page')) || 1)
   const objCls = params.get('class')
   const objHandle = params.get('handle')
-  const { data: maps } = useTypeMaps()
-  // `data` keeps the previous page while the next one loads
-  const q = useTransactionHistoryPageQuery(objCls && objHandle ? skipToken : { page, pagesize: PAGE_SIZE })
-  const pages = q.data ? Math.max(1, Math.ceil(q.data.total / PAGE_SIZE)) : 1
+  const wide = useMinWidth(1280)
+  // same cache entry as the timeline: the newest change of the page opens next to it on wide screens
+  const q = useTransactionHistoryPageQuery({ page, pagesize: PAGE_SIZE }, { skip: !!(objCls && objHandle) || !wide })
   const go = (p: number) => {
     setParams(p > 1 ? { page: String(p) } : {})
     window.scrollTo({ top: 0 })
   }
 
   if (objCls && objHandle) return <ObjectHistory cls={objCls} handle={objHandle} />
+  const firstId = q.data?.items[0]?.id
 
   return (
-    <Page title={t('title')} description={t('description')}>
-      {q.isError ? (
-        <ErrorState error={q.error} onRetry={() => q.refetch()} />
-      ) : !q.data ? (
-        <RowsSkeleton rows={10} />
-      ) : !q.data.items.length ? (
-        <EmptyState icon={History} title={t('empty.title')}>
-          {t('empty.body')}
-        </EmptyState>
-      ) : (
-        <>
-          <ul className="divide-y rounded-xl border bg-card">
-            {q.data.items.map((tx) => (
-              <TransactionRow key={tx.id} tx={tx} maps={maps} t={t} lang={i18n.language} />
-            ))}
-          </ul>
-          {pages > 1 && (
-            <nav className="mt-4 flex items-center justify-between gap-3" aria-label={t('pagination')}>
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => go(page - 1)}>
-                <ChevronLeft />
-                {t('newer')}
-              </Button>
-              <span className="text-sm tabular-nums text-muted-foreground">{t('pageOf', { page, pages })}</span>
-              <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => go(page + 1)}>
-                {t('older')}
-                <ChevronRight />
-              </Button>
-            </nav>
-          )}
-        </>
-      )}
-    </Page>
-  )
-}
-
-/** Gramps descriptions like "Merge People" or "Import" say more than the derived headline; plain add/edit/delete ones do not. */
-function informative(description: string | undefined) {
-  return !!description && !/^(add|new|edit|update|delete|remove)\b/i.test(description.trim())
-}
-
-function TransactionRow({ tx, maps, t, lang }: { tx: Transaction; maps?: TypeMaps; t: TFunction; lang: string }) {
-  const { headline, more, first } = summarize(tx, maps, t)
-  const who = tx.connection?.user?.full_name || tx.connection?.user?.name
-  return (
-    <li>
-      <Link to={`/revision/${tx.id}`} className="flex items-start gap-3 px-4 py-3 hover:bg-accent/60 sm:items-center">
-        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground sm:mt-0">
-          <ClassIcon cls={first?.obj_class} className="size-4" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate">
-            {headline}
-            {more > 0 && <span className="text-muted-foreground"> {t('andMore', { count: more })}</span>}
-          </span>
-          <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-            {who && <span>{who}</span>}
-            {first && informative(tx.description) && <span>{tx.description}</span>}
-            {isUndo(tx) && (
-              <span className="inline-flex items-center gap-1 rounded-full border px-1.5 py-px">
-                <Undo2 className="size-3" />
-                {t('undoBadge')}
-              </span>
-            )}
-            <span className="sm:hidden" title={formatTimestamp(tx.timestamp, lang)}>
-              {timeAgo(tx.timestamp, lang)}
-            </span>
-          </span>
-        </span>
-        <span className="hidden shrink-0 text-right text-xs text-muted-foreground sm:block" title={formatTimestamp(tx.timestamp, lang)}>
-          {timeAgo(tx.timestamp, lang)}
-          <span className="block tabular-nums">#{tx.id}</span>
-        </span>
-      </Link>
-    </li>
+    <AlbumPage title={t('title')} description={t('description')}>
+      <RevisionsSplit
+        timeline={<RevisionTimeline page={page} onPage={go} activeId={wide ? firstId : undefined} linkSuffix={page > 1 ? `?page=${page}` : ''} compact={wide} />}
+        detail={wide && firstId != null ? <RevisionDetail id={firstId} embedded /> : null}
+      />
+    </AlbumPage>
   )
 }

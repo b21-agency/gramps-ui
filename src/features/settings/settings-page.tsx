@@ -1,7 +1,7 @@
 import { Link, Navigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Info, ShieldCheck, SlidersHorizontal, UserRound, UsersRound } from 'lucide-react'
-import { Page } from '@/components/app-shell'
+import { AlbumPage } from '@/components/album-page'
 import { useAuth } from '@/lib/auth'
 import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
@@ -57,12 +57,12 @@ export function SettingsPage() {
   if (!current) return <Navigate to="/settings/user" replace />
 
   return (
-    <Page title={t('title')} description={t('description')}>
-      <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-8 lg:gap-12">
+    <AlbumPage title={t('title')} description={t('description')}>
+      <div className="grid gap-6 md:grid-cols-[14rem_minmax(0,1fr)] md:gap-8 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-10">
         {/* mobile: sideways-scrolling tabs under the header */}
         <nav
           aria-label={t('title')}
-          className="sticky top-[var(--header-h)] z-20 -mx-4 -mt-2 overflow-x-auto border-b bg-background/90 px-4 py-2 backdrop-blur [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden"
+          className="sticky top-[var(--header-h)] z-20 -mx-4 -mt-2 overflow-x-auto bg-background/90 px-4 py-2 backdrop-blur [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden"
         >
           <ul className="flex gap-1.5">
             {visible.map((s) => {
@@ -75,8 +75,8 @@ export function SettingsPage() {
                     replace
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'flex h-10 items-center gap-2 rounded-full border px-3.5 text-[15px] transition-colors active:scale-[0.97] motion-reduce:active:scale-100',
-                      active ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-foreground',
+                      'flex h-11 items-center gap-2 rounded-full px-4 text-[15px] transition-colors active:scale-[0.97] motion-reduce:active:scale-100',
+                      active ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground',
                     )}
                   >
                     <s.icon className="size-4" />
@@ -90,7 +90,7 @@ export function SettingsPage() {
 
         {/* desktop: side nav */}
         <nav aria-label={t('title')} className="hidden md:block">
-          <ul className="sticky top-20 space-y-0.5">
+          <ul className="sticky top-20 space-y-1 rounded-3xl bg-card p-2">
             {visible.map((s) => {
               const active = s.key === current.key
               return (
@@ -99,11 +99,18 @@ export function SettingsPage() {
                     to={`/settings/${s.key}`}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
-                      active ? 'bg-accent font-medium text-accent-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                      'flex h-11 items-center gap-3 rounded-2xl px-3 text-[15px] transition-colors duration-150',
+                      active ? 'bg-accent font-semibold text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                     )}
                   >
-                    <s.icon className="size-4" />
+                    <span
+                      className={cn(
+                        'flex size-8 items-center justify-center rounded-xl',
+                        active ? 'bg-brass text-brass-foreground' : 'bg-secondary text-muted-foreground',
+                      )}
+                    >
+                      <s.icon className="size-4" />
+                    </span>
                     {t(`nav.${s.key}`)}
                   </Link>
                 </li>
@@ -113,6 +120,7 @@ export function SettingsPage() {
         </nav>
 
         <div className="min-w-0">
+          <h2 className="mb-6 font-serif text-4xl font-medium tracking-[-0.01em] sm:text-5xl">{t(`nav.${current.key}`)}</h2>
           {current.key === 'user' && <ProfileSection />}
           {current.key === 'preferences' && <PreferencesSection />}
           {current.key === 'users' && <UsersSection />}
@@ -120,6 +128,6 @@ export function SettingsPage() {
           {current.key === 'info' && <InfoSection />}
         </div>
       </div>
-    </Page>
+    </AlbumPage>
   )
 }

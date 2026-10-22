@@ -41,6 +41,8 @@ export default {
   noDescription: 'Keine Beschreibung.',
   descriptionTitle: 'Beschreibung',
   attachments: 'Anhänge',
+  details: 'Details',
+  createdBy: 'Angelegt von',
   edit: 'Aufgabe bearbeiten',
   more: 'Weitere Aktionen',
   markDone: 'Als erledigt markieren',

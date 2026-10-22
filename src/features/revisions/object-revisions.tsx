@@ -44,16 +44,16 @@ export function ObjectRevisions({ cls, handle, lastChange }: { cls: string; hand
       {!items.length ? (
         <EmptyState icon={History} title={t('object.empty')} className="py-8" />
       ) : (
-        <ul className="divide-y rounded-xl border bg-card">
+        <ul className="grid gap-0.5">
           {items.map((c, i) => {
             const who = c.connection?.user?.full_name || c.connection?.user?.name || t('object.unknownUser')
             const body = (
               <>
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
                   <ClassIcon cls={c.obj_class} className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate">{t(`verb.${transVerb[c.trans_type] ?? 'changed'}`)}</span>
+                  <span className="block truncate text-[15px] font-semibold">{t(`verb.${transVerb[c.trans_type] ?? 'changed'}`)}</span>
                   <span className="block truncate text-xs text-muted-foreground">{who}</span>
                 </span>
                 <span className="shrink-0 text-right text-xs text-muted-foreground" title={formatTimestamp(c.timestamp, lang)}>
@@ -65,11 +65,11 @@ export function ObjectRevisions({ cls, handle, lastChange }: { cls: string; hand
             return (
               <li key={`${c.transaction_id ?? 'x'}-${i}`}>
                 {c.transaction_id != null ? (
-                  <Link to={`/revision/${c.transaction_id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/60">
+                  <Link to={`/revision/${c.transaction_id}`} className="-mx-2 flex items-center gap-3 rounded-2xl px-2 py-2 transition-colors duration-150 hover:bg-accent">
                     {body}
                   </Link>
                 ) : (
-                  <div className="flex items-center gap-3 px-4 py-3">{body}</div>
+                  <div className="-mx-2 flex items-center gap-3 px-2 py-2">{body}</div>
                 )}
               </li>
             )
@@ -80,7 +80,7 @@ export function ObjectRevisions({ cls, handle, lastChange }: { cls: string; hand
         (items.length >= MAX_ITEMS ? (
           <p className="text-sm text-muted-foreground">{t('object.onlyRecent')}</p>
         ) : (
-          <Button variant="outline" size="sm" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>
+          <Button variant="secondary" className="h-11 rounded-full px-4 sm:h-9" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>
             {q.isFetchingNextPage && <Loader2 className="animate-spin" />}
             {t('object.showMore')}
           </Button>

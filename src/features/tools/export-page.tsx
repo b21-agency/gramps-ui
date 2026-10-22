@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Page } from '@/components/app-shell'
-import { ErrorState, RowsSkeleton } from '@/components/states'
+import { AlbumPage } from '@/components/album-page'
+import { Panel } from '@/components/detail/panel'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorState } from '@/components/states'
 import { ObjectPicker } from '@/components/object-picker'
 import { useCreateMediaArchiveMutation, useExporterListQuery, useRunExportMutation, type Exporter } from '@/api/enhanced/tools'
 import { apiLocale } from '@/i18n'
@@ -88,29 +90,32 @@ export function ExportPage() {
   }
 
   return (
-    <Page title={t('export.title')} description={t('export.description')}>
+    <AlbumPage title={t('export.title')} description={t('export.description')}>
       {q.isError ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       ) : q.isLoading ? (
-        <RowsSkeleton rows={6} />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {Array.from({ length: 8 }, (_, i) => (
+            <Skeleton key={i} className="h-40 rounded-3xl" />
+          ))}
+        </div>
       ) : (
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="min-w-0 space-y-10">
+        <div className="space-y-10">
             {!can('ViewPrivate') && (
-              <p className="flex items-start gap-2 rounded-lg border border-brass/40 bg-brass/10 px-3 py-2 text-sm">
-                <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+              <p className="flex items-start gap-2.5 rounded-3xl bg-brass/10 px-5 py-4 text-sm">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-brass" />
                 {t('export.incomplete')}
               </p>
             )}
-            <section>
-              <h2 className="mb-3 border-b pb-2 text-xl font-medium">{t('export.format')}</h2>
+            <section aria-labelledby="exp-format">
+              <h2 id="exp-format" className="mb-5 font-serif text-3xl font-medium">{t('export.format')}</h2>
               <RadioGroup
                 value={ext}
                 onValueChange={(v) => {
                   setExt(v)
                   task.reset()
                 }}
-                className="gap-2"
+                className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
               >
                 {exporters.map((e) => {
                   const l = label(e)
@@ -119,33 +124,32 @@ export function ExportPage() {
                       key={e.extension}
                       htmlFor={`fmt-${e.extension}`}
                       className={cn(
-                        'flex cursor-pointer items-start gap-3 rounded-lg border bg-card p-3 font-normal transition-colors hover:bg-accent/60',
-                        ext === e.extension && 'border-primary/50 bg-primary/5',
+                        'flex h-full cursor-pointer flex-col items-stretch gap-0 rounded-3xl bg-card p-5 font-normal ring-2 ring-transparent transition-[background-color,box-shadow,transform] duration-150 ease-out hover:bg-accent active:scale-[0.98] sm:p-6',
+                        ext === e.extension && 'bg-accent ring-primary',
                       )}
                     >
-                      <RadioGroupItem id={`fmt-${e.extension}`} value={e.extension} className="mt-0.5" />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-center gap-2 font-medium">
-                          {l.name}
-                          <span className="text-xs font-normal text-muted-foreground">.{e.extension}</span>
-                          {RECOMMENDED.has(e.extension) && (
-                            <span className="rounded-full border border-brass/50 bg-brass/10 px-2 py-0.5 text-[11px] font-normal">
-                              {t('export.recommended')}
-                            </span>
-                          )}
-                        </span>
-                        <span className="mt-0.5 block text-sm leading-snug text-muted-foreground">{l.description}</span>
+                      <span className="flex items-start gap-3">
+                        <span className="min-w-0 flex-1 font-serif text-3xl leading-none text-brass [overflow-wrap:anywhere]">.{e.extension}</span>
+                        <RadioGroupItem id={`fmt-${e.extension}`} value={e.extension} className="mt-1 size-5" />
                       </span>
+                      <span className="mt-4 block text-[15px] font-semibold">{l.name}</span>
+                      <span className="mt-1 block flex-1 text-sm leading-snug text-muted-foreground">{l.description}</span>
+                      {RECOMMENDED.has(e.extension) && (
+                        <span className="mt-4 self-start rounded-full bg-brass/15 px-2.5 py-0.5 text-xs font-semibold text-brass">
+                          {t('export.recommended')}
+                        </span>
+                      )}
                     </Label>
                   )
                 })}
               </RadioGroup>
             </section>
 
-            <section className="space-y-5">
-              <h2 className="border-b pb-2 text-xl font-medium">{t('export.options')}</h2>
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
+            <Panel title={t('export.options')}>
+              <div className="space-y-6">
 
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start justify-between gap-4 rounded-2xl bg-secondary/50 p-4">
                 <div>
                   <Label htmlFor="exp-private">{t('export.private')}</Label>
                   <p className="mt-0.5 text-sm text-muted-foreground">{t('export.privateHint')}</p>
@@ -153,7 +157,8 @@ export function ExportPage() {
                 <Switch id="exp-private" checked={privateOff} onCheckedChange={setPrivateOff} />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 xl:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="exp-living">{t('export.living')}</Label>
                   <Select value={living} onValueChange={(v) => setLiving(v as typeof living)}>
@@ -184,7 +189,7 @@ export function ExportPage() {
                 )}
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="exp-people">{t('export.personFilter')}</Label>
                   <Select value={personFilter} onValueChange={(v) => setPersonFilter(v as typeof personFilter)}>
@@ -213,8 +218,10 @@ export function ExportPage() {
                 )}
               </div>
 
+              </div>
+
               {isCsv && (
-                <div className="space-y-3 rounded-lg border bg-card p-4">
+                <div className="grid gap-3 rounded-2xl bg-secondary/50 p-4 sm:grid-cols-2">
                   {(
                     [
                       ['include_individuals', 'individuals'],
@@ -235,7 +242,7 @@ export function ExportPage() {
                 </div>
               )}
               {isGed && (
-                <div className="space-y-3 rounded-lg border bg-card p-4">
+                <div className="grid gap-3 rounded-2xl bg-secondary/50 p-4 sm:grid-cols-2">
                   <SwitchRow id="ged-media" label={t('export.gedcom.media')} checked={ged.include_media} onChange={(c) => setGed((s) => ({ ...s, include_media: c }))} />
                   <SwitchRow
                     id="ged-wit"
@@ -245,10 +252,20 @@ export function ExportPage() {
                   />
                 </div>
               )}
-              {ext === 'gramps' && <SwitchRow id="gramps-compress" label={t('export.compress')} checked={compress} onChange={setCompress} />}
-            </section>
+              {ext === 'gramps' && (
+                <div className="rounded-2xl bg-secondary/50 p-4">
+                  <SwitchRow id="gramps-compress" label={t('export.compress')} checked={compress} onChange={setCompress} />
+                </div>
+              )}
+              </div>
+            </Panel>
 
-            <section className="space-y-4 rounded-xl border bg-card p-5">
+            <div className="grid min-w-0 gap-6 lg:sticky lg:top-20">
+            <section className="space-y-4 rounded-3xl bg-card p-5 sm:p-6">
+              <div className="flex items-baseline gap-2">
+                <h2 className="font-serif text-2xl font-medium">{selected ? label(selected).name : t('export.format')}</h2>
+                <span className="font-serif text-lg text-brass">.{ext}</span>
+              </div>
               {task.result ? (
                 <ResultBlock
                   title={t('export.ready')}
@@ -260,21 +277,19 @@ export function ExportPage() {
               ) : (
                 <>
                   <TaskStatusLine phase={task.phase} progress={task.progress} error={task.error} runningLabel={t('export.running')} />
-                  <Button size="lg" onClick={run} disabled={task.running || !selected}>
+                  <Button className="h-11 w-full rounded-full text-base sm:h-11" onClick={run} disabled={task.running || !selected}>
                     {task.running ? <Loader2 className="animate-spin" /> : <Download />}
                     {t('export.start', { format: selected ? label(selected).name : '' })}
                   </Button>
                 </>
               )}
             </section>
-          </div>
-
-          <aside className="min-w-0">
             <MediaArchive lang={i18n.language} />
-          </aside>
+            </div>
+          </div>
         </div>
       )}
-    </Page>
+    </AlbumPage>
   )
 }
 
@@ -309,15 +324,15 @@ export function ResultBlock({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-lg bg-secondary">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brass text-brass-foreground">
           <FileArchive className="size-5" />
         </span>
         <div className="min-w-0">
-          <p className="font-serif text-lg">{title}</p>
+          <p className="font-serif text-2xl leading-tight">{title}</p>
           {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
         </div>
       </div>
-      <Button asChild size="lg">
+      <Button asChild className="h-11 w-full rounded-full text-base">
         <a href={withJwt(url)} download={fileName ?? ''}>
           <Download />
           {t('file.download')}
@@ -349,10 +364,12 @@ function MediaArchive({ lang }: { lang: string }) {
     }
   }
   return (
-    <section className="rounded-xl border bg-card p-5">
-      <div className="mb-2 flex items-center gap-2">
-        <Archive className="size-4 text-muted-foreground" />
-        <h2 className="text-lg font-medium">{t('export.media.title')}</h2>
+    <section className="rounded-3xl bg-card p-5 sm:p-6">
+      <div className="mb-2 flex items-center gap-3">
+        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-brass">
+          <Archive className="size-[18px]" />
+        </span>
+        <h2 className="font-serif text-2xl font-medium">{t('export.media.title')}</h2>
       </div>
       <p className="text-sm text-muted-foreground">{t('export.media.description')}</p>
       <div className="mt-4 space-y-3">
@@ -365,7 +382,7 @@ function MediaArchive({ lang }: { lang: string }) {
         ) : (
           <>
             <TaskStatusLine phase={task.phase} progress={task.progress} error={task.error} runningLabel={t('export.media.running')} />
-            <Button variant="outline" onClick={run} disabled={task.running}>
+            <Button variant="secondary" className="h-11 w-full rounded-full sm:h-10" onClick={run} disabled={task.running}>
               {task.running && <Loader2 className="animate-spin" />}
               {t('export.media.start')}
             </Button>

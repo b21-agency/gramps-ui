@@ -115,7 +115,7 @@ export function UsersSection() {
       ) : !users.length ? (
         <EmptyState icon={UsersRound} title={t('users.empty')} />
       ) : (
-        <ul className="divide-y rounded-xl border bg-card">
+        <ul className="divide-y divide-border/60 overflow-hidden rounded-2xl bg-secondary/40">
           {!shown.length && <li className="p-4 text-sm text-muted-foreground">{t('users.noMatch')}</li>}
           {shown.map((u) => {
             const self = me?.name === u.name

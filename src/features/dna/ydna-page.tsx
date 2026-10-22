@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Portrait } from '@/components/portrait'
-import { PersonChip } from '@/components/person-chip'
 import { ObjectPicker } from '@/components/object-picker'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { useAuth } from '@/lib/auth'
-import { profileName, yearOf } from '@/lib/format'
+import { lifespan, profileName, yearOf } from '@/lib/format'
 import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
+import { AlbumHeader, albumFrame, pill } from '@/components/album-page'
+import { Panel } from '@/components/detail/panel'
 import { errorMessage, txGrampsId } from '@/features/editor/lib'
 import { saveYDna, useYDna, useYDnaPeople, type Clade, type DnaPerson } from './data'
 import { DnaTabs, useDefaultPerson } from './dna-tabs'
@@ -32,32 +33,29 @@ export function YDnaPage() {
   if (people.isError) return <ErrorState error={people.error} onRetry={() => people.refetch()} />
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-8">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-3xl font-medium tracking-tight">{t('ydna.title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('ydna.intro')}</p>
-        </div>
-        {can('EditObject') && (
-          <Button onClick={() => setAdding(true)}>
-            <Plus />
-            {t('ydna.add')}
-          </Button>
-        )}
-      </div>
+    <div className={albumFrame}>
+      <AlbumHeader
+        title={t('ydna.title')}
+        description={t('ydna.intro')}
+        actions={
+          can('EditObject') && (
+            <Button className={pill} onClick={() => setAdding(true)}>
+              <Plus />
+              {t('ydna.add')}
+            </Button>
+          )
+        }
+      />
       <DnaTabs id={id} />
       <YDnaDialog open={adding} onOpenChange={setAdding} />
       {people.data && people.data.length === 0 ? (
-        <EmptyState icon={Dna} title={t('ydna.empty')} className="rounded-xl border border-dashed">
+        <EmptyState icon={Dna} title={t('ydna.empty')} className="rounded-3xl bg-card">
           {t('ydna.emptyHint')}
         </EmptyState>
       ) : (
-        <div className="grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
-          <aside className={cn('min-w-0', id && 'hidden lg:block')}>
-            <div className="mb-2 flex items-baseline gap-2 border-b pb-2">
-              <h2 className="text-lg font-medium">{t('testedPeople')}</h2>
-              {people.data && <span className="text-sm tabular-nums text-muted-foreground">{people.data.length}</span>}
-            </div>
+        <div className="grid items-start gap-6 lg:grid-cols-[20rem_minmax(0,1fr)] 2xl:grid-cols-[22rem_minmax(0,1fr)]">
+          <aside className={cn('min-w-0 lg:sticky lg:top-20', id && 'hidden lg:block')}>
+            <Panel title={t('testedPeople')} count={people.data?.length} className="p-4 sm:p-5">
             {people.isLoading ? (
               <RowsSkeleton rows={4} />
             ) : (
@@ -71,12 +69,12 @@ export function YDnaPage() {
                         to={`/ydna/${p.gramps_id}`}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
-                          'flex items-center gap-3 rounded-lg px-2 py-1.5 outline-none transition-colors hover:bg-accent focus-visible:bg-accent',
+                          '-mx-1 flex items-center gap-3 rounded-2xl px-2 py-1.5 outline-none transition-colors duration-150 hover:bg-accent focus-visible:bg-accent',
                           active && 'bg-accent',
                         )}
                       >
-                        <Portrait mediaRef={p.media_list?.[0]} name={name} sex={p.profile?.sex} size={36} />
-                        <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
+                        <Portrait mediaRef={p.media_list?.[0]} name={name} sex={p.profile?.sex} size={44} className={cn(active && 'ring-2 ring-brass')} />
+                        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{name}</span>
                         <ChevronRight className="size-4 text-muted-foreground lg:hidden" />
                       </Link>
                     </li>
@@ -84,16 +82,17 @@ export function YDnaPage() {
                 })}
               </ul>
             )}
+            </Panel>
           </aside>
           <section className={cn('min-w-0', !id && 'hidden lg:block')}>
             {selected ? (
               <YDnaView person={selected} />
             ) : id && people.data ? (
-              <EmptyState title={t('ydna.noData')} />
+              <EmptyState title={t('ydna.noData')} className="rounded-3xl bg-card" />
             ) : id ? (
               <RowsSkeleton rows={4} />
             ) : (
-              <EmptyState icon={Dna} title={t('pickPerson')} className="rounded-xl border border-dashed" />
+              <EmptyState icon={Dna} title={t('pickPerson')} className="rounded-3xl bg-card" />
             )}
           </section>
         </div>
@@ -113,28 +112,41 @@ function YDnaView({ person }: { person: DnaPerson }) {
 
   return (
     <div className="min-w-0">
-      <div className="mb-5 flex items-center gap-3">
-        <Button variant="ghost" size="icon-sm" className="lg:hidden" asChild aria-label={t('common:actions.back')}>
-          <Link to="/ydna">
-            <ArrowLeft />
-          </Link>
-        </Button>
-        <PersonChip person={person.profile} mediaRef={person.media_list?.[0]} size={48} className="-ml-2 min-w-0" />
-      </div>
+      <Button variant="ghost" className="-ml-3 mb-3 h-11 rounded-full px-3 text-muted-foreground lg:hidden" asChild>
+        <Link to="/ydna">
+          <ArrowLeft />
+          {t('testedPeople')}
+        </Link>
+      </Button>
+      <header className="mb-8 flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
+        <Link to={`/person/${person.gramps_id}`} className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Portrait mediaRef={person.media_list?.[0]} name={profileName(person.profile)} sex={person.profile?.sex} size={112} className="ring-4 ring-card" />
+        </Link>
+        <div className="min-w-0">
+          <h2 className="font-serif text-[2.4rem] font-medium leading-[1.02] tracking-[-0.02em] text-balance sm:text-5xl lg:text-6xl">
+            <Link to={`/person/${person.gramps_id}`} className="outline-none hover:text-brass focus-visible:text-brass">
+              {profileName(person.profile) || person.gramps_id}
+            </Link>
+          </h2>
+          <p className="mt-2 text-muted-foreground tabular-nums">
+            {lifespan(person.profile?.birth as { date?: string }, person.profile?.death as { date?: string })}
+          </p>
+        </div>
+      </header>
       {q.isError && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
       {q.isLoading && <RowsSkeleton rows={4} />}
       {q.data && (
-        <div className="space-y-8">
+        <div className="grid items-start gap-6 xl:grid-cols-2">
           {leaf ? (
-            <section>
-              <h2 className="mb-3 border-b pb-2 text-xl font-medium">{t('ydna.haplogroup')}</h2>
+            <section className="min-w-0 rounded-3xl bg-card p-5 sm:p-6">
+              <h2 className="mb-2 font-serif text-2xl font-medium">{t('ydna.haplogroup')}</h2>
               <p className="text-sm text-muted-foreground">{t('ydna.haplogroupHint')}</p>
               <p className="mt-1 flex flex-wrap items-baseline gap-x-3">
                 <a
                   href={`https://yfull.com/tree/${encodeURIComponent(leaf)}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 font-serif text-3xl hover:underline"
+                  className="mt-2 inline-flex items-center gap-2 font-serif text-5xl text-brass hover:underline"
                 >
                   {leaf}
                   <ExternalLink className="size-4 text-muted-foreground" />
@@ -148,32 +160,32 @@ function YDnaView({ person }: { person: DnaPerson }) {
               </p>
             </section>
           ) : (
-            <EmptyState icon={Dna} title={t('ydna.noHaplogroup')}>
+            <EmptyState icon={Dna} title={t('ydna.noHaplogroup')} className="rounded-3xl bg-card">
               {t('ydna.noHaplogroupHint')}
             </EmptyState>
           )}
           {lineage.length > 0 && (
-            <section>
-              <h2 className="mb-3 border-b pb-2 text-xl font-medium">{t('ydna.lineage')}</h2>
+            <section className="min-w-0 rounded-3xl bg-card p-5 sm:p-6 xl:row-span-2">
+              <h2 className="mb-4 font-serif text-2xl font-medium">{t('ydna.lineage')}</h2>
               <Lineage clades={lineage} person={person} />
             </section>
           )}
-          <section>
-            <h2 className="mb-3 border-b pb-2 text-xl font-medium">{t('ydna.raw')}</h2>
+          <section className="min-w-0 rounded-3xl bg-card p-5 sm:p-6">
+            <h2 className="mb-4 font-serif text-2xl font-medium">{t('ydna.raw')}</h2>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowRaw((v) => !v)} aria-expanded={showRaw}>
+              <Button variant="secondary" className={pill} onClick={() => setShowRaw((v) => !v)} aria-expanded={showRaw}>
                 <ChevronRight className={cn('transition-transform', showRaw && 'rotate-90')} />
                 {showRaw ? t('ydna.hideRaw') : t('ydna.showRaw')}
               </Button>
               {can('EditObject') && (
-                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                <Button variant="secondary" className={pill} onClick={() => setEditing(true)}>
                   <Pencil />
                   {t('ydna.edit')}
                 </Button>
               )}
             </div>
             {showRaw && (
-              <pre className="mt-3 max-h-72 overflow-auto rounded-lg bg-muted p-3 text-xs whitespace-pre-wrap break-words">
+              <pre className="mt-4 max-h-72 overflow-auto rounded-2xl bg-secondary p-4 text-xs whitespace-pre-wrap break-words">
                 {q.data.raw_data || '—'}
               </pre>
             )}
@@ -243,16 +255,16 @@ function Lineage({ clades, person }: { clades: Clade[]; person: DnaPerson }) {
   return (
     <div>
       {clades.length > 3 && (
-        <Button variant="ghost" size="sm" className="-ml-2 mb-2" onClick={() => setExpanded((v) => !v)}>
+        <Button variant="ghost" className="-ml-2 mb-2 h-11 rounded-full sm:h-9" onClick={() => setExpanded((v) => !v)}>
           {expanded ? t('common:actions.showLess') : t('ydna.showAllClades', { count: clades.length })}
         </Button>
       )}
-      <ol className="relative ml-1 border-l pl-6">
+      <ol className="relative ml-1 border-l-2 border-lineage pl-6">
         {boxes.map((b, i) => (
           <li key={`${b.name}-${i}`} className="relative pb-1">
             <span
               className={cn(
-                'absolute top-2 -left-[1.95rem] size-3 rounded-full border-2 border-background',
+                'absolute top-2 -left-[2.05rem] size-3.5 rounded-full ring-4 ring-card',
                 b.person ? 'bg-brass' : 'bg-primary',
               )}
               aria-hidden
@@ -272,7 +284,7 @@ function Lineage({ clades, person }: { clades: Clade[]; person: DnaPerson }) {
                   {b.name}
                 </a>
               )}
-              <span className="text-sm tabular-nums text-muted-foreground">{b.year}</span>
+              <span className="font-serif text-base tabular-nums text-brass">{b.year}</span>
             </div>
             {b.gap !== undefined && <p className="py-2 text-xs text-muted-foreground">{gapText(b.gap)}</p>}
             {b.gap === undefined && i < boxes.length - 1 && <div className="h-3" />}

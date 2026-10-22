@@ -20,6 +20,9 @@ import { ErrorState } from '@/components/states'
 import { NoteHtml } from '@/components/note-html'
 import { refThumbUrl } from '@/components/portrait'
 import { Gallery, useNotesHtml } from '@/components/detail/sections'
+import { Panel } from '@/components/detail/panel'
+import { albumFrame, pill } from '@/components/album-page'
+import { cn } from '@/lib/utils'
 import { useInvalidateOnUnmount } from '@/api/enhanced/editor'
 import { useAuth, useAccessToken } from '@/lib/auth'
 import { useObjectById } from '@/lib/queries'
@@ -85,18 +88,21 @@ export function BlogPostPage() {
     }
   }
 
+  const words = body?.text.string.trim().split(/\s+/).filter(Boolean).length ?? 0
+  const minutes = Math.max(1, Math.round(words / 200))
+
   return (
-    <article className="px-4 py-6 sm:px-6 lg:py-10">
-      <div className="mx-auto mb-8 flex max-w-4xl items-center gap-2">
-        <Button asChild variant="ghost" size="sm" className="-ml-2">
+    <article className={albumFrame}>
+      <div className="mb-8 flex items-center gap-2">
+        <Button asChild variant="ghost" className="-ml-3 h-11 rounded-full px-3 text-muted-foreground hover:text-foreground sm:h-10">
           <Link to="/blog">
             <ArrowLeft />
             {t('backToBlog')}
           </Link>
         </Button>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1.5">
           {can('EditObject') && (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Button variant="secondary" className={pill} onClick={() => setEditing(true)}>
               <Pencil />
               {t('edit')}
             </Button>
@@ -104,7 +110,7 @@ export function BlogPostPage() {
           <ResponsiveMenu
             title={t('more')}
             trigger={
-              <Button variant="ghost" size="icon-sm" className="max-md:size-10" aria-label={t('more')}>
+              <Button variant="ghost" size="icon" className="size-11 rounded-full sm:size-10" aria-label={t('more')}>
                 <Ellipsis />
               </Button>
             }
@@ -118,26 +124,27 @@ export function BlogPostPage() {
         </div>
       </div>
 
-      <header className="mx-auto max-w-[65ch]">
-        <h1 className="text-4xl leading-[1.1] font-medium tracking-tight text-balance sm:text-5xl">{post.title}</h1>
-        <p className="mt-4 text-sm text-muted-foreground">
-          {[post.author && t('by', { author: post.author }), postDate(post.change, i18n.language)]
-            .filter(Boolean)
-            .join(' · ')}
+      <header className="mx-auto max-w-4xl text-center">
+        <p className="text-sm font-semibold text-brass tabular-nums">
+          {[postDate(post.change, i18n.language), body && t('minutes', { count: minutes })].filter(Boolean).join(' · ')}
         </p>
+        <h1 className="mt-4 font-serif text-[2.6rem] font-medium leading-[1.02] tracking-[-0.02em] text-balance [overflow-wrap:anywhere] sm:text-6xl lg:text-7xl">
+          {post.title}
+        </h1>
+        {post.author && <p className="mt-5 font-serif text-xl italic text-muted-foreground">{t('by', { author: post.author })}</p>}
       </header>
 
       {cover && (
-        <figure className="mx-auto mt-8 max-w-4xl">
+        <figure className="mt-10 overflow-hidden rounded-3xl bg-card">
           <img
             src={refThumbUrl(cover, 1600, false)}
             alt=""
-            className="max-h-[70vh] w-full rounded-xl border bg-muted object-contain"
+            className="aspect-[4/3] max-h-[78vh] w-full object-cover 2xl:aspect-[21/9] object-[center_30%] [filter:sepia(0.12)_contrast(1.03)] sm:aspect-[16/9]"
           />
         </figure>
       )}
 
-      <div className="mx-auto mt-10 max-w-[65ch]">
+      <div className="mx-auto mt-12 max-w-[65ch] sm:mt-14">
         {notes.isLoading ? (
           <div className="space-y-3">
             {[0, 1, 2, 3].map((i) => (
@@ -148,19 +155,32 @@ export function BlogPostPage() {
           <NoteHtml
             html={withInlineImages(body.formatted?.html, inlineImageHandles(body.text as { string: string; tags?: StyledTag[] }))}
             text={body.text.string.replace(/\uFFFC/g, '')}
-            className={blogProse}
+            className={cn(blogProse, dropCap)}
           />
         ) : (
-          <p className="text-muted-foreground">{t('noBody')}</p>
+          <p className="font-serif text-lg italic text-muted-foreground">{t('noBody')}</p>
         )}
+        <div aria-hidden className="mx-auto mt-12 flex w-24 items-center gap-2 text-brass/60">
+          <span className="h-px flex-1 bg-current" />
+          <span className="size-1.5 rounded-full bg-current" />
+          <span className="h-px flex-1 bg-current" />
+        </div>
       </div>
 
       {more.length > 0 && (
-        <section className="mx-auto mt-14 max-w-4xl">
-          <h2 className="mb-3 border-b pb-2 text-xl font-medium">{t('photos')}</h2>
+        <Panel title={t('photos')} count={more.length} className="mt-12">
           <Gallery refs={more} media={post.extended?.media} />
-        </section>
+        </Panel>
       )}
+
+      <div className="mt-10 flex justify-center">
+        <Button asChild variant="secondary" className={pill}>
+          <Link to="/blog">
+            <ArrowLeft />
+            {t('backToBlog')}
+          </Link>
+        </Button>
+      </div>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
@@ -187,12 +207,16 @@ export function BlogPostPage() {
   )
 }
 
+/** Gold initial on the first paragraph, like a printed family chronicle. */
+const dropCap =
+  '[&_p:first-of-type]:first-letter:float-left [&_p:first-of-type]:first-letter:mr-2.5 [&_p:first-of-type]:first-letter:mt-1 [&_p:first-of-type]:first-letter:font-serif [&_p:first-of-type]:first-letter:text-[3.6em] [&_p:first-of-type]:first-letter:leading-[0.8] [&_p:first-of-type]:first-letter:text-brass'
+
 function PostSkeleton() {
   return (
-    <div className="mx-auto max-w-[65ch] space-y-4 px-4 py-14">
-      <Skeleton className="h-12 w-4/5" />
-      <Skeleton className="h-4 w-48" />
-      <Skeleton className="mt-8 h-64 w-full" />
+    <div className="mx-auto max-w-7xl space-y-5 px-4 py-14 sm:px-6 lg:px-10">
+      <Skeleton className="mx-auto h-4 w-40" />
+      <Skeleton className="mx-auto h-16 w-3/5" />
+      <Skeleton className="mt-10 aspect-[16/9] w-full rounded-3xl" />
     </div>
   )
 }

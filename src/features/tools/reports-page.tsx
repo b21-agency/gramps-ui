@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronDown, Download, ExternalLink, FileText, Loader2, Search } from 'lucide-react'
+import { ArrowRight, BookOpen, ChartPie, ChevronDown, Code, Download, ExternalLink, FileText, Globe, Loader2, Network, Search, Share2, type LucideIcon } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Page } from '@/components/app-shell'
-import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
+import { AlbumPage } from '@/components/album-page'
+import { EmptyState, ErrorState } from '@/components/states'
 import { useReportListQuery, useRunReportMutation } from '@/api/enhanced/tools'
 import { useAccessToken } from '@/lib/auth'
 import { useHomePerson } from '@/lib/prefs'
@@ -25,6 +26,8 @@ interface ReportResult {
 }
 
 const CATEGORY_ORDER = [1, 6, 0, 4, 5, 3, 2]
+/** Gramps report categories (0 text, 1 draw, 2 code, 3 web, 4 book, 5 graphviz, 6 tree). */
+const categoryIcon: Record<number, LucideIcon> = { 0: FileText, 1: ChartPie, 2: Code, 3: Globe, 4: BookOpen, 5: Share2, 6: Network }
 const VIEWABLE = new Set(['.pdf', '.svg', '.png', '.jpg', '.gif', '.html', '.txt'])
 
 function useReportText(strings: string[] = []) {
@@ -62,59 +65,72 @@ export function ReportsPage() {
   }, [q.data, search, t, text])
 
   return (
-    <Page title={t('reports.title')} description={t('reports.description')}>
-      <div className="mx-auto max-w-4xl">
-        <div className="relative mb-8 sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+    <AlbumPage
+      title={t('reports.title')}
+      description={t('reports.description')}
+      actions={
+        <div className="relative w-full sm:w-80">
+          <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('reports.searchPlaceholder')}
             aria-label={t('reports.searchPlaceholder')}
-            className="pl-8"
+            className="h-11 rounded-full bg-card pl-10 sm:h-10 dark:bg-card"
           />
         </div>
-
-        {q.isError ? (
-          <ErrorState error={q.error} onRetry={() => q.refetch()} />
-        ) : q.isLoading ? (
-          <RowsSkeleton rows={8} />
-        ) : groups.length === 0 ? (
+      }
+    >
+      {q.isError ? (
+        <ErrorState error={q.error} onRetry={() => q.refetch()} />
+      ) : q.isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {Array.from({ length: 8 }, (_, i) => (
+            <Skeleton key={i} className="h-44 rounded-3xl" />
+          ))}
+        </div>
+      ) : groups.length === 0 ? (
+        <div className="rounded-3xl bg-card">
           <EmptyState title={t('reports.noMatches', { q: search.trim() })} />
-        ) : (
-          <div className="space-y-10">
-            {groups.map(([cat, items]) => (
-              <section key={cat}>
-                <div className="mb-1 flex items-baseline gap-2 border-b pb-2">
-                  <h2 className="text-xl font-medium">
+        </div>
+      ) : (
+        <div className="space-y-12">
+          {groups.map(([cat, items]) => {
+            const Icon = categoryIcon[cat] ?? FileText
+            return (
+              <section key={cat} aria-labelledby={`cat-${cat}`}>
+                <div className="mb-5 flex items-baseline gap-3">
+                  <h2 id={`cat-${cat}`} className="font-serif text-3xl font-medium">
                     {t(`reports.category.${cat}`, { defaultValue: t('reports.category.other') })}
                   </h2>
                   <span className="text-sm tabular-nums text-muted-foreground">{items.length}</span>
                 </div>
-                <ul className="divide-y">
+                <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                   {items.map(({ r, name, description }) => (
-                    <li key={r.id}>
+                    <li key={r.id} className="min-w-0">
                       <button
                         type="button"
                         onClick={() => setOpen(r)}
-                        className="group flex w-full items-center gap-4 rounded-md px-2 py-3 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                        className="group flex h-full w-full flex-col rounded-3xl bg-card p-5 text-left outline-none transition-[background-color,transform] duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] sm:p-6"
                       >
-                        <span className="min-w-0 flex-1">
-                          <span className="block font-medium">{name}</span>
-                          <span className="block text-sm text-muted-foreground">{description}</span>
+                        <span className="flex size-12 items-center justify-center rounded-2xl bg-secondary text-brass transition-colors duration-150 group-hover:bg-brass group-hover:text-brass-foreground">
+                          <Icon className="size-5" aria-hidden />
                         </span>
-                        <span className="shrink-0 text-sm text-primary opacity-80 group-hover:opacity-100">
+                        <span className="mt-4 block font-serif text-xl leading-snug font-medium text-balance">{name}</span>
+                        <span className="mt-1.5 line-clamp-3 block flex-1 text-sm text-muted-foreground">{description}</span>
+                        <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brass">
                           {t('reports.create')}
+                          <ArrowRight className="size-4 transition-transform duration-150 group-hover:translate-x-0.5" />
                         </span>
                       </button>
                     </li>
                   ))}
                 </ul>
               </section>
-            ))}
-          </div>
-        )}
-      </div>
+            )
+          })}
+        </div>
+      )}
 
       <Sheet open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
         <SheetContent
@@ -128,7 +144,7 @@ export function ReportsPage() {
           {open && <ReportForm key={open.id} report={open} />}
         </SheetContent>
       </Sheet>
-    </Page>
+    </AlbumPage>
   )
 }
 
@@ -167,7 +183,7 @@ function ReportForm({ report }: { report: ReportDef }) {
   return (
     <>
       <SheetHeader className="border-b">
-        <SheetTitle className="font-serif text-2xl font-medium">{text.name}</SheetTitle>
+        <SheetTitle className="font-serif text-3xl leading-tight font-medium">{text.name}</SheetTitle>
         <SheetDescription>{text.description}</SheetDescription>
         {(!!report.authors?.length || report.version) && (
           <p className="text-xs text-muted-foreground">
@@ -180,17 +196,17 @@ function ReportForm({ report }: { report: ReportDef }) {
 
       <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5">
         {result ? (
-          <div className="rounded-xl border bg-card p-5">
+          <div className="rounded-3xl bg-secondary/60 p-5 sm:p-6">
             <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-secondary">
+              <span className="flex size-12 items-center justify-center rounded-2xl bg-brass text-brass-foreground">
                 <FileText className="size-5" />
               </span>
               <div className="min-w-0">
-                <p className="font-serif text-lg">{t('reports.ready')}</p>
+                <p className="font-serif text-2xl">{t('reports.ready')}</p>
                 <p className="truncate text-xs text-muted-foreground uppercase">{result.file_type.replace('.', '')}</p>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap gap-2 [&>*]:h-11 [&>*]:rounded-full [&>*]:px-5 sm:[&>*]:h-10">
               <Button asChild>
                 <a href={withJwt(result.url)} download={`${text.name}${result.file_type}`}>
                   <Download />
@@ -198,7 +214,7 @@ function ReportForm({ report }: { report: ReportDef }) {
                 </a>
               </Button>
               {VIEWABLE.has(result.file_type) && (
-                <Button asChild variant="outline">
+                <Button asChild variant="secondary">
                   <a href={withJwt(result.url)} target="_blank" rel="noreferrer">
                     <ExternalLink />
                     {t('file.open')}
@@ -232,7 +248,7 @@ function ReportForm({ report }: { report: ReportDef }) {
             error={task.error}
             runningLabel={t('reports.creating')}
           />
-          <Button onClick={run} disabled={task.running} className="max-md:h-11 max-md:text-base">
+          <Button onClick={run} disabled={task.running} className="h-11 rounded-full text-base sm:h-10 sm:text-sm">
             {task.running && <Loader2 className="animate-spin" />}
             {task.running ? t('reports.creating') : t('reports.createReport')}
           </Button>

@@ -41,6 +41,8 @@ export default {
   noDescription: 'No description.',
   descriptionTitle: 'Description',
   attachments: 'Attachments',
+  details: 'Details',
+  createdBy: 'Created by',
   edit: 'Edit task',
   more: 'More actions',
   markDone: 'Mark as done',

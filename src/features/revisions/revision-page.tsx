@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
@@ -16,7 +16,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Page } from '@/components/app-shell'
+import { AlbumPage, albumFrame } from '@/components/album-page'
+import { cn } from '@/lib/utils'
 import { EmptyState, ErrorState } from '@/components/states'
 import { api } from '@/api'
 import {
@@ -50,7 +51,8 @@ import {
   type TypeMaps,
   type UndoCheck,
 } from './history'
-import { ClassIcon, LeafValue } from './parts'
+import { LeafValue } from './parts'
+import { ChangeThumb, RevisionTimeline, RevisionsSplit, useMinWidth, verbTone } from './timeline'
 
 /** An undo can touch any object (and may run as a background task): refresh all tree data. */
 const TREE_DATA_TAGS: TagType[] = ['People', 'Families', 'Events', 'Places', 'Sources', 'Citations', 'Repositories', 'Notes', 'Media', 'Tags', ...DERIVED]
@@ -61,77 +63,126 @@ export function RevisionPage() {
   useTitle(t('title'))
   if (!can('ViewPrivate'))
     return (
-      <Page title={t('title')}>
-        <EmptyState icon={ShieldOff} title={t('noAccess.title')}>
-          {t('noAccess.body')}
-        </EmptyState>
-      </Page>
+      <AlbumPage title={t('title')}>
+        <div className="rounded-3xl bg-card">
+          <EmptyState icon={ShieldOff} title={t('noAccess.title')}>
+            {t('noAccess.body')}
+          </EmptyState>
+        </div>
+      </AlbumPage>
     )
-  return <RevisionDetail />
+  return <RevisionRoute />
 }
 
-function RevisionDetail() {
+/** /revision/:id — on wide screens the timeline stays next to the change. */
+function RevisionRoute() {
   const { id } = useParams()
+  const { t } = useTranslation('revisions')
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const page = Math.max(1, Number(params.get('page')) || 1)
+  const wide = useMinWidth(1280)
+  const back = `/revisions${page > 1 ? `?page=${page}` : ''}`
+  return (
+    <div className={albumFrame}>
+      <Link
+        to={back}
+        className="-ml-2 mb-4 inline-flex h-11 items-center gap-1.5 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground sm:h-9"
+      >
+        <ArrowLeft className="size-4" />
+        {t('title')}
+      </Link>
+      {wide ? (
+        <RevisionsSplit
+          timeline={
+            <RevisionTimeline
+              page={page}
+              onPage={(p) => navigate(p > 1 ? `/revisions?page=${p}` : '/revisions')}
+              activeId={Number(id)}
+              linkSuffix={page > 1 ? `?page=${page}` : ''}
+              compact
+            />
+          }
+          detail={<RevisionDetail id={Number(id)} embedded />}
+        />
+      ) : (
+        <RevisionDetail id={Number(id)} />
+      )}
+    </div>
+  )
+}
+
+/** One transaction: headline, who/when, undo, then every changed record as a panel. */
+export function RevisionDetail({ id, embedded }: { id: number; embedded?: boolean }) {
   const { t, i18n } = useTranslation('revisions')
   const { can } = useAuth()
   const { data: maps } = useTypeMaps()
-  const q = useGetTransactionHistoryQuery(id ? { transactionId: Number(id), old: true, new: true } : skipToken)
+  const q = useGetTransactionHistoryQuery(Number.isFinite(id) ? { transactionId: id, old: true, new: true } : skipToken)
   const tx = q.data as Transaction | undefined
   const summary = tx ? summarize(tx, maps, t) : null
-  useTitle(summary?.headline ?? t('title'))
+  useTitle(embedded ? undefined : (summary?.headline ?? t('title')))
 
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />
   if (!tx || !summary)
     return (
-      <Page>
-        <Skeleton className="mb-3 h-5 w-28" />
-        <Skeleton className="mb-2 h-9 w-96 max-w-full" />
-        <Skeleton className="mb-8 h-4 w-60" />
-        <Skeleton className="h-64 w-full" />
-      </Page>
+      <div className="space-y-4">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-14 w-3/4" />
+        <Skeleton className="h-64 w-full rounded-3xl" />
+      </div>
     )
 
   const changes = primaryChanges(tx)
   const who = tx.connection?.user?.full_name || tx.connection?.user?.name
   const canUndo = can('AddObject') && can('EditObject') && can('DeleteObject') && changes.length > 0
+  const first = summary.first
 
   return (
-    <Page>
-      <Link to="/revisions" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" />
-        {t('title')}
-      </Link>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-3xl font-medium tracking-tight">
+    <div>
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-start">
+        <ChangeThumb change={first} size={embedded ? 88 : 104} className="rounded-3xl" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-brass tabular-nums">
+            {formatTimestamp(tx.timestamp, i18n.language)} · {timeAgo(tx.timestamp, i18n.language)}
+          </p>
+          <h1
+            className={cn(
+              'mt-2 font-serif font-medium leading-[1.05] tracking-[-0.02em] text-balance [overflow-wrap:anywhere]',
+              embedded ? 'text-4xl lg:text-5xl' : 'text-[2.4rem] sm:text-5xl lg:text-6xl',
+            )}
+          >
             {changes.length > 1 ? t('changeCount', { count: changes.length }) : summary.headline}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {[tx.description && changes.length > 0 && tx.description, who && t('by', { name: who }), formatTimestamp(tx.timestamp, i18n.language), timeAgo(tx.timestamp, i18n.language)]
-              .filter(Boolean)
-              .join(' · ')}
-            <span className="ml-2 tabular-nums">#{tx.id}</span>
+          <p className="mt-3 text-muted-foreground">
+            {[tx.description && changes.length > 0 && tx.description, who && t('by', { name: who })].filter(Boolean).join(' · ')}
+            <span className="ml-2 text-sm tabular-nums">#{tx.id}</span>
           </p>
           {isUndo(tx) && (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
               <Undo2 className="size-3" />
               {t('undoBadgeLong')}
             </p>
           )}
+          {canUndo && (
+            <div className="mt-6">
+              <UndoButton id={tx.id} />
+            </div>
+          )}
         </div>
-        {canUndo && <UndoButton id={tx.id} />}
-      </div>
+      </header>
 
       {!changes.length ? (
-        <EmptyState title={tx.description}>{t('noObjectChanges')}</EmptyState>
+        <div className="mt-8 rounded-3xl bg-card">
+          <EmptyState title={tx.description}>{t('noObjectChanges')}</EmptyState>
+        </div>
       ) : (
-        <div className="space-y-6">
+        <div className="mt-8 grid gap-6">
           {changes.map((c) => (
             <ChangeCard key={c.id} change={c} maps={maps} t={t} />
           ))}
         </div>
       )}
-    </Page>
+    </div>
   )
 }
 
@@ -143,44 +194,29 @@ function ChangeCard({ change, maps, t }: { change: Change; maps?: TypeMaps; t: T
   const linkable = change.trans_type !== 2 && kind && gid
   const verb = transVerb[change.trans_type]
   return (
-    <section className="overflow-hidden rounded-xl border bg-card">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-3">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-          <ClassIcon cls={change.obj_class} className="size-4" />
-        </span>
+    <section className="min-w-0 rounded-3xl bg-card p-5 sm:p-6">
+      <header className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <ChangeThumb change={change} size={52} />
         <div className="min-w-0 flex-1">
-          <div className="text-xs text-muted-foreground">
+          <div className="text-sm text-muted-foreground">
             {t(`objectClass.${change.obj_class}`, { defaultValue: change.obj_class })}
             {gid && <span className="ml-1.5 tabular-nums">{gid}</span>}
           </div>
           {linkable ? (
-            <Link to={objectPath(kind!, gid!)} className="block truncate font-serif text-lg hover:underline">
+            <Link to={objectPath(kind!, gid!)} className="block truncate font-serif text-2xl font-medium hover:text-brass">
               {title}
             </Link>
           ) : (
-            <span className="block truncate font-serif text-lg">{title}</span>
+            <span className="block truncate font-serif text-2xl font-medium">{title}</span>
           )}
         </div>
-        <span
-          className={
-            'rounded-full px-2 py-0.5 text-xs ' +
-            (verb === 'added'
-              ? 'bg-primary/10 text-primary'
-              : verb === 'deleted'
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-brass/15 text-foreground')
-          }
-        >
-          {t(`verb.${verb}`)}
-        </span>
+        <span className={cn('rounded-full px-3 py-1 text-sm font-medium', verbTone[verb])}>{t(`verb.${verb}`)}</span>
       </header>
-      <div className="px-4 py-3">
-        {change.trans_type === 1 ? (
-          <UpdateDiff change={change} maps={maps} t={t} />
-        ) : (
-          <FieldList obj={change.trans_type === 0 ? asObject(change.new_data) : asObject(change.old_data)} maps={maps} t={t} />
-        )}
-      </div>
+      {change.trans_type === 1 ? (
+        <UpdateDiff change={change} maps={maps} t={t} />
+      ) : (
+        <FieldList obj={change.trans_type === 0 ? asObject(change.new_data) : asObject(change.old_data)} maps={maps} t={t} />
+      )}
     </section>
   )
 }
@@ -190,14 +226,14 @@ function UpdateDiff({ change, maps, t }: { change: Change; maps?: TypeMaps; t: T
   if (!rows.length) return <p className="text-sm text-muted-foreground">{t('noVisibleChanges')}</p>
   return (
     <div className="text-sm">
-      <div className="hidden grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,1fr)] gap-4 pb-2 text-xs text-muted-foreground sm:grid">
+      <div className="hidden grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,1fr)] gap-4 px-3 pb-2 text-xs text-muted-foreground sm:grid">
         <span>{t('field')}</span>
         <span>{t('before')}</span>
         <span>{t('after')}</span>
       </div>
-      <ul className="divide-y">
+      <ul className="grid gap-1.5">
         {rows.map((r) => (
-          <li key={r.key} className="grid gap-1 py-2.5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,1fr)] sm:gap-4">
+          <li key={r.key} className="grid gap-1 rounded-2xl bg-secondary/50 px-3 py-2.5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,1fr)] sm:gap-4">
             <span className="font-medium sm:font-normal sm:text-muted-foreground">{r.labels.join(' › ')}</span>
             <span className="flex min-w-0 gap-2">
               <span className="text-xs text-muted-foreground sm:hidden">{t('before')}</span>
@@ -205,7 +241,7 @@ function UpdateDiff({ change, maps, t }: { change: Change; maps?: TypeMaps; t: T
             </span>
             <span className="flex min-w-0 gap-2">
               <span className="text-xs text-muted-foreground sm:hidden">{t('after')}</span>
-              <LeafValue leaf={r.after} className="min-w-0" />
+              <LeafValue leaf={r.after} className="min-w-0 font-medium" />
             </span>
           </li>
         ))}
@@ -264,7 +300,7 @@ function UndoButton({ id }: { id: number }) {
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button variant="secondary" className="h-11 rounded-full px-5 sm:h-10" onClick={() => setOpen(true)}>
         <Undo2 />
         {t('undo.button')}
       </Button>
@@ -286,7 +322,7 @@ function UndoButton({ id }: { id: number }) {
           ) : check.isError ? (
             <p className="text-sm text-destructive">{taskErrorText(t, check.error)}</p>
           ) : force ? (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+            <div className="rounded-2xl bg-destructive/10 p-4 text-sm">
               <p className="mb-2 flex items-center gap-2 font-medium">
                 <TriangleAlert className="size-4 text-destructive" />
                 {t('undo.conflictTitle')}

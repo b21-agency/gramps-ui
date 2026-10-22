@@ -7,8 +7,9 @@ import { CircleCheck, FileUp, FolderArchive, Loader2, Lock, UsersRound, X } from
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Page } from '@/components/app-shell'
-import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
+import { AlbumPage } from '@/components/album-page'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState, ErrorState } from '@/components/states'
 import { api } from '@/lib/api'
 import { TASK_TAGS, useImporterListQuery } from '@/api/enhanced/tools'
 import { useAuth } from '@/lib/auth'
@@ -51,9 +52,11 @@ export function ImportPage() {
 
   if (!can('ImportFile'))
     return (
-      <Page title={t('import.title')}>
-        <EmptyState icon={Lock} title={t('import.noPermission')} className="py-24" />
-      </Page>
+      <AlbumPage title={t('import.title')}>
+        <div className="rounded-3xl bg-card">
+          <EmptyState icon={Lock} title={t('import.noPermission')} className="py-24" />
+        </div>
+      </AlbumPage>
     )
 
   const importers = q.data ?? []
@@ -106,13 +109,13 @@ export function ImportPage() {
   }
 
   return (
-    <Page title={t('import.title')} description={t('import.description')}>
+    <AlbumPage title={t('import.title')} description={t('import.description')}>
       {q.isError ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       ) : q.isLoading ? (
-        <RowsSkeleton rows={4} />
+        <Skeleton className="h-96 rounded-3xl" />
       ) : (
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
           <div className="min-w-0 space-y-6">
             <input
               ref={inputRef}
@@ -134,28 +137,49 @@ export function ImportPage() {
                 onDragLeave={() => setDragging(false)}
                 onDrop={onDrop}
                 className={cn(
-                  'flex flex-col items-center gap-3 rounded-xl border-2 border-dashed px-6 py-14 text-center transition-colors',
-                  dragging ? 'border-primary bg-primary/5' : 'border-border bg-card',
+                  'rounded-3xl bg-card p-3 transition-colors duration-150 sm:p-4',
+                  dragging && 'bg-accent',
                 )}
               >
-                <FileUp className="size-8 text-muted-foreground" aria-hidden />
-                <p className="font-serif text-xl">{dragging ? t('import.dropActive') : t('import.drop')}</p>
-                <p className="text-sm text-muted-foreground">{t('import.or')}</p>
-                <Button onClick={() => inputRef.current?.click()}>{t('import.choose')}</Button>
-                <p className="mt-2 text-xs text-muted-foreground">{t('import.supported', { list: supported })}</p>
+                <div
+                  className={cn(
+                    'flex min-h-[22rem] flex-col items-center justify-center gap-4 rounded-[1.25rem] border-2 border-dashed px-6 py-14 text-center transition-colors duration-150 sm:min-h-[28rem]',
+                    dragging ? 'border-primary bg-primary/5' : 'border-brass/30',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'flex size-20 items-center justify-center rounded-full bg-secondary text-brass transition-transform duration-150',
+                      dragging && 'scale-110 bg-brass text-brass-foreground',
+                    )}
+                  >
+                    <FileUp className="size-9" strokeWidth={1.5} aria-hidden />
+                  </span>
+                  <p className="max-w-md font-serif text-3xl leading-tight font-medium text-balance sm:text-4xl">
+                    {dragging ? t('import.dropActive') : t('import.drop')}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{t('import.or')}</p>
+                  <Button className="h-11 rounded-full px-6 text-base sm:h-11" onClick={() => inputRef.current?.click()}>
+                    {t('import.choose')}
+                  </Button>
+                  <p className="mt-2 max-w-md text-xs text-muted-foreground">{t('import.supported', { list: supported })}</p>
+                </div>
               </div>
             ) : (
-              <div className="rounded-xl border bg-card p-5">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-lg bg-secondary">
-                    <FileUp className="size-5" />
+              <div className="rounded-3xl bg-card p-5 sm:p-8">
+                <div className="flex items-center gap-4">
+                  <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-secondary text-brass">
+                    <FileUp className="size-6" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatBytes(file.size, i18n.language)}</p>
+                    <p className="truncate font-serif text-2xl font-medium sm:text-3xl">{file.name}</p>
+                    <p className="text-sm text-muted-foreground tabular-nums">
+                      {formatBytes(file.size, i18n.language)}
+                      {ext && <span className="ml-2 font-semibold text-brass">.{ext}</span>}
+                    </p>
                   </div>
                   {!run.running && (
-                    <Button variant="ghost" size="icon-sm" aria-label={t('import.removeFile')} onClick={clear}>
+                    <Button variant="ghost" size="icon" className="size-11 rounded-full" aria-label={t('import.removeFile')} onClick={clear}>
                       <X />
                     </Button>
                   )}
@@ -179,7 +203,7 @@ export function ImportPage() {
                         void startCheck(file, v)
                       }}
                     >
-                      <SelectTrigger id="imp-format" className="w-full">
+                      <SelectTrigger id="imp-format" className="h-11 w-full sm:h-10">
                         <SelectValue placeholder={t('import.format')} />
                       </SelectTrigger>
                       <SelectContent>
@@ -214,7 +238,7 @@ export function ImportPage() {
                           error={run.error}
                           runningLabel={t('import.running')}
                         />
-                        <Button size="lg" onClick={startImport} disabled={run.running || check.running}>
+                        <Button className="h-11 rounded-full px-6 text-base" onClick={startImport} disabled={run.running || check.running}>
                           {run.running && <Loader2 className="animate-spin" />}
                           {t('import.start')}
                         </Button>
@@ -231,7 +255,7 @@ export function ImportPage() {
           </aside>
         </div>
       )}
-    </Page>
+    </AlbumPage>
   )
 }
 
@@ -244,11 +268,11 @@ function CountsList({ title, counts }: { title: string; counts: Counts }) {
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('import.previewEmpty')}</p>
       ) : (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           {rows.map((k) => (
-            <div key={k} className="flex items-baseline justify-between gap-2 border-b border-dashed py-1">
-              <dt className="text-sm text-muted-foreground">{t(`import.counts.${k}`)}</dt>
-              <dd className="font-serif text-lg tabular-nums">{counts[k].toLocaleString()}</dd>
+            <div key={k} className="flex flex-col-reverse rounded-2xl bg-secondary/50 px-4 py-3">
+              <dt className="mt-1 text-xs text-muted-foreground">{t(`import.counts.${k}`)}</dt>
+              <dd className="font-serif text-3xl leading-none tabular-nums">{counts[k].toLocaleString()}</dd>
             </div>
           ))}
         </dl>
@@ -277,8 +301,8 @@ function ImportDone({ counts, onAnother }: { counts: Counts; onAnother: () => vo
   const messages = (counts.messages ?? []).filter(Boolean)
   return (
     <div className="space-y-4">
-      <p className="flex items-center gap-2 font-serif text-xl">
-        <CircleCheck className="size-5 text-primary" />
+      <p className="flex items-center gap-3 font-serif text-3xl font-medium">
+        <CircleCheck className="size-7 text-chart-1" />
         {t('import.done')}
       </p>
       <p className="text-sm text-muted-foreground">{t('import.doneBody')}</p>
@@ -293,14 +317,14 @@ function ImportDone({ counts, onAnother }: { counts: Counts; onAnother: () => vo
           </ul>
         </div>
       )}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 [&>*]:h-11 [&>*]:rounded-full [&>*]:px-5 sm:[&>*]:h-10">
         <Button asChild>
           <Link to="/people">
             <UsersRound />
             {t('import.viewPeople')}
           </Link>
         </Button>
-        <Button variant="outline" onClick={onAnother}>
+        <Button variant="secondary" onClick={onAnother}>
           {t('import.another')}
         </Button>
       </div>
@@ -329,10 +353,12 @@ function MediaZipUpload() {
     }
   }
   return (
-    <section className="rounded-xl border bg-card p-5">
-      <div className="mb-2 flex items-center gap-2">
-        <FolderArchive className="size-4 text-muted-foreground" />
-        <h2 className="text-lg font-medium">{t('import.media.title')}</h2>
+    <section className="rounded-3xl bg-card p-5 sm:p-6">
+      <div className="mb-2 flex items-center gap-3">
+        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-brass">
+          <FolderArchive className="size-[18px]" />
+        </span>
+        <h2 className="font-serif text-2xl font-medium">{t('import.media.title')}</h2>
       </div>
       <p className="text-sm text-muted-foreground">{t('import.media.description')}</p>
       <input
@@ -353,7 +379,7 @@ function MediaZipUpload() {
           runningLabel={t('import.media.running')}
           successLabel={t('import.media.done')}
         />
-        <Button variant="outline" onClick={() => ref.current?.click()} disabled={task.running}>
+        <Button variant="secondary" className="h-11 w-full rounded-full sm:h-10" onClick={() => ref.current?.click()} disabled={task.running}>
           {task.running && <Loader2 className="animate-spin" />}
           {t('import.media.choose')}
         </Button>

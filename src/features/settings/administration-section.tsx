@@ -50,7 +50,7 @@ import {
 export function AdministrationSection() {
   const { can } = useAuth()
   return (
-    <div className="space-y-10">
+    <div className="grid items-start gap-6 2xl:grid-cols-2">
       {can('UpgradeSchema') && <UpgradeBlock />}
       {can('EditTree') && <TreeNameBlock />}
       <ResearcherBlock />
@@ -135,13 +135,13 @@ function DataCounts() {
   }
   return (
     <SettingsBlock title={t('admin.data')} description={t('admin.dataDescription')}>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {keys.map((k) => (
-          <div key={k} className="flex items-baseline justify-between gap-2 border-b border-dashed py-1">
-            <dt className="truncate text-sm text-muted-foreground">
+          <div key={k} className="flex flex-col-reverse rounded-2xl bg-secondary/50 px-4 py-3">
+            <dt className="mt-1 truncate text-xs text-muted-foreground">
               {kindOf[k] ? t(`common:objects.${kindOf[k]}`) : t('common:tags')}
             </dt>
-            <dd className="font-serif text-lg tabular-nums">{(meta.object_counts[k] ?? 0).toLocaleString()}</dd>
+            <dd className="font-serif text-2xl leading-none tabular-nums">{(meta.object_counts[k] ?? 0).toLocaleString()}</dd>
           </div>
         ))}
       </dl>
@@ -179,7 +179,7 @@ function TagsBlock() {
       ) : !tags.length ? (
         <EmptyState icon={TagIcon} title={t('tags.empty')} className="py-8" />
       ) : (
-        <ul className="divide-y rounded-xl border bg-card">
+        <ul className="divide-y divide-border/60 overflow-hidden rounded-2xl bg-secondary/40">
           {tags.map((tag) => (
             <li key={tag.handle} className="flex items-center gap-3 px-4 py-2.5">
               <span
@@ -410,7 +410,7 @@ function RepairBlock() {
           <TaskStatusLine phase={task.phase} progress={task.progress} error={task.error} runningLabel={t('admin.repairRunning')} />
         )}
         {task.phase === 'success' && result && (
-          <div className="rounded-xl border bg-card p-4">
+          <div className="rounded-2xl bg-secondary/50 p-4">
             <p className="font-serif text-lg">
               {result.num_errors ? t('admin.repairFixed', { count: result.num_errors }) : t('admin.repairClean')}
             </p>

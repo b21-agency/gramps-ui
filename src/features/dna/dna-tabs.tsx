@@ -20,8 +20,8 @@ export function DnaTabs({ id }: { id?: string }) {
           to={id ? `${tab.to}/${id}` : tab.to}
           aria-current={tab.active ? 'page' : undefined}
           className={cn(
-            'flex h-9 items-center rounded-full border px-4 text-sm transition-colors',
-            tab.active ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:bg-accent',
+            'flex h-11 items-center rounded-full px-5 text-sm transition-colors duration-150 active:scale-[0.97] sm:h-10',
+            tab.active ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground',
           )}
         >
           {t(`tabs.${tab.key}`)}

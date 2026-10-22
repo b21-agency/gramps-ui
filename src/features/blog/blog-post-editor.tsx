@@ -20,6 +20,7 @@ import { useTags } from '@/lib/queries'
 import { PrivateSwitch, TagsField } from '@/features/editor/fields'
 import type { MediaRef, Note, Source } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { AlbumHeader, albumFrame, pill } from '@/components/album-page'
 import { useTitle } from '@/hooks/use-title'
 import {
   ensureTag,
@@ -272,15 +273,15 @@ export function BlogPostEditor({
   const styled = !!note && hasUnsupportedStyling(note.text.tags as StyledTag[])
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="mb-6 text-3xl font-medium tracking-tight">{post ? t('editor.editTitle') : t('editor.newTitle')}</h1>
+    <div className={albumFrame}>
+      <AlbumHeader title={post ? t('editor.editTitle') : t('editor.newTitle')} description={post?.title} />
 
       {restored && (
-        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border bg-card px-4 py-3 text-sm">
+        <div role="status" className="mb-6 flex flex-wrap items-center gap-3 rounded-3xl bg-brass/10 px-5 py-3 text-sm">
           <span className="flex-1">{t('editor.draftRestored')}</span>
           <Button
             variant="ghost"
-            size="sm"
+            className="h-11 rounded-full sm:h-9"
             onClick={() => {
               setTitle('')
               setBody('')
@@ -293,14 +294,15 @@ export function BlogPostEditor({
       )}
 
       <form
-        className="space-y-6"
+        className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]"
         onSubmit={(e) => {
           e.preventDefault()
           void save()
         }}
       >
+        <section className="min-w-0 space-y-6 rounded-3xl bg-card p-5 sm:p-8">
         <div className="space-y-2">
-          <Label htmlFor="post-title">{t('editor.titleLabel')}</Label>
+          <Label htmlFor="post-title" className="text-muted-foreground">{t('editor.titleLabel')}</Label>
           <Input
             id="post-title"
             value={title}
@@ -310,20 +312,16 @@ export function BlogPostEditor({
               setTitleError(false)
             }}
             placeholder={t('editor.titlePlaceholder')}
-            className="h-12 font-serif text-xl md:text-xl"
+            className="h-auto rounded-2xl bg-background/40 px-4 py-3 font-serif text-3xl font-medium leading-tight tracking-[-0.01em] md:text-4xl dark:bg-background/40"
             autoFocus={!post}
           />
         </div>
 
-        <div className="space-y-2 sm:max-w-sm">
-          <Label htmlFor="post-author">{t('editor.authorLabel')}</Label>
-          <Input id="post-author" value={author} onChange={(e) => setAuthor(e.target.value)} />
-        </div>
 
         <div className="space-y-2">
           <Tabs value={tab} onValueChange={setTab}>
             <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="post-body" className="mr-auto">
+              <Label htmlFor="post-body" className="mr-auto text-muted-foreground">
                 {t('editor.bodyLabel')}
               </Label>
               {tab === 'write' && (
@@ -342,14 +340,14 @@ export function BlogPostEditor({
                     placeholder={t('editor.pickMediaPlaceholder')}
                     onChange={(o) => insertImage(o.handle)}
                     trigger={
-                      <Button type="button" variant="ghost" size="icon-sm" aria-label={t('editor.insertImage')} title={t('editor.insertImage')}>
+                      <Button type="button" variant="ghost" size="icon-sm" className="max-md:size-11" aria-label={t('editor.insertImage')} title={t('editor.insertImage')}>
                         <ImageIcon />
                       </Button>
                     }
                   />
                 </div>
               )}
-              <TabsList>
+              <TabsList className="max-md:h-11 max-md:[&>button]:px-4">
                 <TabsTrigger value="write">{t('editor.write')}</TabsTrigger>
                 <TabsTrigger value="preview">{t('editor.preview')}</TabsTrigger>
               </TabsList>
@@ -361,7 +359,7 @@ export function BlogPostEditor({
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={t('editor.bodyPlaceholder')}
-                className="min-h-80 font-serif text-[1.08rem] leading-relaxed md:text-[1.08rem]"
+                className="min-h-[28rem] rounded-2xl bg-background/40 px-4 py-3 font-serif text-[1.15rem] leading-[1.75] md:text-[1.15rem] dark:bg-background/40"
                 onKeyDown={(e) => {
                   if (!(e.metaKey || e.ctrlKey)) return
                   if (e.key === 'b') {
@@ -385,7 +383,7 @@ export function BlogPostEditor({
               )}
             </TabsContent>
             <TabsContent value="preview" className="mt-2">
-              <div className="min-h-80 rounded-lg border bg-card px-5 py-4">
+              <div className="min-h-[28rem] rounded-2xl bg-background/40 px-5 py-4">
                 {body.trim() ? (
                   <NoteHtml html={markdownishToHtml(body)} className={blogProse} />
                 ) : (
@@ -396,22 +394,25 @@ export function BlogPostEditor({
           </Tabs>
         </div>
 
-        <div className="space-y-3">
+        </section>
+
+        <div className="grid min-w-0 gap-6">
+        <section className="min-w-0 space-y-4 rounded-3xl bg-card p-5 sm:p-6">
           <div>
-            <Label>{t('editor.photos')}</Label>
-            <p className="mt-1 text-xs text-muted-foreground">{t('editor.photosHint')}</p>
+            <h2 className="font-serif text-2xl font-medium">{t('editor.photos')}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t('editor.photosHint')}</p>
           </div>
           {photos.length > 0 && (
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3 lg:grid-cols-2">
               {photos.map((p, i) => (
-                <li key={p.key} className="group relative overflow-hidden rounded-lg border bg-muted">
+                <li key={p.key} className={cn('group relative overflow-hidden rounded-2xl bg-secondary', i === 0 && 'col-span-2 ring-2 ring-brass')}>
                   <img
                     src={p.kind === 'new' ? p.url : refThumbUrl(p.ref, 300)}
                     alt=""
-                    className="aspect-square w-full object-cover"
+                    className={cn('w-full object-cover', i === 0 ? 'aspect-[4/3]' : 'aspect-square')}
                   />
                   {i === 0 && (
-                    <span className="absolute bottom-1.5 left-1.5 rounded-full bg-background/90 px-2 py-0.5 text-[11px]">
+                    <span className="absolute bottom-2 left-2 rounded-full bg-brass px-2.5 py-0.5 text-xs font-semibold text-brass-foreground">
                       {t('editor.cover')}
                     </span>
                   )}
@@ -429,7 +430,7 @@ export function BlogPostEditor({
               ))}
             </ul>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="grid gap-2">
             <input
               ref={fileRef}
               type="file"
@@ -441,7 +442,7 @@ export function BlogPostEditor({
                 e.target.value = ''
               }}
             />
-            <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
+            <Button type="button" variant="secondary" className={pill} onClick={() => fileRef.current?.click()}>
               <ImagePlus />
               {t('editor.addPhotos')}
             </Button>
@@ -456,23 +457,31 @@ export function BlogPostEditor({
                 )
               }
               trigger={
-                <Button type="button" variant="ghost">
+                <Button type="button" variant="ghost" className={pill}>
                   <Images />
                   {t('editor.pickMedia')}
                 </Button>
               }
             />
           </div>
+        </section>
+
+        <section className="min-w-0 space-y-5 rounded-3xl bg-card p-5 sm:p-6">
+          <h2 className="font-serif text-2xl font-medium">{t('editor.details')}</h2>
+          <div className="space-y-2">
+            <Label htmlFor="post-author">{t('editor.authorLabel')}</Label>
+            <Input id="post-author" value={author} onChange={(e) => setAuthor(e.target.value)} className="h-11 sm:h-9" />
+          </div>
+          <TagsField value={extraTags.filter((h) => h !== blogTagHandle)} onChange={setExtraTags} />
+          <PrivateSwitch value={isPrivate} onChange={setIsPrivate} />
+        </section>
         </div>
 
-        <TagsField value={extraTags.filter((h) => h !== blogTagHandle)} onChange={setExtraTags} />
-        <PrivateSwitch value={isPrivate} onChange={setIsPrivate} />
-
-        <div className="sticky bottom-[var(--tabbar-h)] -mx-4 flex flex-wrap justify-end gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-b-lg sm:px-0 max-md:flex-nowrap max-md:[&>button]:h-11 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">
-          <Button type="button" variant="ghost" onClick={cancel} disabled={saving}>
+        <div className="sticky bottom-[var(--tabbar-h)] z-10 -mx-4 flex flex-wrap justify-end gap-2 bg-background/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-full sm:px-3 lg:col-span-2 max-md:flex-nowrap max-md:[&>button]:h-11 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">
+          <Button type="button" variant="ghost" className="rounded-full sm:h-10 sm:px-5" onClick={cancel} disabled={saving}>
             {t('editor.cancel')}
           </Button>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" className="rounded-full sm:h-10 sm:px-5" disabled={saving}>
             {saving && <Loader2 className="animate-spin" />}
             {saving ? t('editor.publishing') : post ? t('editor.save') : t('editor.publish')}
           </Button>
@@ -502,7 +511,7 @@ function ToolbarButton({
           size="icon-sm"
           aria-label={label}
           onClick={onClick}
-          className={cn(overlay && 'size-7 bg-background/90 shadow-sm hover:bg-background')}
+          className={cn('max-md:size-11', overlay && 'size-9 rounded-full bg-background/90 shadow-sm hover:bg-background')}
         >
           {children}
         </Button>

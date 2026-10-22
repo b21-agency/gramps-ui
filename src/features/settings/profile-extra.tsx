@@ -149,7 +149,7 @@ export function AccessTokensBlock() {
     <SettingsBlock title={t('tokens.title')} description={t('tokens.description')}>
       <div className="grid max-w-2xl gap-6">
         {/* calendar subscription */}
-        <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 rounded-2xl bg-secondary/50 p-4 sm:flex-row sm:items-center">
           <CalendarDays className="size-5 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <p className="font-medium">{t('tokens.ics')}</p>
@@ -198,7 +198,7 @@ export function AccessTokensBlock() {
             ) : !sync.data?.length ? (
               <p className="text-sm text-muted-foreground">{t('tokens.syncNone')}</p>
             ) : (
-              <ul className="divide-y rounded-xl border bg-card">
+              <ul className="divide-y divide-border/60 overflow-hidden rounded-2xl bg-secondary/40">
                 {sync.data.map((tok) => (
                   <li key={tok.id} className="flex items-center gap-3 px-4 py-2.5">
                     <Laptop className="size-4 shrink-0 text-muted-foreground" />
@@ -232,7 +232,7 @@ export function AccessTokensBlock() {
             <DialogTitle>{created?.title}</DialogTitle>
             <DialogDescription>{created?.hint}</DialogDescription>
           </DialogHeader>
-          <code className="block rounded-lg border bg-muted p-3 text-xs break-all select-all">{created?.value}</code>
+          <code className="block rounded-xl bg-secondary p-3 text-xs break-all select-all">{created?.value}</code>
           <DialogFooter>
             <Button variant="outline" onClick={() => created && void copy(created.value, t('tokens.copied'), t('tokens.copyFailed'))}>
               <Copy />

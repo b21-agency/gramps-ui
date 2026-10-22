@@ -7,6 +7,7 @@ import { ObjectPicker } from '@/components/object-picker'
 import { refThumbUrl } from '@/components/portrait'
 import { useTags } from '@/lib/queries'
 import { PrivateSwitch, TagsField } from '@/features/editor/fields'
+import { AlbumHeader, albumFrame, pill } from '@/components/album-page'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -204,10 +205,10 @@ export function TaskEditor({
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:py-10">
-      <h1 className="mb-6 text-3xl font-medium tracking-tight">{task ? t('editor.editTitle') : t('editor.newTitle')}</h1>
+    <div className={albumFrame}>
+      <AlbumHeader title={task ? t('editor.editTitle') : t('editor.newTitle')} description={task?.title} />
       <form
-        className="space-y-6"
+        className="max-w-3xl space-y-7 rounded-3xl bg-card p-5 sm:p-8"
         onSubmit={(e) => {
           e.preventDefault()
           void save()
@@ -225,7 +226,7 @@ export function TaskEditor({
               setTitle(e.target.value)
               setTitleError(false)
             }}
-            className="h-11 font-serif text-lg md:text-lg"
+            className="h-auto rounded-2xl px-4 py-3 font-serif text-2xl leading-tight md:text-3xl"
           />
         </div>
 
@@ -240,7 +241,7 @@ export function TaskEditor({
               className="flex w-full flex-wrap justify-start"
             >
               {STATUSES.map((s) => (
-                <ToggleGroupItem key={s} value={s} aria-label={t(`status.${s}`)} className="gap-1.5 px-2.5">
+                <ToggleGroupItem key={s} value={s} aria-label={t(`status.${s}`)} className="h-11 gap-1.5 px-3 sm:h-9">
                   <StatusIcon status={s} />
                   {t(`status.${s}`)}
                 </ToggleGroupItem>
@@ -257,7 +258,7 @@ export function TaskEditor({
               className="justify-start"
             >
               {(['high', 'normal', 'low'] as const).map((l) => (
-                <ToggleGroupItem key={l} value={l} className="px-3">
+                <ToggleGroupItem key={l} value={l} className="h-11 px-4 sm:h-9">
                   {t(`priority.${l}`)}
                 </ToggleGroupItem>
               ))}
@@ -272,7 +273,7 @@ export function TaskEditor({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder={t('editor.descriptionPlaceholder')}
-            className="min-h-40"
+            className="min-h-48 rounded-2xl px-4 py-3 text-base leading-relaxed"
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                 e.preventDefault()
@@ -288,13 +289,13 @@ export function TaskEditor({
           {attachments.length > 0 && (
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2">
               {attachments.map((m, i) => (
-                <li key={`${m.ref}-${i}`} className="relative overflow-hidden rounded-lg border bg-muted">
+                <li key={`${m.ref}-${i}`} className="relative overflow-hidden rounded-2xl bg-secondary">
                   <img src={refThumbUrl(m, 200)} alt="" className="aspect-square w-full object-cover" />
                   <Button
                     type="button"
                     variant="secondary"
                     size="icon-sm"
-                    className="absolute top-1 right-1 size-7 bg-background/90"
+                    className="absolute top-1.5 right-1.5 size-9 rounded-full bg-background/90"
                     aria-label={t('editor.removeAttachment')}
                     onClick={() => setAttachments((a) => a.filter((_, j) => j !== i))}
                   >
@@ -305,7 +306,7 @@ export function TaskEditor({
             </ul>
           )}
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" disabled={uploading} asChild>
+            <Button type="button" variant="secondary" className={pill} disabled={uploading} asChild>
               <label className="cursor-pointer">
                 {uploading ? <Loader2 className="animate-spin" /> : <ImagePlus />}
                 {t('editor.uploadAttachment')}
@@ -327,7 +328,7 @@ export function TaskEditor({
                 setAttachments((a) => (a.some((m) => m.ref === o.handle) ? a : [...a, { ref: o.handle, rect: null } as MediaRef]))
               }
               trigger={
-                <Button type="button" variant="ghost" size="sm">
+                <Button type="button" variant="ghost" className={pill}>
                   <Images />
                   {t('editor.pickMedia')}
                 </Button>
@@ -339,11 +340,11 @@ export function TaskEditor({
         <TagsField value={extraTags.filter((h) => h !== todoHandle)} onChange={setExtraTags} />
         <PrivateSwitch value={isPrivate} onChange={setIsPrivate} />
 
-        <div className="flex flex-wrap justify-end gap-2 border-t pt-4 max-md:flex-nowrap max-md:[&>button]:h-11 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">
-          <Button type="button" variant="ghost" disabled={saving} onClick={() => (onCancel ? onCancel() : navigate(-1))}>
+        <div className="flex flex-wrap justify-end gap-2 border-t pt-5 max-md:flex-nowrap max-md:[&>button]:h-11 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">
+          <Button type="button" variant="ghost" className="rounded-full sm:h-10 sm:px-5" disabled={saving} onClick={() => (onCancel ? onCancel() : navigate(-1))}>
             {t('editor.cancel')}
           </Button>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" className="rounded-full sm:h-10 sm:px-5" disabled={saving}>
             {saving && <Loader2 className="animate-spin" />}
             {saving ? t('editor.saving') : task ? t('editor.save') : t('editor.create')}
           </Button>

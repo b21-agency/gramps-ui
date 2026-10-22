@@ -77,9 +77,10 @@ export function PriorityBadge({ priority, className, quiet }: { priority: number
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs whitespace-nowrap',
-        level === 'high' && 'border-brass/50 bg-brass/10 text-foreground',
-        level === 'low' && 'text-muted-foreground',
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs whitespace-nowrap',
+        level === 'high' && 'bg-brass/15 font-semibold text-brass',
+        level === 'normal' && 'bg-secondary text-foreground',
+        level === 'low' && 'bg-secondary/60 text-muted-foreground',
         className,
       )}
       title={`${t('priority.label')}: ${priority}`}
