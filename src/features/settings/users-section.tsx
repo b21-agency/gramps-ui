@@ -1,6 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Dices, Download, Loader2, Pencil, Trash2, Upload, UserPlus, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -28,13 +27,20 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { useCurrentUser } from '@/components/user-menu'
-import { api, apiRaw } from '@/lib/api'
+import {
+  useCreateUserMutation,
+  useRemoveUserMutation,
+  useImportUsersMutation,
+  useUpdateUserMutation,
+  useUserListQuery,
+  type AdminUser,
+} from '@/api/enhanced/settings'
+import { rtkErrorMessage } from '@/features/tools/use-task'
 import { useAuth } from '@/lib/auth'
 import { initials } from '@/lib/format'
-import type { UserInfo } from '@/lib/types'
 import { Field, SettingsBlock } from './parts'
 
-type User = UserInfo & { user_id?: string; account_source?: string }
+type User = AdminUser
 
 function useRoles() {
   const { can } = useAuth()
@@ -45,17 +51,14 @@ function useRoles() {
 export function UsersSection() {
   const { t } = useTranslation('settings')
   const { data: me } = useCurrentUser()
-  const q = useQuery({
-    queryKey: ['users', 'list'],
-    queryFn: async () => (await apiRaw<User[]>('/users/', { query: { page: 1, pagesize: 500 } })).data,
-  })
+  const q = useUserListQuery()
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
   const [deleting, setDeleting] = useState<User | null>(null)
   const [filterText, setFilterText] = useState('')
   const [filterRole, setFilterRole] = useState('all')
 
-  const users = [...(q.data ?? [])].sort(
+  const users = [...(q.data?.items ?? [])].sort(
     (a, b) => b.role - a.role || (a.full_name || a.name).localeCompare(b.full_name || b.name),
   )
   // a disabled (-1) or unconfirmed (-2) account is shown, but sorted last
@@ -73,7 +76,7 @@ export function UsersSection() {
       description={t('users.description')}
       action={
         <div className="flex flex-wrap gap-2">
-          <UsersTransfer users={q.data ?? []} />
+          <UsersTransfer users={q.data?.items ?? []} />
           <Button onClick={() => setCreating(true)}>
             <UserPlus />
             {t('users.add')}
@@ -201,8 +204,9 @@ function UserDialog({
 
 function UserForm({ user, self, onDone }: { user?: User; self?: boolean; onDone: () => void }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const roles = useRoles()
+  const [createUser] = useCreateUserMutation()
+  const [updateUser] = useUpdateUserMutation()
   const { can } = useAuth()
   const [name, setName] = useState(user?.name ?? '')
   const [fullName, setFullName] = useState(user?.full_name ?? '')
@@ -227,24 +231,19 @@ function UserForm({ user, self, onDone }: { user?: User; self?: boolean; onDone:
     setError(null)
     try {
       if (isNew) {
-        await api(`/users/${encodeURIComponent(name)}/`, {
-          method: 'POST',
-          json: { full_name: fullName.trim(), email: email.trim(), password, role: Number(role) },
-        })
+        await createUser({ name, full_name: fullName.trim(), email: email.trim(), password, role: Number(role) }).unwrap()
         toast.success(t('users.created', { name }), { description: t('users.createdHint') })
       } else {
-        const body: Record<string, unknown> = {}
+        const body: { full_name?: string; email?: string; role?: number } = {}
         if (fullName !== (user.full_name ?? '')) body.full_name = fullName.trim()
         if (email !== (user.email ?? '')) body.email = email.trim()
         if (!roleLocked && Number(role) !== user.role) body.role = Number(role)
-        if (Object.keys(body).length) await api(`/users/${encodeURIComponent(user.name)}/`, { method: 'PUT', json: body })
+        if (Object.keys(body).length) await updateUser({ name: user.name, body }).unwrap()
         toast.success(t('users.saved', { name: user.name }))
       }
-      await qc.invalidateQueries({ queryKey: ['users'] })
-      if (self) await qc.invalidateQueries({ queryKey: ['user', 'me'] })
       onDone()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(rtkErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -338,20 +337,15 @@ function UserForm({ user, self, onDone }: { user?: User; self?: boolean; onDone:
 
 function DeleteUserDialog({ user, onClose }: { user: User | null; onClose: () => void }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
-  const [busy, setBusy] = useState(false)
+  const [deleteUser, { isLoading: busy }] = useRemoveUserMutation()
   const remove = async () => {
     if (!user) return
-    setBusy(true)
     try {
-      await api(`/users/${encodeURIComponent(user.name)}/`, { method: 'DELETE' })
-      await qc.invalidateQueries({ queryKey: ['users'] })
+      await deleteUser(user.name).unwrap()
       toast.success(t('users.deleted', { name: user.name }))
       onClose()
     } catch (err) {
-      toast.error(t('users.deleteFailed'), { description: err instanceof Error ? err.message : undefined })
-    } finally {
-      setBusy(false)
+      toast.error(t('users.deleteFailed'), { description: rtkErrorMessage(err) })
     }
   }
   return (
@@ -383,10 +377,9 @@ function DeleteUserDialog({ user, onClose }: { user: User | null; onClose: () =>
 /** Export all accounts as JSON / import accounts from such a file (POST /users/ batch). */
 function UsersTransfer({ users }: { users: User[] }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<Array<Pick<User, 'name' | 'full_name' | 'email' | 'role'>> | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [importUsers, { isLoading: busy }] = useImportUsersMutation()
   const exportUsers = () => {
     const blob = new Blob([JSON.stringify(users)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -411,16 +404,12 @@ function UsersTransfer({ users }: { users: User[] }) {
   }
   const run = async () => {
     if (!pending) return
-    setBusy(true)
     try {
-      await api('/users/', { method: 'POST', json: pending })
-      await qc.invalidateQueries({ queryKey: ['users'] })
+      await importUsers(pending).unwrap()
       toast.success(t('users.imported', { count: pending.length }))
       setPending(null)
     } catch (err) {
-      toast.error(t('users.importFailed'), { description: err instanceof Error ? err.message : undefined })
-    } finally {
-      setBusy(false)
+      toast.error(t('users.importFailed'), { description: rtkErrorMessage(err) })
     }
   }
   return (

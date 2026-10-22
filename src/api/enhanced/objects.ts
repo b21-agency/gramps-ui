@@ -31,6 +31,8 @@ const totalOf = (meta: FetchBaseQueryMeta | undefined, fallback: number) => {
 type AnyObj = { handle: string } & Record<string, unknown>
 
 export const objectsApi = api.injectEndpoints({
+  // fail loudly instead of silently keeping an endpoint of the same name
+  overrideExisting: 'throw',
   endpoints: (build) => ({
     /** Paged/filtered list: GET /api/{kind}/ with X-Total-Count. */
     getObjects: build.query<Page<AnyObj>, { kind: ObjectKind | 'tag'; query?: Query }>({
@@ -97,7 +99,7 @@ export const objectsApi = api.injectEndpoints({
       invalidatesTags: (tx, _e, { kind, handle }) => (Array.isArray(tx) && tx.length ? tagsForTransaction(tx) : tagsForKind(kind, handle)),
     }),
     /** Several linked objects in one atomic transaction. */
-    postObjects: build.mutation<TxEntry[], Array<Record<string, unknown>>>({
+    createObjects: build.mutation<TxEntry[], Array<Record<string, unknown>>>({
       query: (body) => ({ url: '/api/objects/', method: 'POST', body }),
       invalidatesTags: (tx) => tagsForTransaction(tx),
     }),
@@ -166,7 +168,7 @@ export const {
   useCreateObjectMutation,
   useUpdateObjectMutation,
   useDeleteObjectMutation,
-  usePostObjectsMutation,
+  useCreateObjectsMutation,
   useDeleteObjectsByHandleMutation,
   useMergeObjectsMutation,
   useUndoTransactionMutation,

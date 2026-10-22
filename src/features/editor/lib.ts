@@ -1,7 +1,12 @@
 // Write helpers for the Gramps Web API (create / update / delete / undo).
-import type { QueryClient } from '@tanstack/react-query'
-import { api } from '@/lib/api'
-import { endpointOf, type DateVal, type ObjectKind } from '@/lib/types'
+// Writes go through the RTK Query mutations (src/api/enhanced/objects.ts), so every write
+// invalidates exactly what its transaction touched; errors are thrown as `ApiError`s.
+import { store } from '@/store'
+import { api } from '@/api'
+import { objectsApi } from '@/api/enhanced/objects'
+import { tagsForKind, type TxEntry as RtkTxEntry } from '@/api/enhanced/tags'
+import { unwrapApi } from '@/api/enhanced/editor'
+import { type DateVal, type ObjectKind } from '@/lib/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyObj = Record<string, any>
@@ -153,8 +158,12 @@ export function emptyObject(kind: ObjectKind): AnyObj {
   }
 }
 
+const dispatch = store.dispatch
+
 export function putObject(kind: ObjectKind, obj: AnyObj) {
-  return api<Transaction>(`/${endpointOf[kind]}/${obj.handle}`, { method: 'PUT', json: toWritable(kind, obj) })
+  return unwrapApi(
+    dispatch(objectsApi.endpoints.updateObject.initiate({ kind, handle: obj.handle, body: toWritable(kind, obj) })),
+  ) as Promise<Transaction>
 }
 
 /** Create several objects atomically (POST /objects/). */
@@ -162,20 +171,23 @@ export function createObjects(objs: AnyObj[]) {
   // families last: the server updates the members' family lists, so they must exist first
   const sorted = [...objs.filter((o) => o._class !== 'Family'), ...objs.filter((o) => o._class === 'Family')]
   const clean = sorted.map((o) => toWritable(kindOfClass[o._class], o))
-  return api<Transaction>('/objects/', { method: 'POST', json: clean })
+  return unwrapApi(dispatch(objectsApi.endpoints.createObjects.initiate(clean))) as Promise<Transaction>
 }
 
 export function deleteObject(kind: ObjectKind, handle: string) {
-  return api<Transaction>(`/${endpointOf[kind]}/${handle}`, { method: 'DELETE' })
+  return unwrapApi(dispatch(objectsApi.endpoints.deleteObject.initiate({ kind, handle }))) as Promise<Transaction>
 }
 
 export function undoTransaction(tx: Transaction) {
-  return api<Transaction>('/transactions/', { method: 'POST', query: { undo: 1 }, json: tx })
+  return unwrapApi(dispatch(objectsApi.endpoints.undoTransaction.initiate(tx as unknown as RtkTxEntry[]))) as Promise<Transaction>
 }
 
-/** Fetch a raw writable copy of an object (no profile/extend). */
+/** Fetch a raw writable copy of an object (no profile/extend), always fresh from the server. */
 export async function fetchWritable(kind: ObjectKind, handle: string) {
-  return toWritable(kind, await api<AnyObj>(`/${endpointOf[kind]}/${handle}`))
+  const obj = await unwrapApi(
+    dispatch(objectsApi.endpoints.getObject.initiate({ kind, handle }, { subscribe: false, forceRefetch: true })),
+  )
+  return toWritable(kind, obj as AnyObj)
 }
 
 /** Read-modify-write one object. */
@@ -190,12 +202,14 @@ export function txGrampsId(tx: Transaction, handle: string) {
   return tx.find((e) => e.handle === handle && e.new)?.new?.gramps_id as string | undefined
 }
 
-/** Invalidate cached queries touched by a write (object endpoints + search + derived views). */
-export function invalidateAfterWrite(qc: QueryClient, kinds: Array<ObjectKind | string>) {
-  const keys = new Set<string>()
-  for (const k of kinds) keys.add(endpointOf[k as ObjectKind] ?? k)
-  for (const k of keys) void qc.invalidateQueries({ queryKey: [k] })
-  for (const k of ['list', 'search', 'portraits', 'tree', 'timeline', 'tags', 'metadata']) void qc.invalidateQueries({ queryKey: [k] })
+/**
+ * @deprecated Writes made with the helpers above (or the RTK mutations) are invalidated
+ * automatically. Only for writes that bypass RTK (binary uploads): refreshes whole kinds.
+ * The first argument is ignored (it used to be the TanStack QueryClient).
+ */
+export function invalidateAfterWrite(_unused: unknown, kinds: Array<ObjectKind | string> = []) {
+  const known = kinds.filter((k): k is ObjectKind => k in classOf)
+  dispatch(api.util.invalidateTags([...new Set(known)].flatMap((k) => tagsForKind(k))))
 }
 
 export function endpointsOfTx(tx: Transaction) {

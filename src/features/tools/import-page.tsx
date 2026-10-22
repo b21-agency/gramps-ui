@@ -1,7 +1,7 @@
 import { useRef, useState, type DragEvent } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
 import { CircleCheck, FileUp, FolderArchive, Loader2, Lock, UsersRound, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,17 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Page } from '@/components/app-shell'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { api } from '@/lib/api'
+import { TASK_TAGS, useImporterListQuery } from '@/api/enhanced/tools'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { useTitle } from '@/hooks/use-title'
 import { TaskStatusLine, taskErrorText } from './task-status'
-import { formatBytes, useTask } from './use-task'
-
-interface Importer {
-  extension: string
-  name: string
-  description: string
-}
+import { formatBytes, isAbort, useTask } from './use-task'
 
 type Counts = Record<string, number> & { messages?: string[] }
 
@@ -31,6 +26,8 @@ function extOf(name: string) {
   return i > 0 ? name.slice(i + 1).toLowerCase() : ''
 }
 
+// Binary upload bodies go through the raw client (a File must not end up in the Redux
+// store as a mutation arg); the task hooks invalidate the cache once the import is done.
 const upload = (ext: string, file: File, signal: AbortSignal, dryRun = false) =>
   api(`/importers/${ext}/file`, {
     method: 'POST',
@@ -43,19 +40,13 @@ const upload = (ext: string, file: File, signal: AbortSignal, dryRun = false) =>
 export function ImportPage() {
   const { t, i18n } = useTranslation('tools')
   const { can } = useAuth()
-  const qc = useQueryClient()
   useTitle(t('import.title'))
-  const q = useQuery({
-    queryKey: ['importers'],
-    queryFn: () => api<Importer[]>('/importers/'),
-    staleTime: 30 * 60_000,
-    enabled: can('ImportFile'),
-  })
+  const q = useImporterListQuery(can('ImportFile') ? undefined : skipToken)
   const [file, setFile] = useState<File | null>(null)
   const [ext, setExt] = useState('')
   const [dragging, setDragging] = useState(false)
   const check = useTask<Counts>()
-  const run = useTask<Counts>()
+  const run = useTask<Counts>({ invalidates: TASK_TAGS.import })
   const inputRef = useRef<HTMLInputElement>(null)
 
   if (!can('ImportFile'))
@@ -95,10 +86,9 @@ export function ImportPage() {
     if (!file || !ext) return
     try {
       await run.start((signal) => upload(ext, file, signal))
-      void qc.invalidateQueries()
       toast.success(t('import.done'))
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') toast.error(t('import.failed', { message: taskErrorText(t, e) }))
+      if (!isAbort(e)) toast.error(t('import.failed', { message: taskErrorText(t, e) }))
     }
   }
 
@@ -320,8 +310,7 @@ function ImportDone({ counts, onAnother }: { counts: Counts; onAnother: () => vo
 
 function MediaZipUpload() {
   const { t } = useTranslation('tools')
-  const qc = useQueryClient()
-  const task = useTask<unknown>()
+  const task = useTask<unknown>({ invalidates: TASK_TAGS.mediaArchiveUpload })
   const ref = useRef<HTMLInputElement>(null)
   const start = async (f: File | undefined) => {
     if (!f) return
@@ -334,10 +323,9 @@ function MediaZipUpload() {
           signal,
         }),
       )
-      void qc.invalidateQueries({ queryKey: ['media'] })
       toast.success(t('import.media.done'))
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') toast.error(t('import.failed', { message: taskErrorText(t, e) }))
+      if (!isAbort(e)) toast.error(t('import.failed', { message: taskErrorText(t, e) }))
     }
   }
   return (

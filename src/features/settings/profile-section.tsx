@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrentUser } from '@/components/user-menu'
-import { api, ApiError } from '@/lib/api'
+import { useChangePasswordMutation, useUpdateUserMutation } from '@/api/enhanced/settings'
+import { rtkErrorMessage } from '@/features/tools/use-task'
 import type { UserInfo } from '@/lib/types'
 import { Field, SettingsBlock } from './parts'
 import { AccessTokensBlock, DeveloperBlock, UsernameBlock } from './profile-extra'
@@ -43,28 +43,22 @@ function AccountForm() {
 
 function AccountFields({ me }: { me: UserInfo }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const [fullName, setFullName] = useState(me.full_name ?? '')
   const [email, setEmail] = useState(me.email ?? '')
-  const [saving, setSaving] = useState(false)
+  const [updateUser, { isLoading: saving }] = useUpdateUserMutation()
   const dirty = fullName !== (me.full_name ?? '') || email !== (me.email ?? '')
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!dirty) return
-    setSaving(true)
     try {
-      const body: Record<string, string> = {}
+      const body: { full_name?: string; email?: string } = {}
       if (fullName !== (me.full_name ?? '')) body.full_name = fullName.trim()
       if (email !== (me.email ?? '')) body.email = email.trim()
-      await api('/users/-/', { method: 'PUT', json: body })
-      await qc.invalidateQueries({ queryKey: ['user', 'me'] })
-      await qc.invalidateQueries({ queryKey: ['users'] })
+      await updateUser({ name: '-', body }).unwrap()
       toast.success(t('profile.saved'))
     } catch (err) {
-      toast.error(t('profile.saveFailed'), { description: err instanceof Error ? err.message : undefined })
-    } finally {
-      setSaving(false)
+      toast.error(t('profile.saveFailed'), { description: rtkErrorMessage(err) })
     }
   }
 
@@ -96,7 +90,7 @@ function PasswordForm() {
   const [oldPw, setOldPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [changePassword, { isLoading: saving }] = useChangePasswordMutation()
   const [error, setError] = useState<string | null>(null)
 
   const mismatch = confirm.length > 0 && newPw !== confirm
@@ -106,19 +100,15 @@ function PasswordForm() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
-    setSaving(true)
     setError(null)
     try {
-      await api('/users/-/password/change', { method: 'POST', json: { old_password: oldPw, new_password: newPw } })
+      await changePassword({ old_password: oldPw, new_password: newPw }).unwrap()
       setOldPw('')
       setNewPw('')
       setConfirm('')
       toast.success(t('password.changed'))
     } catch (err) {
-      const msg = err instanceof ApiError && err.status === 403 ? t('password.wrongOld') : err instanceof Error ? err.message : String(err)
-      setError(msg)
-    } finally {
-      setSaving(false)
+      setError((err as { status?: unknown })?.status === 403 ? t('password.wrongOld') : rtkErrorMessage(err))
     }
   }
 

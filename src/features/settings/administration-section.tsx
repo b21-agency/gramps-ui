@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Pencil, Plus, SearchCheck, Stethoscope, Tag as TagIcon, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -26,11 +25,14 @@ import {
 } from '@/components/ui/alert-dialog'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { tagColor } from '@/components/tag-list'
-import { api } from '@/lib/api'
+import { useCreateObjectMutation, useDeleteObjectMutation, useUpdateObjectMutation } from '@/api/enhanced/objects'
+import { useGetTreeQuery } from '@/api/trees-api-slice.gen'
+import { useRenameTreeMutation, useRepairTreeMutation } from '@/api/enhanced/settings'
+import { TASK_TAGS, useReindexSearchMutation } from '@/api/enhanced/tools'
 import { useAuth } from '@/lib/auth'
 import { useMetadata, useTags } from '@/lib/queries'
 import type { Tag } from '@/lib/types'
-import { useTask } from '@/features/tools/use-task'
+import { isAbort, rtkErrorMessage, unwrapWith, useTask } from '@/features/tools/use-task'
 import { TaskStatusLine, taskErrorText } from '@/features/tools/task-status'
 import { Field, SettingsBlock } from './parts'
 import { toHex6 } from './color'
@@ -67,18 +69,9 @@ export function AdministrationSection() {
 
 /* ---------------- tree name ---------------- */
 
-interface TreeInfo {
-  id: string
-  name: string
-  usage_people?: number
-  usage_media?: number
-  quota_people?: number | null
-  quota_media?: number | null
-}
-
 function TreeNameBlock() {
   const { t } = useTranslation('settings')
-  const q = useQuery({ queryKey: ['tree', 'own'], queryFn: () => api<TreeInfo>('/trees/-') })
+  const q = useGetTreeQuery({ treeId: '-' })
   return (
     <SettingsBlock title={t('admin.tree')} description={t('admin.treeDescription')}>
       {q.isLoading ? (
@@ -86,7 +79,7 @@ function TreeNameBlock() {
       ) : q.isError || !q.data ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} className="py-6" />
       ) : (
-        <TreeNameForm key={q.data.name} current={q.data.name} />
+        <TreeNameForm key={q.data.name} current={q.data.name ?? ''} />
       )}
     </SettingsBlock>
   )
@@ -94,26 +87,18 @@ function TreeNameBlock() {
 
 function TreeNameForm({ current }: { current: string }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const [name, setName] = useState(current)
-  const [saving, setSaving] = useState(false)
+  const [renameTree, { isLoading: saving }] = useRenameTreeMutation()
   const dirty = name.trim() !== '' && name.trim() !== current
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!dirty) return
-    setSaving(true)
     try {
-      await api('/trees/-', { method: 'PUT', json: { name: name.trim() } })
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ['tree'] }),
-        qc.invalidateQueries({ queryKey: ['metadata'] }),
-      ])
+      await renameTree(name.trim()).unwrap()
       toast.success(t('admin.treeRenamed'))
     } catch (err) {
-      toast.error(t('admin.treeRenameFailed'), { description: err instanceof Error ? err.message : undefined })
-    } finally {
-      setSaving(false)
+      toast.error(t('admin.treeRenameFailed'), { description: rtkErrorMessage(err) })
     }
   }
 
@@ -235,34 +220,32 @@ const swatches = ['#4f7a5a', '#b58a3c', '#a24b3c', '#3f6b8f', '#7a5a8f', '#5f6b6
 
 function TagForm({ tag, existing, onDone }: { tag?: Tag; existing: Tag[]; onDone: () => void }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const [name, setName] = useState(tag?.name ?? '')
   const [color, setColor] = useState(toHex6(tag?.color ?? swatches[existing.length % swatches.length]))
-  const [saving, setSaving] = useState(false)
+  const [createTag, { isLoading: creating }] = useCreateObjectMutation()
+  const [updateTag, { isLoading: updating }] = useUpdateObjectMutation()
+  const saving = creating || updating
   const duplicate = existing.some((x) => x.handle !== tag?.handle && x.name.toLowerCase() === name.trim().toLowerCase())
   const valid = name.trim() !== '' && !duplicate
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!valid) return
-    setSaving(true)
     try {
+      // the write's transaction invalidates the tag, the tag lists and everything tagged with it
       if (tag) {
-        await api(`/tags/${tag.handle}`, {
-          method: 'PUT',
-          json: { _class: 'Tag', handle: tag.handle, name: name.trim(), color, priority: tag.priority ?? 0 },
-        })
+        await updateTag({
+          kind: 'tag',
+          handle: tag.handle,
+          body: { _class: 'Tag', handle: tag.handle, name: name.trim(), color, priority: tag.priority ?? 0 },
+        }).unwrap()
       } else {
-        await api('/tags/', { method: 'POST', json: { _class: 'Tag', name: name.trim(), color, priority: existing.length } })
+        await createTag({ kind: 'tag', body: { _class: 'Tag', name: name.trim(), color, priority: existing.length } }).unwrap()
       }
-      await qc.invalidateQueries({ queryKey: ['tags'] })
-      await qc.invalidateQueries({ queryKey: ['metadata'] })
       toast.success(tag ? t('tags.saved', { name: name.trim() }) : t('tags.created', { name: name.trim() }))
       onDone()
     } catch (err) {
-      toast.error(t('tags.saveFailed'), { description: err instanceof Error ? err.message : undefined })
-    } finally {
-      setSaving(false)
+      toast.error(t('tags.saveFailed'), { description: rtkErrorMessage(err) })
     }
   }
 
@@ -322,21 +305,15 @@ function TagForm({ tag, existing, onDone }: { tag?: Tag; existing: Tag[]; onDone
 
 function DeleteTagDialog({ tag, onClose }: { tag: Tag | null; onClose: () => void }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
-  const [busy, setBusy] = useState(false)
+  const [deleteTag, { isLoading: busy }] = useDeleteObjectMutation()
   const remove = async () => {
     if (!tag) return
-    setBusy(true)
     try {
-      await api(`/tags/${tag.handle}`, { method: 'DELETE' })
-      await qc.invalidateQueries({ queryKey: ['tags'] })
-      await qc.invalidateQueries({ queryKey: ['metadata'] })
+      await deleteTag({ kind: 'tag', handle: tag.handle }).unwrap()
       toast.success(t('tags.deleted', { name: tag.name }))
       onClose()
     } catch (err) {
-      toast.error(t('tags.deleteFailed'), { description: err instanceof Error ? err.message : undefined })
-    } finally {
-      setBusy(false)
+      toast.error(t('tags.deleteFailed'), { description: rtkErrorMessage(err) })
     }
   }
   return (
@@ -372,13 +349,14 @@ function DeleteTagDialog({ tag, onClose }: { tag: Tag | null; onClose: () => voi
 
 function ReindexBlock() {
   const { t } = useTranslation('settings')
-  const task = useTask()
+  const task = useTask({ invalidates: TASK_TAGS.reindex })
+  const [reindex] = useReindexSearchMutation()
   const run = () =>
     task
-      .start((signal) => api('/search/index/', { method: 'POST', query: { full: 1 }, signal }))
+      .start((signal) => unwrapWith(signal, reindex({ full: true })))
       .then(() => toast.success(t('admin.reindexDone')))
       .catch((e) => {
-        if ((e as Error)?.name !== 'AbortError') toast.error(taskErrorText(t, e))
+        if (!isAbort(e)) toast.error(taskErrorText(t, e))
       })
   return (
     <SettingsBlock title={t('admin.reindex')} description={t('admin.reindexDescription')}>
@@ -409,16 +387,15 @@ interface RepairResult {
 
 function RepairBlock() {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
-  const task = useTask<RepairResult>()
+  const task = useTask<RepairResult>({ invalidates: TASK_TAGS.repair })
+  const [repairTree] = useRepairTreeMutation()
   const [confirm, setConfirm] = useState(false)
   const run = () => {
     setConfirm(false)
     task
-      .start((signal) => api('/trees/-/repair', { method: 'POST', signal }))
-      .then(() => qc.invalidateQueries())
+      .start((signal) => unwrapWith(signal, repairTree()))
       .catch((e) => {
-        if ((e as Error)?.name !== 'AbortError') toast.error(taskErrorText(t, e))
+        if (!isAbort(e)) toast.error(taskErrorText(t, e))
       })
   }
   const result = task.result

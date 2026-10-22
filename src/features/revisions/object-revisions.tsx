@@ -2,28 +2,15 @@
 // Usable on object pages (<ObjectRevisions cls="Person" handle=… />) and via /revisions?class=Person&handle=….
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { History, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
-import { apiRaw } from '@/lib/api'
+import { OBJECT_HISTORY_MAX_ITEMS as MAX_ITEMS, useRevisionsObjectHistoryInfiniteQuery } from '@/api/enhanced/revisions'
 import { useAuth } from '@/lib/auth'
 import { formatTimestamp, timeAgo } from '@/lib/format'
-import { transVerb, type TransType } from './history'
+import { transVerb } from './history'
 import { ClassIcon } from './parts'
-
-const PAGE_SIZE = 10
-/** Like the classic UI, only the most recent revisions are listed. */
-const MAX_ITEMS = 50
-
-interface ObjectChange {
-  obj_class: string
-  trans_type: TransType
-  obj_handle: string
-  timestamp: number
-  transaction_id?: number | null
-  connection?: { user?: { name: string; full_name: string } | null } | null
-}
 
 /** Normalises "person" / "Person" to the API class name. */
 export function objectClassName(kind: string) {
@@ -35,21 +22,8 @@ export function ObjectRevisions({ cls, handle, lastChange }: { cls: string; hand
   const { t, i18n } = useTranslation('revisions')
   const { can } = useAuth()
   const objClass = objectClassName(cls)
-  const q = useInfiniteQuery({
-    queryKey: ['transactions', 'history', 'object', objClass, handle],
-    enabled: can('ViewPrivate') && !!handle,
-    initialPageParam: 1,
-    queryFn: async ({ pageParam }) => {
-      const r = await apiRaw<ObjectChange[]>(`/transactions/history/objects/${objClass}/${handle}`, {
-        query: { sort: '-id', page: pageParam, pagesize: PAGE_SIZE },
-      })
-      return { items: r.data, total: r.total ?? r.data.length, page: pageParam }
-    },
-    getNextPageParam: (last, all) => {
-      const n = all.reduce((s, p) => s + p.items.length, 0)
-      return n < last.total && n < MAX_ITEMS && last.items.length ? last.page + 1 : undefined
-    },
-  })
+  // only the most recent revisions are listed (see objectHistory)
+  const q = useRevisionsObjectHistoryInfiniteQuery(can('ViewPrivate') && handle ? { objClass, handle } : skipToken)
 
   if (!can('ViewPrivate')) return null
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} className="py-6" />

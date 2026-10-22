@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowUpRight, Building2, Check, Globe, Layers, Loader2, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,7 +10,9 @@ import { AdaptivePopover } from '@/components/adaptive-popover'
 import { useDebounced } from '@/components/command-search'
 import { mediaThumbUrl } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { createObjects, emptyObject, invalidateAfterWrite, txGrampsId } from '@/features/editor/lib'
+import { emptyObject, errorMessage, toWritable, txGrampsId, type Transaction } from '@/features/editor/lib'
+import { useCreateObjectsMutation } from '@/api/enhanced/objects'
+import { toApiError } from '@/api/enhanced/editor'
 import { cn } from '@/lib/utils'
 import { useTypeLabels } from '@/features/timeline/data'
 import {
@@ -293,7 +294,7 @@ export function BuildingPanel({
 }) {
   const { t } = useTranslation(['map', 'common'])
   const { can } = useAuth()
-  const qc = useQueryClient()
+  const [postObjects] = useCreateObjectsMutation()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const years = [
@@ -312,13 +313,13 @@ export function BuildingPanel({
         long: String(building.long),
         urls: [{ _class: 'Url', path: `https://www.wikidata.org/wiki/${building.qid}`, desc: 'Wikidata', type: 'Web Home', private: false }],
       }
-      const tx = await createObjects([place])
-      invalidateAfterWrite(qc, ['place'])
-      const id = txGrampsId(tx, place.handle)
+      // the map's places refresh through the transaction's cache tags
+      const tx = await postObjects([toWritable('place', place)]).unwrap()
+      const id = txGrampsId(tx as Transaction, place.handle)
       toast.success(t('building.added'))
       if (id) navigate(`/place/${id}`)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(toApiError(e)))
     } finally {
       setBusy(false)
     }

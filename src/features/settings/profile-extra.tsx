@@ -2,7 +2,6 @@
 // developer tools.
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CalendarDays, Check, Copy, ExternalLink, KeyRound, Laptop, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -20,11 +19,20 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useCurrentUser } from '@/components/user-menu'
-import { api, ApiError, freshAccessToken } from '@/lib/api'
+import { freshAccessToken } from '@/lib/api'
+import {
+  useAccessTokenStatusQuery,
+  useCreateAccessTokenMutation,
+  useRevokeAccessTokenMutation,
+  useSyncTokensQuery,
+  useUpdateUserMutation,
+  type AccessTokenScope,
+} from '@/api/enhanced/settings'
+import { rtkErrorMessage } from '@/features/tools/use-task'
 import { formatTimestamp } from '@/lib/format'
 import { Field, SettingsBlock } from './parts'
 
-const errText = (e: unknown) => (e instanceof Error ? e.message : undefined)
+const errText = (e: unknown) => rtkErrorMessage(e)
 
 async function copy(text: string, ok: string, fail: string) {
   try {
@@ -49,26 +57,20 @@ export function UsernameBlock() {
 
 function UsernameForm({ current }: { current: string }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const [name, setName] = useState(current)
-  const [saving, setSaving] = useState(false)
+  const [updateUser, { isLoading: saving }] = useUpdateUserMutation()
   const [error, setError] = useState<string | null>(null)
   const valid = /^[\w.@+-]+$/.test(name)
   const dirty = name !== current
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!dirty || !valid) return
-    setSaving(true)
     setError(null)
     try {
-      await api('/users/-/', { method: 'PUT', json: { name_new: name } })
-      await qc.invalidateQueries({ queryKey: ['user', 'me'] })
-      await qc.invalidateQueries({ queryKey: ['users'] })
+      await updateUser({ name: '-', body: { name_new: name } }).unwrap()
       toast.success(t('username.saved'))
     } catch (err) {
-      setError(err instanceof ApiError && err.status === 409 ? t('username.taken') : (errText(err) ?? String(err)))
-    } finally {
-      setSaving(false)
+      setError((err as { status?: unknown })?.status === 409 ? t('username.taken') : errText(err))
     }
   }
   return (
@@ -99,46 +101,24 @@ function UsernameForm({ current }: { current: string }) {
 
 /* ---------------- access tokens ---------------- */
 
-interface SyncToken {
-  id: string
-  label: string
-  created_at?: string
-  last_used_at?: string | null
-}
-
 const parseUtc = (v?: string | null) => (v ? new Date(/(Z|[+-]\d\d:?\d\d)$/i.test(v) ? v : `${v}Z`) : null)
 
 export function AccessTokensBlock() {
   const { t, i18n } = useTranslation('settings')
-  const qc = useQueryClient()
-  const ics = useQuery({
-    queryKey: ['access-tokens', 'anniversaries_ics'],
-    queryFn: () => api<{ active: boolean }>('/users/-/access-tokens/anniversaries_ics/'),
-    retry: false,
-  })
-  const sync = useQuery({
-    queryKey: ['access-tokens', 'sync'],
-    queryFn: async () => {
-      try {
-        return await api<SyncToken[]>('/users/-/access-tokens/sync/tokens/')
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 404) return null // server without sync tokens
-        throw e
-      }
-    },
-    retry: false,
-  })
+  const ics = useAccessTokenStatusQuery('anniversaries_ics')
+  // null: server without sync tokens
+  const sync = useSyncTokensQuery()
   const [created, setCreated] = useState<{ title: string; value: string; hint: string } | null>(null)
   const [adding, setAdding] = useState(false)
-  const [revoke, setRevoke] = useState<{ scope: 'anniversaries_ics' | 'sync'; id?: string; label: string } | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [revoke, setRevoke] = useState<{ scope: AccessTokenScope; id?: string; label: string } | null>(null)
+  const [createToken, { isLoading: creating }] = useCreateAccessTokenMutation()
+  const [revokeToken, { isLoading: revoking }] = useRevokeAccessTokenMutation()
+  const busy = creating || revoking
 
   // the calendar feed lives at /api/anniversaries.ics?token=…
   const createIcs = async () => {
-    setBusy(true)
     try {
-      const r = await api<{ token: string }>('/users/-/access-tokens/anniversaries_ics/', { method: 'POST', json: {} })
-      await qc.invalidateQueries({ queryKey: ['access-tokens', 'anniversaries_ics'] })
+      const r = await createToken({ scope: 'anniversaries_ics' }).unwrap()
       setCreated({
         title: t('tokens.icsCreated'),
         value: `${window.location.origin}/api/anniversaries.ics?token=${encodeURIComponent(r.token)}`,
@@ -146,24 +126,17 @@ export function AccessTokensBlock() {
       })
     } catch (err) {
       toast.error(t('tokens.failed'), { description: errText(err) })
-    } finally {
-      setBusy(false)
     }
   }
 
   const doRevoke = async () => {
     if (!revoke) return
-    setBusy(true)
     try {
-      const base = `/users/-/access-tokens/${revoke.scope}/`
-      await api(revoke.id ? `${base}tokens/${encodeURIComponent(revoke.id)}/` : base, { method: 'DELETE' })
-      await qc.invalidateQueries({ queryKey: ['access-tokens'] })
+      await revokeToken({ scope: revoke.scope, id: revoke.id }).unwrap()
       toast.success(t('tokens.revoked'))
       setRevoke(null)
     } catch (err) {
       toast.error(t('tokens.failed'), { description: errText(err) })
-    } finally {
-      setBusy(false)
     }
   }
 
@@ -306,23 +279,18 @@ function AddSyncDialog({
   onCreated: (token: string) => void
 }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const [label, setLabel] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [createToken, { isLoading: busy }] = useCreateAccessTokenMutation()
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!label.trim()) return
-    setBusy(true)
     try {
-      const r = await api<{ token: string }>('/users/-/access-tokens/sync/tokens/', { method: 'POST', json: { label: label.trim() } })
-      await qc.invalidateQueries({ queryKey: ['access-tokens', 'sync'] })
+      const r = await createToken({ scope: 'sync', label: label.trim() }).unwrap()
       setLabel('')
       onOpenChange(false)
       onCreated(r.token)
     } catch (err) {
       toast.error(t('tokens.failed'), { description: errText(err) })
-    } finally {
-      setBusy(false)
     }
   }
   return (

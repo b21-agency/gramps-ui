@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronDown, Download, ExternalLink, FileText, Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,7 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Page } from '@/components/app-shell'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
-import { api } from '@/lib/api'
+import { useReportListQuery, useRunReportMutation } from '@/api/enhanced/tools'
 import { useAccessToken } from '@/lib/auth'
 import { useHomePerson } from '@/lib/prefs'
 import { cn } from '@/lib/utils'
@@ -17,7 +16,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useTitle } from '@/hooks/use-title'
 import { OptionInput, reportFields, reportStrings, useGrampsText, type OptionField, type ReportDef } from './report-options'
 import { TaskStatusLine, taskErrorText } from './task-status'
-import { useTask, withJwt } from './use-task'
+import { isAbort, unwrapWith, useTask, withJwt } from './use-task'
 
 interface ReportResult {
   file_name: string
@@ -27,14 +26,6 @@ interface ReportResult {
 
 const CATEGORY_ORDER = [1, 6, 0, 4, 5, 3, 2]
 const VIEWABLE = new Set(['.pdf', '.svg', '.png', '.jpg', '.gif', '.html', '.txt'])
-
-function useReports() {
-  return useQuery({
-    queryKey: ['reports', 'help'],
-    queryFn: () => api<ReportDef[]>('/reports/', { query: { include_help: 1 } }),
-    staleTime: 30 * 60_000,
-  })
-}
 
 function useReportText(strings: string[] = []) {
   const { t, i18n } = useTranslation('tools')
@@ -50,7 +41,7 @@ function useReportText(strings: string[] = []) {
 export function ReportsPage() {
   const { t } = useTranslation('tools')
   useTitle(t('reports.title'))
-  const q = useReports()
+  const q = useReportListQuery()
   const text = useReportText((q.data ?? []).flatMap((r) => [r.name, r.description]))
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState<ReportDef | null>(null)
@@ -157,17 +148,16 @@ function ReportForm({ report }: { report: ReportDef }) {
     Object.fromEntries(fields.map((f) => [f.key, f.defaultValue])),
   )
   const task = useTask<ReportResult>()
+  const [runReport] = useRunReportMutation()
   const set = (k: string) => (v: string) => setValues((s) => ({ ...s, [k]: v }))
 
   const run = async () => {
     const options: Record<string, string> = {}
     for (const f of fields) if (values[f.key] !== '' || f.kind === 'text') options[f.key] = values[f.key]
     try {
-      await task.start((signal) =>
-        api(`/reports/${report.id}/file`, { method: 'POST', query: { options: JSON.stringify(options) }, signal }),
-      )
+      await task.start((signal) => unwrapWith(signal, runReport({ id: report.id, options })))
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') toast.error(t('reports.failed', { message: taskErrorText(t, e) }))
+      if (!isAbort(e)) toast.error(t('reports.failed', { message: taskErrorText(t, e) }))
     }
   }
 

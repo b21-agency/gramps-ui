@@ -123,3 +123,10 @@ Reference implementation: `src/features/people/person-page.tsx` + `album-hero.ts
 - **Years in gold serif**, dates/IDs `tabular-nums`, quotes/notes in serif italic.
 - Generous whitespace; `max-w-7xl` content width; motion only on interaction (press `scale(0.97)`,
   150ms ease-out hovers).
+
+### Endpoint names must be unique
+
+`injectEndpoints` silently keeps an existing endpoint of the same name, so a hand-written endpoint
+named like a generated one (e.g. `postObjects`, `deleteUser`) is ignored and the generated version
+runs instead. All enhanced slices therefore use `overrideExisting: 'throw'`. Before adding an
+endpoint, check: `grep -rn "<name>: build\." src/api`.

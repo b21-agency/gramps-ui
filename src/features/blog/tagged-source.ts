@@ -1,8 +1,12 @@
 // Write helpers for the "Source tagged X" pattern used by the blog (tag "Blog") and
 // tasks (tag "ToDo"): ensure the tag exists, create Note+Source atomically, PUT full objects.
-import type { QueryClient } from '@tanstack/react-query'
+// All writes go through the RTK Query object mutations (cache invalidation from the
+// returned transaction); only the binary media upload is a raw request.
+import { store } from '@/store'
 import { api } from '@/lib/api'
-import type { Attribute, MediaRef, Note, Source, Tag } from '@/lib/types'
+import { objectsApi } from '@/api/enhanced/objects'
+import { editorApi, invalidateTransaction, unwrapApi } from '@/api/enhanced/editor'
+import type { ObjectKind, Attribute, MediaRef, Note, Source, Tag } from '@/lib/types'
 
 export const newHandle = () => crypto.randomUUID().replace(/-/g, '')
 
@@ -22,10 +26,12 @@ export function txnObject<T = Record<string, unknown>>(txn: TxnEntry[], cls: str
 
 /** Handle of the tag with this name; creates it when missing. */
 export async function ensureTag(name: string, color = '#2f6f5e'): Promise<string> {
-  const tags = await api<Tag[]>('/tags/')
+  const tags = (await unwrapApi(
+    store.dispatch(objectsApi.endpoints.allTags.initiate(undefined, { subscribe: false, forceRefetch: true })),
+  )) as Tag[]
   const found = tags.find((t) => t.name === name)
   if (found) return found.handle
-  const txn = await api<TxnEntry[]>('/tags/', { method: 'POST', json: { _class: 'Tag', name, color, priority: 0 } })
+  const txn = (await createObject('tag', { _class: 'Tag', name, color, priority: 0 })) as TxnEntry[]
   const tag = txnObject<Tag>(txn, 'Tag')
   if (!tag) throw new Error(`Could not create tag ${name}`)
   return tag.handle
@@ -56,27 +62,57 @@ export function writableNote(note: Note, text: { string: string; tags: unknown[]
   return { ...strip(note), _class: 'Note', text: { _class: 'StyledText', ...text } }
 }
 
-/** Invalidate everything a source-backed write may have touched. */
-export function invalidateSources(qc: QueryClient) {
-  void qc.invalidateQueries({ queryKey: ['sources'] })
-  void qc.invalidateQueries({ queryKey: ['notes'] })
-  void qc.invalidateQueries({ queryKey: ['tags'] })
-  void qc.invalidateQueries({ queryKey: ['media'] })
-  void qc.invalidateQueries({ queryKey: ['metadata'] })
-  void qc.invalidateQueries({ queryKey: ['search'] })
+/* ---------- writes (RTK mutations: each invalidates what its transaction touched) ---------- */
+
+export function createObject(kind: ObjectKind | 'tag', body: Record<string, unknown>) {
+  return unwrapApi(store.dispatch(objectsApi.endpoints.createObject.initiate({ kind, body }))) as Promise<TxnEntry[]>
+}
+
+export function updateObject(kind: ObjectKind | 'tag', handle: string, body: Record<string, unknown>) {
+  return unwrapApi(store.dispatch(objectsApi.endpoints.updateObject.initiate({ kind, handle, body }))) as Promise<TxnEntry[]>
+}
+
+/** Several linked objects in one atomic transaction (POST /objects/). */
+export function postObjects(objects: Array<Record<string, unknown>>) {
+  return unwrapApi(store.dispatch(objectsApi.endpoints.createObjects.initiate(objects))) as Promise<TxnEntry[]>
+}
+
+/**
+ * Delete a tagged Source (blog post / task) and its text note unless something else links
+ * to it. Cache invalidation is left to the caller (`dispatch(invalidateTransaction(tx))`
+ * after leaving the page), so the deleted record isn't refetched while it is shown.
+ */
+export async function deleteTaggedSource(sourceHandle: string, noteHandle?: string): Promise<TxnEntry[]> {
+  const del = (kind: ObjectKind, handle: string) =>
+    unwrapApi(store.dispatch(editorApi.endpoints.deleteObjectDeferred.initiate({ kind, handle }))).then((r) => r.tx as TxnEntry[])
+  const tx = await del('source', sourceHandle)
+  if (noteHandle) {
+    const n = (await unwrapApi(
+      store.dispatch(
+        objectsApi.endpoints.getObject.initiate(
+          { kind: 'note', handle: noteHandle, query: { backlinks: true } },
+          { subscribe: false, forceRefetch: true },
+        ),
+      ),
+    )) as { backlinks?: Record<string, string[]> }
+    if (Object.values(n.backlinks ?? {}).flat().length === 0) tx.push(...(await del('note', noteHandle)))
+  }
+  return tx
 }
 
 /** Upload one file as a new Media object; returns its handle. */
 export async function uploadMedia(file: File, desc?: string): Promise<{ handle: string; gramps_id: string }> {
+  // binary body: raw request, then invalidate what it touched
   const txn = await api<TxnEntry[]>('/media/', {
     method: 'POST',
     body: file,
     headers: { 'Content-Type': file.type || 'application/octet-stream' },
   })
+  store.dispatch(invalidateTransaction(txn))
   const media = txnObject<Record<string, unknown> & { handle: string; gramps_id: string }>(txn, 'Media')
   if (!media) throw new Error('Upload failed')
   if (desc) {
-    await api(`/media/${media.handle}`, { method: 'PUT', json: { ...media, _class: 'Media', desc } })
+    await updateObject('media', media.handle, { ...media, _class: 'Media', desc })
   }
   return media
 }

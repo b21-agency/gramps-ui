@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Archive, Download, FileArchive, Loader2, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,20 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Page } from '@/components/app-shell'
 import { ErrorState, RowsSkeleton } from '@/components/states'
 import { ObjectPicker } from '@/components/object-picker'
-import { api } from '@/lib/api'
+import { useCreateMediaArchiveMutation, useExporterListQuery, useRunExportMutation, type Exporter } from '@/api/enhanced/tools'
 import { apiLocale } from '@/i18n'
 import { useAccessToken, useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { useTitle } from '@/hooks/use-title'
 import { TaskStatusLine, taskErrorText } from './task-status'
-import { formatBytes, useTask, withJwt } from './use-task'
-
-interface Exporter {
-  extension: string
-  name: string
-  description: string
-  module: string
-}
+import { formatBytes, isAbort, unwrapWith, useTask, withJwt } from './use-task'
 
 interface ExportResult {
   file_name: string
@@ -45,11 +37,8 @@ export function ExportPage() {
   useTitle(t('export.title'))
   useAccessToken()
   const { can } = useAuth()
-  const q = useQuery({
-    queryKey: ['exporters'],
-    queryFn: () => api<Exporter[]>('/exporters/'),
-    staleTime: 30 * 60_000,
-  })
+  const q = useExporterListQuery()
+  const [runExport] = useRunExportMutation()
 
   const [ext, setExt] = useState('gramps')
   const [privateOff, setPrivateOff] = useState(false)
@@ -92,9 +81,9 @@ export function ExportPage() {
     if (isGed) Object.assign(query, ged)
     if (ext === 'gramps') query.compress = compress
     try {
-      await task.start((signal) => api(`/exporters/${ext}/file`, { method: 'POST', query, signal }))
+      await task.start((signal) => unwrapWith(signal, runExport({ ext, params: query })))
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') toast.error(t('export.failed', { message: taskErrorText(t, e) }))
+      if (!isAbort(e)) toast.error(t('export.failed', { message: taskErrorText(t, e) }))
     }
   }
 
@@ -351,11 +340,12 @@ export function ResultBlock({
 function MediaArchive({ lang }: { lang: string }) {
   const { t } = useTranslation('tools')
   const task = useTask<ExportResult>()
+  const [createArchive] = useCreateMediaArchiveMutation()
   const run = async () => {
     try {
-      await task.start((signal) => api('/media/archive/', { method: 'POST', signal }))
+      await task.start((signal) => unwrapWith(signal, createArchive()))
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') toast.error(taskErrorText(t, e))
+      if (!isAbort(e)) toast.error(taskErrorText(t, e))
     }
   }
   return (

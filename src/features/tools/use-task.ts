@@ -2,7 +2,12 @@
 // then GET /tasks/{id} is polled until it succeeds or fails. Some endpoints run
 // synchronously when no task queue is configured and return the result directly.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, ApiError, freshAccessToken, tokens } from '@/lib/api'
+import type { TagDescription } from '@reduxjs/toolkit/query'
+import { api as rtkApi } from '@/api'
+import { api as tasksApi } from '@/api/tasks-api-slice.gen'
+import type { TagType } from '@/api/enhanced/tags'
+import { store } from '@/store'
+import { ApiError, freshAccessToken, tokens } from '@/lib/api'
 
 export type TaskPhase = 'idle' | 'running' | 'success' | 'failure'
 
@@ -53,6 +58,28 @@ export function isTaskRef(v: unknown): v is { task: { id: string; href: string }
   return !!v && typeof v === 'object' && 'task' in v && !!(v as { task?: { id?: string } }).task?.id
 }
 
+/** One GET /tasks/{id} through RTK Query (forced, not cached). */
+async function fetchTaskStatus(id: string, signal?: AbortSignal): Promise<TaskStatusJson> {
+  const req = store.dispatch(tasksApi.endpoints.getTask.initiate({ taskId: id }, { subscribe: false, forceRefetch: true }))
+  const onAbort = () => req.abort()
+  signal?.addEventListener('abort', onAbort)
+  try {
+    return (await req.unwrap()) as TaskStatusJson
+  } finally {
+    signal?.removeEventListener('abort', onAbort)
+  }
+}
+
+/**
+ * Run an RTK mutation as a task starter: `start((signal) => unwrapWith(signal, trigger(arg)))`.
+ * Aborting the signal aborts the request.
+ */
+export function unwrapWith<T>(signal: AbortSignal, req: { unwrap: () => Promise<T>; abort: () => void }): Promise<T> {
+  if (signal.aborted) req.abort()
+  else signal.addEventListener('abort', () => req.abort(), { once: true })
+  return req.unwrap()
+}
+
 /** Poll /tasks/{id} until it finishes. Resolves with the task result, rejects with TaskFailedError. */
 export async function pollTask<R = unknown>(
   id: string,
@@ -62,7 +89,7 @@ export async function pollTask<R = unknown>(
   let wait = 400
   for (;;) {
     if (signal?.aborted) throw new DOMException('aborted', 'AbortError')
-    const s = await api<TaskStatusJson>(`/tasks/${id}`, { signal })
+    const s = await fetchTaskStatus(id, signal)
     const obj = s.result_object ?? parseMaybeJson(s.result ?? s.info)
     if (s.state === 'SUCCESS') return obj as R
     if (s.state === 'FAILURE' || s.state === 'REVOKED') {
@@ -135,7 +162,34 @@ export function taskErrorMessage(e: unknown): string {
     return e.message
   }
   if (e instanceof Error) return e.message
+  // RTK Query error: { status, data }
+  if (e && typeof e === 'object' && 'status' in e) {
+    const { status, data } = e as { status: unknown; data?: unknown }
+    const body = data as { error?: { type?: string; message?: string }; message?: string } | undefined
+    if (status === 409 && body?.error?.type === 'task_locked') return 'task_locked'
+    if (status === 429) return 'rate_limited'
+    return rtkErrorMessage(e)
+  }
+  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
   return String(e)
+}
+
+/** Message of an RTK Query error ({status, data}), an ApiError or any Error. */
+export function rtkErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (e && typeof e === 'object' && 'status' in e) {
+    const { status, data, error } = e as { status: unknown; data?: unknown; error?: string }
+    const body = data as { error?: { message?: string }; message?: string } | string | undefined
+    const msg = typeof body === 'string' ? body : (body?.error?.message ?? body?.message)
+    return msg || error || `HTTP ${String(status)}`
+  }
+  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
+  return String(e)
+}
+
+/** True when `e` is an aborted request/poll (no toast needed). */
+export function isAbort(e: unknown) {
+  return (e as { name?: string } | null)?.name === 'AbortError'
 }
 
 export interface TaskState<R> {
@@ -146,10 +200,13 @@ export interface TaskState<R> {
 }
 
 /**
- * start(() => api(...)) → polls → result. Cancels polling on unmount.
+ * start((signal) => unwrapWith(signal, trigger(arg))) → polls → result. Cancels polling on unmount.
  * `start` resolves with the result (or rejects), so callers can chain toasts.
+ * `invalidates`: cache tags the task changes; invalidated once it succeeded.
  */
-export function useTask<R = unknown>() {
+export function useTask<R = unknown>(opts: { invalidates?: TagDescription<TagType>[] } = {}) {
+  const invalidates = useRef(opts.invalidates)
+  invalidates.current = opts.invalidates
   const [state, setState] = useState<TaskState<R>>({ phase: 'idle', progress: null, result: null, error: null })
   const ctrl = useRef<AbortController | null>(null)
 
@@ -166,6 +223,7 @@ export function useTask<R = unknown>() {
         signal: c.signal,
         onProgress: (p) => !c.signal.aborted && setState((s) => ({ ...s, progress: p })),
       })
+      if (invalidates.current?.length) store.dispatch(rtkApi.util.invalidateTags(invalidates.current))
       if (!c.signal.aborted) setState({ phase: 'success', progress: null, result, error: null })
       return result
     } catch (error) {

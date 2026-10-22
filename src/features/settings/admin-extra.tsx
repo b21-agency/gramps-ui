@@ -3,7 +3,6 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   CircleAlert,
@@ -26,26 +25,23 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ObjectPicker } from '@/components/object-picker'
 import { ErrorState } from '@/components/states'
-import { api, apiRaw } from '@/lib/api'
+import { useGetTreeQuery } from '@/api/trees-api-slice.gen'
+import { useGetMetadataResearcherQuery, usePutMetadataResearcherMutation } from '@/api/metadata-api-slice.gen'
+import { useReplaceTreeConfigMutation, useUpdateTreeConfigMutation } from '@/api/enhanced/shared'
+import { useDeleteAllObjectsMutation, useMigrateTreeMutation, useVerifyTreeMutation } from '@/api/enhanced/settings'
+import { TASK_TAGS } from '@/api/enhanced/tools'
 import { apiLocale } from '@/i18n'
 import { useAuth } from '@/lib/auth'
-import { useMetadata } from '@/lib/queries'
+import { useMetadata, useObjectByHandle, useObjectList } from '@/lib/queries'
 import { objectPath, normalizeKind } from '@/lib/objects'
-import {
-  TREE_CONFIG,
-  configString,
-  replaceTreeConfig,
-  updateTreeConfig,
-  useTreeConfig,
-  type TreeConfig,
-} from '@/lib/tree-config'
-import { formatBytes, useTask } from '@/features/tools/use-task'
+import { TREE_CONFIG, configString, useTreeConfig, type TreeConfig } from '@/lib/tree-config'
+import { formatBytes, isAbort, rtkErrorMessage, unwrapWith, useTask } from '@/features/tools/use-task'
 import { TaskStatusLine, taskErrorText } from '@/features/tools/task-status'
 import { Field, SettingsBlock } from './parts'
 import { ReloginDialog, hasFreshToken } from './relogin-dialog'
 import { cn } from '@/lib/utils'
 
-const errText = (e: unknown) => (e instanceof Error ? e.message : undefined)
+const errText = (e: unknown) => rtkErrorMessage(e)
 
 /* ---------------- usage & quotas ---------------- */
 
@@ -60,8 +56,8 @@ interface TreeUsage {
 
 export function UsageBlock() {
   const { t, i18n } = useTranslation('settings')
-  const q = useQuery({ queryKey: ['tree', 'own'], queryFn: () => api<TreeUsage>('/trees/-') })
-  const d = q.data
+  const q = useGetTreeQuery({ treeId: '-' })
+  const d = q.data as TreeUsage | undefined
   const rows: Array<[string, number | null | undefined, number | null | undefined, (n: number) => string]> = d
     ? [
         [t('usage.people'), d.usage_people, d.quota_people, (n) => n.toLocaleString(i18n.language)],
@@ -112,20 +108,15 @@ export function UsageBlock() {
 /* ---------------- media file status ---------------- */
 
 type MediaCheck = Array<{ checksum?: string; gramps_id: string }>
+const MEDIA_CHECK = { keys: 'checksum,gramps_id', sort: 'gramps_id' }
 
 export function MediaStatusBlock() {
   const { t } = useTranslation('settings')
   const { data: meta } = useMetadata()
-  const all = useQuery({
-    queryKey: ['media', 'status', 'all'],
-    queryFn: () => api<MediaCheck>('/media/', { query: { keys: 'checksum,gramps_id', sort: 'gramps_id' } }),
-  })
-  const missing = useQuery({
-    queryKey: ['media', 'status', 'missing'],
-    enabled: !!meta?.object_counts.media,
-    queryFn: () =>
-      api<MediaCheck>('/media/', { query: { keys: 'checksum,gramps_id', sort: 'gramps_id', filemissing: 1 } }),
-  })
+  const allQ = useObjectList<MediaCheck[number]>('media', MEDIA_CHECK)
+  const missingQ = useObjectList<MediaCheck[number]>('media', { ...MEDIA_CHECK, filemissing: 1 }, !!meta?.object_counts.media)
+  const all = { ...allQ, data: allQ.data?.items }
+  const missing = { ...missingQ, data: missingQ.data?.items }
   const noChecksum = (all.data ?? []).filter((m) => !m.checksum)
   return (
     <SettingsBlock title={t('mediaStatus.title')} description={t('mediaStatus.description')}>
@@ -178,9 +169,9 @@ const researcherFields = ['name', 'email', 'phone', 'addr', 'locality', 'city', 
 export function ResearcherBlock({ readOnly }: { readOnly?: boolean }) {
   const { t } = useTranslation('settings')
   const { can } = useAuth()
-  const q = useQuery({ queryKey: ['metadata', 'researcher'], queryFn: () => api<Record<string, string>>('/metadata/researcher/') })
+  const q = useGetMetadataResearcherQuery()
   const [editing, setEditing] = useState(false)
-  const r = q.data ?? {}
+  const r = (q.data ?? {}) as Record<string, string>
   const address = ['addr', 'locality', 'city', 'county', 'state', 'country', 'postal']
     .map((k) => r[k])
     .filter(Boolean)
@@ -229,23 +220,18 @@ export function ResearcherBlock({ readOnly }: { readOnly?: boolean }) {
 
 function ResearcherForm({ initial, onDone }: { initial: Record<string, string>; onDone: () => void }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(researcherFields.map((k) => [k, initial[k] ?? ''])),
   )
-  const [saving, setSaving] = useState(false)
+  const [saveResearcher, { isLoading: saving }] = usePutMetadataResearcherMutation()
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    setSaving(true)
     try {
-      await api('/metadata/researcher/', { method: 'PUT', json: values })
-      await qc.invalidateQueries({ queryKey: ['metadata'] })
+      await saveResearcher({ researcherUpdate: values }).unwrap()
       toast.success(t('researcher.saved'))
       onDone()
     } catch (err) {
       toast.error(t('researcher.saveFailed'), { description: errText(err) })
-    } finally {
-      setSaving(false)
     }
   }
   return (
@@ -301,19 +287,15 @@ export function CustomizationBlock() {
 
 function useSaveConfig() {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
-  const [saving, setSaving] = useState(false)
+  const [update, { isLoading: saving }] = useUpdateTreeConfigMutation()
   const save = async (patch: TreeConfig, success = t('custom.saved')) => {
-    setSaving(true)
     try {
-      await updateTreeConfig(qc, patch)
+      await update(patch).unwrap()
       toast.success(success)
       return true
     } catch (err) {
       toast.error(t('custom.saveFailed'), { description: errText(err) })
       return false
-    } finally {
-      setSaving(false)
     }
   }
   return { save, saving }
@@ -412,11 +394,7 @@ function HomePageObject({ kind, configKey, config }: { kind: 'note' | 'media'; c
   const { t } = useTranslation('settings')
   const handle = configString(config, configKey)
   const { save, saving } = useSaveConfig()
-  const obj = useQuery({
-    queryKey: [kind === 'note' ? 'notes' : 'media', 'handle', handle, 'self'],
-    enabled: !!handle,
-    queryFn: () => api<{ gramps_id: string; desc?: string; text?: { string: string } }>(`/${kind === 'note' ? 'notes' : 'media'}/${handle}`),
-  })
+  const obj = useObjectByHandle<{ gramps_id: string; desc?: string; text?: { string: string } }>(kind, handle || null)
   const label = kind === 'note' ? t('custom.homeNote') : t('custom.homeImage')
   const title = obj.data ? (kind === 'note' ? obj.data.text?.string?.slice(0, 80) : obj.data.desc) : ''
   return (
@@ -463,7 +441,7 @@ function HomePageObject({ kind, configKey, config }: { kind: 'note' | 'media'; c
 
 function ConfigImportExport({ config }: { config: TreeConfig }) {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
+  const [replace] = useReplaceTreeConfigMutation()
   const fileRef = useRef<HTMLInputElement>(null)
   const exportConfig = () => {
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' })
@@ -486,7 +464,7 @@ function ConfigImportExport({ config }: { config: TreeConfig }) {
       return
     }
     try {
-      await replaceTreeConfig(qc, data as TreeConfig)
+      await replace(data as TreeConfig).unwrap()
       toast.success(t('custom.imported'))
     } catch (err) {
       toast.error(t('custom.saveFailed'), { description: errText(err) })
@@ -552,6 +530,7 @@ interface VerifyIssue {
 export function VerifyBlock() {
   const { t } = useTranslation('settings')
   const task = useTask<VerifyIssue[] | string>()
+  const [verify] = useVerifyTreeMutation()
   const [opts, setOpts] = useState<Record<string, number>>(() => Object.fromEntries(verifyInts))
   const [estimate, setEstimate] = useState(false)
   const [invdate, setInvdate] = useState(true)
@@ -559,15 +538,9 @@ export function VerifyBlock() {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning'>('all')
   const run = () =>
     task
-      .start((signal) =>
-        api('/trees/-/verify', {
-          method: 'POST',
-          signal,
-          query: { locale: apiLocale(), ...opts, estimate_age: estimate, invdate },
-        }),
-      )
+      .start((signal) => unwrapWith(signal, verify({ locale: apiLocale(), ...opts, estimate_age: estimate, invdate })))
       .catch((e) => {
-        if ((e as Error)?.name !== 'AbortError') toast.error(taskErrorText(t, e))
+        if (!isAbort(e)) toast.error(taskErrorText(t, e))
       })
   const raw = task.phase === 'success' ? task.result : null
   const issues: VerifyIssue[] | null = raw == null ? null : Array.isArray(raw) ? raw : (() => {
@@ -692,9 +665,9 @@ const nsKind: Record<(typeof namespaces)[number], string> = {
 
 export function DangerZoneBlock() {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const { data: meta } = useMetadata()
-  const task = useTask()
+  const task = useTask({ invalidates: TASK_TAGS.deleteAll })
+  const [deleteAll] = useDeleteAllObjectsMutation()
   const [relogin, setRelogin] = useState(false)
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string[]>([...namespaces])
@@ -710,17 +683,10 @@ export function DangerZoneBlock() {
     setOpen(false)
     const all = selected.length === namespaces.length
     task
-      .start((signal) =>
-        apiRaw('/objects/delete/', { method: 'POST', signal, query: { namespaces: all ? undefined : selected.join(',') } }).then(
-          (r) => r.data,
-        ),
-      )
-      .then(() => {
-        toast.success(t('danger.done'))
-        return qc.invalidateQueries()
-      })
+      .start((signal) => unwrapWith(signal, deleteAll({ namespaces: all ? undefined : selected })))
+      .then(() => toast.success(t('danger.done')))
       .catch((e) => {
-        if ((e as Error)?.name !== 'AbortError') toast.error(taskErrorText(t, e))
+        if (!isAbort(e)) toast.error(taskErrorText(t, e))
       })
   }
   return (
@@ -805,16 +771,15 @@ export function useSchemaOutdated() {
 
 export function UpgradeBlock() {
   const { t } = useTranslation('settings')
-  const qc = useQueryClient()
   const outdated = useSchemaOutdated()
-  const task = useTask()
+  const task = useTask({ invalidates: TASK_TAGS.migrate })
+  const [migrate] = useMigrateTreeMutation()
   if (!outdated && task.phase === 'idle') return null
   const run = () =>
     task
-      .start((signal) => api('/trees/-/migrate', { method: 'POST', signal }))
-      .then(() => qc.invalidateQueries())
+      .start((signal) => unwrapWith(signal, migrate()))
       .catch((e) => {
-        if ((e as Error)?.name !== 'AbortError') toast.error(taskErrorText(t, e))
+        if (!isAbort(e)) toast.error(taskErrorText(t, e))
       })
   return (
     <SettingsBlock title={t('upgrade.title')} description={t('upgrade.description')}>

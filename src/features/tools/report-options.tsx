@@ -1,8 +1,8 @@
 // Turns the Gramps report option definitions (options_dict + options_help from
 // GET /reports/?include_help=1) into form fields.
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useGrampsTranslationsQuery } from '@/api/enhanced/tools'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -116,19 +116,8 @@ export function useGrampsText(strings: string[]) {
   const { i18n } = useTranslation()
   const lang = (i18n.resolvedLanguage ?? i18n.language ?? 'en').slice(0, 2)
   const unique = [...new Set(strings.filter(Boolean))].sort()
-  const q = useQuery({
-    queryKey: ['translations', lang, 'reports', unique],
-    enabled: lang !== 'en' && unique.length > 0,
-    staleTime: Infinity,
-    queryFn: async () => {
-      const res = await api<Array<{ original: string; translation: string }>>(`/translations/${lang}`, {
-        method: 'POST',
-        json: { strings: unique },
-      })
-      return new Map(res.map((r) => [r.original, r.translation]))
-    },
-  })
-  return (s: string) => q.data?.get(s) || s
+  const q = useGrampsTranslationsQuery(lang !== 'en' && unique.length > 0 ? { lang, strings: unique } : skipToken)
+  return (s: string) => q.data?.[s] || s
 }
 
 /** All Gramps strings a report form shows, for useGrampsText. */
