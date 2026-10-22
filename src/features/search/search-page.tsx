@@ -104,7 +104,7 @@ export function SearchPage() {
   const unavailable = (results.error as { status?: unknown } | undefined)?.status === 503
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">
       <header className="mb-6 sm:mb-8">
         <h1 className="font-serif text-[2.6rem] font-medium leading-[1] tracking-[-0.02em] sm:text-6xl">{t('title')}</h1>
         <p className="mt-3 min-h-7 text-lg text-muted-foreground" aria-live="polite">
@@ -184,7 +184,7 @@ export function SearchPage() {
           </div>
         ) : (
           <>
-            <ul role="list" className={cn('rounded-3xl bg-card p-2 transition-opacity sm:p-3', isPlaceholderData && 'opacity-60')}>
+            <ul role="list" className={cn('grid gap-x-4 rounded-3xl bg-card p-2 transition-opacity sm:p-3 xl:grid-cols-2 2xl:grid-cols-3', isPlaceholderData && 'opacity-60')}>
               {results.data.items.map((hit) => (
                 <ResultRow key={hit.handle} hit={hit} />
               ))}

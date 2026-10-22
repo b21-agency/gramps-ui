@@ -121,7 +121,11 @@ Reference implementation: `src/features/people/person-page.tsx` + `album-hero.ts
   wide column for the main story/content). No borders around panels; separation by surface colour.
 - **Faces as navigation**: people appear as portraits (44px rows, overlapping stacks with a gold "+N").
 - **Years in gold serif**, dates/IDs `tabular-nums`, quotes/notes in serif italic.
-- Generous whitespace; `max-w-7xl` content width; motion only on interaction (press `scale(0.97)`,
+- **Full width** (user request 2026-10-23): no `max-w-*` page caps; frame `px-4 sm:px-6 lg:px-10 2xl:px-14`.
+  `AlbumGrid` adds a third column on `2xl` (aside | main | extra; extra auto-filled from the 2nd+ aside
+  panels). Lists/grids add columns as space grows. Only reading text (~65ch) and single forms keep a
+  max width. Layouts may be reinvented freely as long as every feature remains.
+- Generous whitespace; motion only on interaction (press `scale(0.97)`,
   150ms ease-out hovers).
 
 ### Endpoint names must be unique

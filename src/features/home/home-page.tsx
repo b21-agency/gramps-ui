@@ -42,7 +42,7 @@ export function HomePage() {
   const today = new Intl.DateTimeFormat(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' }).format(now)
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">
       <MaintenanceNotice />
 
       <header className="mb-8 sm:mb-10">
@@ -64,7 +64,7 @@ export function HomePage() {
       {(!meta || meta.object_counts.people > 0) && <HomeHero />}
       {!treeEmpty && <ArchiveCounts />}
 
-      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] 2xl:grid-cols-[28rem_minmax(0,1fr)]">
         {/* wide column first in the DOM so phones read the story before the side panels */}
         <div className="grid min-w-0 gap-6 lg:col-start-2 lg:row-start-1 [&>*]:min-w-0">
           <GetStarted />

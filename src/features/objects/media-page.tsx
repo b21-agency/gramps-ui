@@ -315,7 +315,7 @@ function ImageViewer({
             src={mediaThumbUrl(media.handle, 1600)}
             alt={title}
             onLoad={() => setLoaded(true)}
-            className={cn('block max-h-[78vh] w-auto max-w-full bg-card object-cover max-lg:max-h-[70vh] lg:min-h-[26rem]', !loaded && 'min-h-64 min-w-64')}
+            className={cn('block max-h-[78vh] w-auto max-w-full bg-card object-cover max-lg:max-h-[70vh] lg:min-h-[26rem] 2xl:min-h-[34rem]', !loaded && 'min-h-64 min-w-64')}
           />
         </a>
         {loaded &&

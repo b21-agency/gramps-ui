@@ -59,7 +59,7 @@ export function AlbumHero({
 
   return (
     <section className="flex flex-col gap-8 lg:flex-row lg:gap-12">
-      <div className="relative mx-auto h-[19rem] w-full shrink-0 overflow-hidden rounded-3xl bg-card max-lg:-mt-1 sm:h-[26rem] sm:max-w-md lg:mx-0 lg:aspect-[4/5] lg:h-auto lg:w-[23rem] lg:max-w-none">
+      <div className="relative mx-auto h-[19rem] w-full shrink-0 overflow-hidden rounded-3xl bg-card max-lg:-mt-1 sm:h-[26rem] sm:max-w-md lg:mx-0 lg:aspect-[4/5] lg:h-auto lg:w-[23rem] lg:max-w-none 2xl:w-[28rem]">
         {refs.length ? (
           <button
             type="button"

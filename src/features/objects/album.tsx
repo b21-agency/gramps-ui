@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { Children, Fragment, isValidElement, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import type { LucideIcon } from 'lucide-react'
@@ -19,15 +19,39 @@ import { ShowMore, useLimited } from './shared'
  */
 
 export function AlbumFrame({ children }: { children: ReactNode }) {
-  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">{children}</div>
+  return <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">{children}</div>
 }
 
-/** Narrow column (people, photos, details) + wide column (story, notes, sources). */
-export function AlbumGrid({ aside, main }: { aside?: ReactNode; main: ReactNode }) {
+/**
+ * Content grid below the hero, using the full width:
+ * - phones: one column (aside, main, extra)
+ * - lg: narrow left column (aside, then extra) + wide main column
+ * - 2xl: three columns: aside | main | extra
+ */
+export function AlbumGrid({ aside, main, extra }: { aside?: ReactNode; main: ReactNode; extra?: ReactNode }) {
+  const col = 'grid min-w-0 content-start gap-6 [&>*]:min-w-0'
+  // No explicit third column: keep the first side panel on the left and move the others to
+  // the right-hand column on wide screens (below 2xl both stack in the left column anyway).
+  if (extra === undefined) {
+    const items = Children.toArray(isValidElement(aside) && aside.type === Fragment ? (aside.props as { children?: ReactNode }).children : aside)
+    if (items.length > 1) {
+      aside = items[0]
+      extra = <>{items.slice(1)}</>
+    }
+  }
   return (
-    <div className="mt-10 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:has-[>.album-aside:empty]:grid-cols-1">
-      <div className="album-aside grid min-w-0 gap-6 empty:hidden [&>*]:min-w-0">{aside}</div>
-      <div className="grid min-w-0 gap-6 [&>*]:min-w-0">{main}</div>
+    <div
+      className={cn(
+        'mt-10 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr]',
+        extra ? '2xl:grid-cols-[24rem_minmax(0,1fr)_26rem]' : '2xl:grid-cols-[24rem_minmax(0,1fr)]',
+        'lg:has-[>.album-aside:empty]:has-[>.album-extra:empty]:grid-cols-1',
+      )}
+    >
+      <div className={cn('album-aside empty:hidden lg:col-start-1 lg:row-start-1', col)}>{aside}</div>
+      <div className={cn('lg:col-start-2 lg:row-span-2 lg:row-start-1', col)}>{main}</div>
+      <div className={cn('album-extra empty:hidden lg:col-start-1 lg:row-start-2 2xl:col-start-3 2xl:row-span-2 2xl:row-start-1', col)}>
+        {extra}
+      </div>
     </div>
   )
 }
@@ -35,11 +59,11 @@ export function AlbumGrid({ aside, main }: { aside?: ReactNode; main: ReactNode 
 const visualSize = {
   /** like the person portrait */
   portrait:
-    'h-[19rem] w-full sm:h-[26rem] sm:max-w-md lg:aspect-[4/5] lg:h-auto lg:w-[23rem] lg:max-w-none',
+    'h-[19rem] w-full sm:h-[26rem] sm:max-w-md lg:aspect-[4/5] lg:h-auto lg:w-[23rem] lg:max-w-none 2xl:w-[28rem]',
   /** maps and landscape photos */
-  wide: 'h-[19rem] w-full sm:h-[24rem] lg:h-[27rem] lg:w-[36rem]',
+  wide: 'h-[19rem] w-full sm:h-[24rem] lg:h-[27rem] lg:w-[36rem] 2xl:h-[34rem] 2xl:w-[52rem]',
   /** typographic covers (sources, citations, repositories) */
-  cover: 'h-[13rem] w-[10rem] sm:h-[15rem] sm:w-[11.5rem] lg:h-[22rem] lg:w-[17rem]',
+  cover: 'h-[13rem] w-[10rem] sm:h-[15rem] sm:w-[11.5rem] lg:h-[22rem] lg:w-[17rem] 2xl:h-[26rem] 2xl:w-[20rem]',
 } as const
 
 export type VisualSize = keyof typeof visualSize

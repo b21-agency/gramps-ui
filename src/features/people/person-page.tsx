@@ -30,6 +30,7 @@ import { usePortraits } from '@/hooks/use-portraits'
 import { useTitle } from '@/hooks/use-title'
 import { Panel } from '@/components/detail/panel'
 import { AlbumHero, FamilyPanel } from './album-hero'
+import { AlbumFrame, AlbumGrid } from '@/features/objects/album'
 import { LifeStory } from './life-story'
 import { ExternalSearch } from './external-search'
 import { AddRelativeMenu } from '@/features/editor/relationship-actions'
@@ -72,7 +73,7 @@ export function PersonPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+    <AlbumFrame>
       <ObjectToolbar kind="person" object={person} title={name} onSaved={() => q.refetch()} />
 
       <AlbumHero
@@ -86,10 +87,52 @@ export function PersonPage() {
 
       <PortraitsScope handles={handles}>
         {(portraits) => (
-          <div className="mt-10 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-            <div className="grid min-w-0 gap-6 [&>*]:min-w-0">
-              <FamilyPanel profile={profile} portraits={portraits} action={<AddRelativeMenu person={person} />} />
+          <AlbumGrid
+            aside={
+              <>
+                <FamilyPanel profile={profile} portraits={portraits} action={<AddRelativeMenu person={person} />} />
+              {person.person_ref_list.length > 0 && (
+                <Panel id="associations" title={t('detail:sections.associations')}>
+                  <Associations person={person} />
+                </Panel>
+              )}
+              </>
+            }
+            main={
+              <>
+              <Panel id="life" title={t('lifeStory')}>
+                <LifeStory rows={eventRows} profile={profile} portraits={portraits} />
+              </Panel>
 
+              {(person.note_list?.length ?? 0) > 0 && (
+                <Panel id="notes" title={t('stories')}>
+                  <NotesList handles={person.note_list!} />
+                </Panel>
+              )}
+
+              <Panel id="family" title={t('familyDetails')}>
+                <FamilyBlock profile={profile} self={person.handle} childRefs={childRefsOf(person)} />
+              </Panel>
+
+              {(person.citation_list?.length ?? 0) > 0 && (
+                <Panel id="sources" title={t('detail:sections.sources')}>
+                  <CitationsList handles={person.citation_list!} />
+                </Panel>
+              )}
+
+              {ext.backlinks && Object.keys(ext.backlinks).some((k) => !['family', 'event'].includes(k) && ext.backlinks![k]?.length) && (
+                <Panel id="references" title={t('detail:sections.references')}>
+                  <ReferencesList
+                    backlinks={Object.fromEntries(Object.entries(ext.backlinks).filter(([k]) => !['family', 'event'].includes(k)))}
+                  />
+                </Panel>
+              )}
+
+              <ObjectHistory objClass="Person" handle={person.handle} lastChange={person.change} />
+              </>
+            }
+            extra={
+              <>
               {(person.media_list.length > 0 || canUpload) && (
                 <Panel
                   id="gallery"
@@ -141,48 +184,12 @@ export function PersonPage() {
                 </Panel>
               )}
 
-              {person.person_ref_list.length > 0 && (
-                <Panel id="associations" title={t('detail:sections.associations')}>
-                  <Associations person={person} />
-                </Panel>
-              )}
-            </div>
-
-            <div className="grid min-w-0 gap-6 [&>*]:min-w-0">
-              <Panel id="life" title={t('lifeStory')}>
-                <LifeStory rows={eventRows} profile={profile} portraits={portraits} />
-              </Panel>
-
-              {(person.note_list?.length ?? 0) > 0 && (
-                <Panel id="notes" title={t('stories')}>
-                  <NotesList handles={person.note_list!} />
-                </Panel>
-              )}
-
-              <Panel id="family" title={t('familyDetails')}>
-                <FamilyBlock profile={profile} self={person.handle} childRefs={childRefsOf(person)} />
-              </Panel>
-
-              {(person.citation_list?.length ?? 0) > 0 && (
-                <Panel id="sources" title={t('detail:sections.sources')}>
-                  <CitationsList handles={person.citation_list!} />
-                </Panel>
-              )}
-
-              {ext.backlinks && Object.keys(ext.backlinks).some((k) => !['family', 'event'].includes(k) && ext.backlinks![k]?.length) && (
-                <Panel id="references" title={t('detail:sections.references')}>
-                  <ReferencesList
-                    backlinks={Object.fromEntries(Object.entries(ext.backlinks).filter(([k]) => !['family', 'event'].includes(k)))}
-                  />
-                </Panel>
-              )}
-
-              <ObjectHistory objClass="Person" handle={person.handle} lastChange={person.change} />
-            </div>
-          </div>
+              </>
+            }
+          />
         )}
       </PortraitsScope>
-    </div>
+    </AlbumFrame>
   )
 }
 

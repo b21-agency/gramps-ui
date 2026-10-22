@@ -198,7 +198,7 @@ function FamilyHero({
   return (
     <ObjectHero
       size="wide"
-      visualClassName="bg-background sm:max-w-xl lg:w-[32rem] lg:h-[26rem] lg:max-w-none"
+      visualClassName="bg-background sm:max-w-xl lg:w-[32rem] lg:h-[26rem] lg:max-w-none 2xl:h-[32rem] 2xl:w-[40rem]"
       visual={
         <div className="relative grid size-full grid-cols-2 gap-1.5">
           <PartnerPortrait person={father} portrait={father?.handle ? portraits.get(father.handle) : undefined} side="left" />

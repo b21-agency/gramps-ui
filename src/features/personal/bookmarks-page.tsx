@@ -71,7 +71,7 @@ export function BookmarksPage() {
     .filter((g) => g.items.length)
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">
       <header className="mb-8">
         <h1 className="font-serif text-[2.6rem] font-medium leading-[1] tracking-[-0.02em] sm:text-6xl">{t('bookmarks.title')}</h1>
         {list.length > 0 && <p className="mt-3 text-lg text-muted-foreground">{t('bookmarks.description')}</p>}

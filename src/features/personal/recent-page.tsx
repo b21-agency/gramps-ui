@@ -63,7 +63,7 @@ export function RecentPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <h1 className="font-serif text-[2.6rem] font-medium leading-[1] tracking-[-0.02em] sm:text-6xl">{t('recent.title')}</h1>
@@ -84,7 +84,7 @@ export function RecentPage() {
         <div className="grid gap-6">
           {groups.map((g) => (
             <Panel key={g.key} title={g.label} count={g.items.length}>
-              <ul className="-mx-2 grid gap-x-4 gap-y-0.5 md:grid-cols-2">
+              <ul className="-mx-2 grid gap-x-4 gap-y-0.5 md:grid-cols-2 2xl:grid-cols-3">
                 {g.items.map((r) => (
                   <li key={r.handle} className="min-w-0">
                     <ObjectRow
