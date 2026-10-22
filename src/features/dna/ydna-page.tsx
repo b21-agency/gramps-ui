@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowLeft, ChevronRight, Dna, ExternalLink, Loader2, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,7 +14,7 @@ import { useAuth } from '@/lib/auth'
 import { profileName, yearOf } from '@/lib/format'
 import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
-import { errorMessage, invalidateAfterWrite, txGrampsId } from '@/features/editor/lib'
+import { errorMessage, txGrampsId } from '@/features/editor/lib'
 import { saveYDna, useYDna, useYDnaPeople, type Clade, type DnaPerson } from './data'
 import { DnaTabs, useDefaultPerson } from './dna-tabs'
 import { RawDataField, type PersonValue } from './match-dialog'
@@ -297,7 +296,6 @@ function YDnaDialog({
   initial?: string
 }) {
   const { t } = useTranslation(['dna', 'common'])
-  const qc = useQueryClient()
   const navigate = useNavigate()
   const { id } = useParams()
   const [who, setWho] = useState<PersonValue | null>(person ?? null)
@@ -317,7 +315,6 @@ function YDnaDialog({
     setSaving(true)
     try {
       const tx = await saveYDna(who.handle, raw.trim())
-      invalidateAfterWrite(qc, ['person'])
       toast.success(t('ydna.saved'))
       onOpenChange(false)
       const gid = txGrampsId(tx, who.handle)

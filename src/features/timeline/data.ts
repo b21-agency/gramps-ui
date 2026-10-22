@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { useEffect, useMemo, useState } from 'react'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { shallowEqual } from 'react-redux'
+import { timelineApi, useTimelineEventsQuery, useTimelineScopeQuery, type TimelineEventDetail } from '@/api/enhanced/timeline'
+import { useGrampsTranslations } from '@/features/lists/use-types'
+import { useAppDispatch, useAppSelector } from '@/store'
 import { apiLocale } from '@/i18n'
-import type { DateVal, GEvent } from '@/lib/types'
+import type { DateVal } from '@/lib/types'
 
 export interface EventLite {
   handle: string
@@ -24,30 +27,26 @@ export interface DatedEvent {
 
 /** All dated events, sorted chronologically (one request, cached). */
 export function useAllEvents() {
-  return useQuery({
-    queryKey: ['events', 'timeline-all', 'place'],
-    staleTime: 5 * 60_000,
-    queryFn: async (): Promise<DatedEvent[]> => {
-      const list = await api<EventLite[]>('/events/', {
-        query: { keys: 'handle,gramps_id,date,type,place' },
+  const q = useTimelineEventsQuery()
+  const data = useMemo(() => {
+    if (!q.data) return undefined
+    const out: DatedEvent[] = []
+    for (const e of q.data) {
+      const sortval = e.date?.sortval ?? 0
+      const year = e.date?.year || e.date?.dateval?.[2] || 0
+      if (!sortval || !year) continue
+      out.push({
+        handle: e.handle,
+        gramps_id: e.gramps_id,
+        place: e.place || undefined,
+        type: typeof e.type === 'string' ? e.type : (e.type?.string ?? ''),
+        year,
+        sortval,
       })
-      const out: DatedEvent[] = []
-      for (const e of list) {
-        const sortval = e.date?.sortval ?? 0
-        const year = e.date?.year || e.date?.dateval?.[2] || 0
-        if (!sortval || !year) continue
-        out.push({
-          handle: e.handle,
-          gramps_id: e.gramps_id,
-          place: e.place || undefined,
-          type: typeof e.type === 'string' ? e.type : e.type?.string ?? '',
-          year,
-          sortval,
-        })
-      }
-      return out.sort((a, b) => a.sortval - b.sortval)
-    },
-  })
+    }
+    return out.sort((a, b) => a.sortval - b.sortval)
+  }, [q.data])
+  return { ...q, data }
 }
 
 export type ScopeMode = 'self' | 'ancestors' | 'descendants' | 'exact' | 'enclosed'
@@ -58,108 +57,57 @@ export type ScopeMode = 'self' | 'ancestors' | 'descendants' | 'exact' | 'enclos
  * Returns the matching event handles (person) or place handles (place); undefined while loading.
  */
 export function useTimelineScope(kind: 'person' | 'place' | null, id: string | null, mode: ScopeMode) {
-  return useQuery({
-    queryKey: ['timeline-scope', kind, id, mode],
-    enabled: !!kind && !!id,
-    staleTime: 5 * 60_000,
-    queryFn: async (): Promise<{ events?: Set<string>; places?: Set<string> }> => {
-      if (kind === 'person') {
-        const query =
-          mode === 'ancestors' || mode === 'descendants'
-            ? {
-                rules: JSON.stringify({
-                  rules: [
-                    {
-                      name: mode === 'ancestors' ? 'IsLessThanNthGenerationAncestorOf' : 'IsLessThanNthGenerationDescendantOf',
-                      values: [id, '100'],
-                    },
-                  ],
-                }),
-              }
-            : { gramps_id: id! }
-        const people = await api<Array<{ event_ref_list?: Array<{ ref: string }> }>>('/people/', {
-          query: { ...query, keys: 'handle,event_ref_list' },
-        })
-        return { events: new Set(people.flatMap((p) => (p.event_ref_list ?? []).map((r) => r.ref))) }
-      }
-      const query =
-        mode === 'enclosed'
-          ? { rules: JSON.stringify({ rules: [{ name: 'IsEnclosedBy', values: [id, '1'] }] }) }
-          : { gramps_id: id! }
-      const places = await api<Array<{ handle: string }>>('/places/', { query: { ...query, keys: 'handle' } })
-      return { places: new Set(places.map((p) => p.handle)) }
-    },
-  })
+  const q = useTimelineScopeQuery(kind && id ? { kind, id, mode } : skipToken)
+  // only the scope asked for, never the previous one
+  const raw = q.currentData
+  const data = useMemo(
+    () => (raw ? { events: raw.events && new Set(raw.events), places: raw.places && new Set(raw.places) } : undefined),
+    [raw],
+  )
+  return { ...q, data }
 }
 
 /** Localized labels for English Gramps type names (POST /translations/{lang}). */
 export function useTypeLabels(types: string[]) {
-  const lang = apiLocale()
-  const key = [...new Set(types)].sort()
-  const q = useQuery({
-    queryKey: ['translations', lang, key],
-    enabled: key.length > 0 && lang !== 'en',
-    staleTime: Infinity,
-    queryFn: () =>
-      api<Array<{ original: string; translation: string }>>(`/translations/${lang}`, {
-        method: 'POST',
-        json: { strings: key },
-      }),
-  })
-  return useMemo(() => {
-    const m = new Map<string, string>()
-    q.data?.forEach((r) => m.set(r.original, r.translation))
-    return (t: string) => m.get(t) ?? t
-  }, [q.data])
+  return useGrampsTranslations(types)
 }
 
-export type EventDetail = Pick<GEvent, 'handle' | 'gramps_id' | 'description' | 'profile'>
-
-const detailCache = new Map<string, EventDetail>()
-const inflight = new Set<string>()
+export type EventDetail = TimelineEventDetail
 
 /**
  * Lazily loads event details (profile with participants) for the handles currently on screen.
- * Results are cached for the session; requests are batched and debounced while scrolling.
+ * Each event is its own cache entry (refreshed after writes); the requests of one tick are
+ * merged, and nothing is requested while the list is scrolling fast (debounced).
  */
 export function useEventDetails(visible: string[]) {
-  const lang = apiLocale()
-  const [, setVersion] = useState(0)
+  const locale = apiLocale()
+  const dispatch = useAppDispatch()
   const key = visible.join(',')
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
+  const [settled, setSettled] = useState(key)
   useEffect(() => {
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => {
-      const missing = visible.filter((h) => !detailCache.has(`${lang}:${h}`) && !inflight.has(`${lang}:${h}`))
-      for (let i = 0; i < missing.length; i += 60) {
-        const chunk = missing.slice(i, i + 60)
-        chunk.forEach((h) => inflight.add(`${lang}:${h}`))
-        api<EventDetail[]>('/events/', {
-          query: {
-            handles: chunk.join(','),
-            keys: 'handle,gramps_id,description,profile',
-            profile: 'participants',
-            locale: lang,
-          },
-        })
-          .then((rows) => {
-            rows.forEach((r) => detailCache.set(`${lang}:${r.handle}`, r))
-            setVersion((v) => v + 1)
-          })
-          .catch(() => {
-            /* rows stay in their loading state; scrolling retries */
-          })
-          .finally(() => chunk.forEach((h) => inflight.delete(`${lang}:${h}`)))
-      }
-    }, 90)
-    return () => {
-      if (timer.current) clearTimeout(timer.current)
-    }
+    const t = setTimeout(() => setSettled(key), 90)
+    return () => clearTimeout(t)
+  }, [key])
+  useEffect(() => {
+    if (!settled) return
+    const subs = settled
+      .split(',')
+      .map((handle) => dispatch(timelineApi.endpoints.timelineEventDetail.initiate({ handle, locale })))
+    return () => subs.forEach((s) => s.unsubscribe())
+  }, [dispatch, settled, locale])
+  const details = useAppSelector(
+    (state) => visible.map((handle) => timelineApi.endpoints.timelineEventDetail.select({ handle, locale })(state).data),
+    shallowEqual,
+  )
+  return useMemo(() => {
+    const m = new Map<string, EventDetail>()
+    visible.forEach((h, i) => {
+      const d = details[i]
+      if (d) m.set(h, d)
+    })
+    return (handle: string) => m.get(handle)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, lang])
-
-  return (handle: string) => detailCache.get(`${lang}:${handle}`)
+  }, [key, details])
 }
 
 /** Item of /people/{h}/timeline */

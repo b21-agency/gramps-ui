@@ -1,9 +1,9 @@
 // Data loading for the tree charts: one people query per chart (see docs §8.1), turned into a
 // small client-side graph index (person -> parents via primary parent family, partner families
 // -> partners + children).
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback } from 'react'
-import { api } from '@/lib/api'
+import { useCallback, useMemo } from 'react'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useChartGraphQuery, useChartsPrefetch, type ChartGraphArg } from '@/api/enhanced/charts'
 import { usePref } from '@/lib/prefs'
 import { apiLocale } from '@/i18n'
 import { profileName, yearOf } from '@/lib/format'
@@ -273,81 +273,39 @@ export function chartRules(chart: ChartKind, id: string, s: ChartSettings, withI
   }
 }
 
-/** The part of the settings that changes which data is loaded (used in the query key). */
-function dataKey(chart: ChartKind, s: ChartSettings) {
-  switch (chart) {
-    case 'ancestor':
-      return s.ancestor.gens
-    case 'descendant':
-      return s.descendant.gens
-    case 'hourglass':
-      return `${s.hourglass.anc}/${s.hourglass.desc}`
-    case 'fan':
-      return s.fan.gens
-    case 'relationship':
-      return s.relationship.degrees
-  }
-}
-
-const KEYS =
-  'handle,gramps_id,gender,media_list,profile,extended,family_list,parent_family_list,event_ref_list,note_list,birth_ref_index,death_ref_index'
-
-async function fetchChart(chart: ChartKind, id: string, s: ChartSettings, locale: string, withId?: string): Promise<Graph> {
-  const people = await api<RawPerson[]>('/people/', {
-    query: {
-      rules: JSON.stringify(chartRules(chart, id, s, withId)),
-      profile: 'self',
-      locale,
-      // the fan chart colours people by values of their events (religion, age)
-      extend: `primary_parent_family,family_list,parent_family_list${chart === 'fan' ? ',event_ref_list' : ''}`,
-      keys: KEYS,
-    },
-  })
-  const g = buildGraph(people, id)
-  if (withId) g.target = g.byId.get(withId) ?? null
-
-  // Partners of descendants are not part of the descendant rule: load them in a second request.
-  if (chart === 'descendant' || chart === 'hourglass' || (chart === 'relationship' && !withId)) {
-    const missing = new Set<Handle>()
-    for (const p of g.people.values()) {
-      if (chart === 'relationship' && p.handle !== g.centre) continue
-      for (const { partnerHandle } of partnerFamilies(g, p.handle)) {
-        if (partnerHandle && !g.people.has(partnerHandle)) missing.add(partnerHandle)
-      }
-    }
-    const list = [...missing]
-    for (let i = 0; i < list.length; i += 80) {
-      const chunk = list.slice(i, i + 80)
-      const extra = await api<RawPerson[]>('/people/', {
-        query: { handles: chunk.join(','), profile: 'self', locale, extend: 'primary_parent_family,family_list', keys: KEYS },
-      })
-      extra.forEach((p) => addPerson(g, p))
-    }
-  }
-  return g
-}
-
-function chartQuery(chart: ChartKind, id: string, s: ChartSettings, withId?: string) {
-  const locale = apiLocale()
+/** Query arguments of one chart (the cache key: rules carry the person and generations). */
+function chartArg(chart: ChartKind, id: string, s: ChartSettings, locale: string, withId?: string): ChartGraphArg {
   const path = chart === 'relationship' && withId ? withId : undefined
   return {
-    queryKey: ['tree', chart, id, path ? `path:${path}` : dataKey(chart, s), locale],
-    queryFn: () => fetchChart(chart, id, s, locale, path),
-    staleTime: 5 * 60_000,
-    gcTime: 30 * 60_000,
+    rules: JSON.stringify(chartRules(chart, id, s, path)),
+    // the fan chart colours people by values of their events (religion, age)
+    events: chart === 'fan',
+    partners: chart === 'descendant' || chart === 'hourglass' ? 'all' : chart === 'relationship' && !path ? 'centre' : 'none',
+    centreId: id,
+    targetId: path,
+    locale,
   }
 }
 
 export function useChartData(chart: ChartKind, id: string | undefined, s: ChartSettings, withId?: string) {
-  return useQuery({
-    ...chartQuery(chart, id ?? '', s, withId),
-    enabled: !!id,
-    placeholderData: keepPreviousData,
-  })
+  const locale = apiLocale()
+  const path = chart === 'relationship' && withId ? withId : undefined
+  const q = useChartGraphQuery(id ? chartArg(chart, id, s, locale, path) : skipToken)
+  // while a recentre loads, the previous chart stays on screen (RTK keeps `data` across args)
+  const isPlaceholderData = q.isFetching && q.currentData === undefined && q.data !== undefined
+  const raw = q.isError ? q.currentData : q.data
+  // the graph index is built from the cached raw people (Maps don't belong in the store)
+  const data = useMemo(() => {
+    if (!raw) return undefined
+    const g = buildGraph(raw.people as unknown as RawPerson[], raw.centreId)
+    if (raw.targetId) g.target = g.byId.get(raw.targetId) ?? null
+    return g
+  }, [raw])
+  return { ...q, data, isPlaceholderData }
 }
 
 /** Warm the cache for a person the pointer rests on, so recentring feels instant. */
 export function usePrefetchChart(chart: ChartKind, s: ChartSettings) {
-  const qc = useQueryClient()
-  return useCallback((id: string) => void qc.prefetchQuery(chartQuery(chart, id, s)), [qc, chart, s])
+  const prefetch = useChartsPrefetch('chartGraph', { ifOlderThan: 5 * 60 })
+  return useCallback((id: string) => prefetch(chartArg(chart, id, s, apiLocale())), [prefetch, chart, s])
 }

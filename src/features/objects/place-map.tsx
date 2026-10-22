@@ -40,12 +40,15 @@ export function PlaceMap({
   label,
   zoom = 10,
   className,
+  hero = false,
 }: {
   lat: number
   lng: number
   label?: string
   zoom?: number
   className?: string
+  /** fill the parent (album hero) with the caption floating on the map */
+  hero?: boolean
 }) {
   const { t } = useTranslation('objects')
   const ref = useRef<HTMLDivElement>(null)
@@ -83,6 +86,9 @@ export function PlaceMap({
         el.style.cssText =
           'width:18px;height:18px;border-radius:9999px;background:var(--primary);border:3px solid var(--background);box-shadow:0 1px 4px rgb(0 0 0 / .35)'
         markerRef.current = new ml.Marker({ element: el }).setLngLat([lng, lat]).addTo(map)
+        // the hero map is large enough to show the attribution, but start it collapsed
+        if (hero)
+          map.once('load', () => ref.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'))
         map.on('error', () => {
           /* tile errors are not fatal */
         })
@@ -112,17 +118,42 @@ export function PlaceMap({
 
   const osm = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=${Math.max(zoom, 12)}/${lat}/${lng}`
 
+  const canvas = (
+    <>
+      <div ref={ref} className="absolute! inset-0" aria-label={label ? t('mapOf', { name: label }) : t('map')} role="img" />
+      {failed && (
+        <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+          <MapPin className="mr-2 size-4" />
+          {t('mapUnavailable')}
+        </div>
+      )}
+    </>
+  )
+
+  if (hero)
+    return (
+      <figure className={cn('relative size-full bg-muted', className)}>
+        {canvas}
+        <figcaption className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full bg-background/85 px-3 py-1 tabular-nums text-muted-foreground backdrop-blur">
+            {lat.toFixed(4)}, {lng.toFixed(4)}
+          </span>
+          <a
+            href={osm}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-background/85 px-3 py-1 text-muted-foreground backdrop-blur hover:text-foreground"
+          >
+            OpenStreetMap
+            <ExternalLink className="size-3" />
+          </a>
+        </figcaption>
+      </figure>
+    )
+
   return (
     <figure className={cn('overflow-hidden rounded-xl border bg-muted', className)}>
-      <div className="relative h-56 w-full">
-        <div ref={ref} className="absolute! inset-0" aria-label={label ? t('mapOf', { name: label }) : t('map')} role="img" />
-        {failed && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-            <MapPin className="mr-2 size-4" />
-            {t('mapUnavailable')}
-          </div>
-        )}
-      </div>
+      <div className="relative h-56 w-full">{canvas}</div>
       <figcaption className="flex items-center gap-2 border-t bg-card px-3 py-2 text-xs text-muted-foreground">
         <span className="tabular-nums">
           {lat.toFixed(4)}, {lng.toFixed(4)}

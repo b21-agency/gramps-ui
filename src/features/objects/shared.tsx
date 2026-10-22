@@ -49,13 +49,21 @@ export function Columns({ main, aside }: { main: ReactNode; aside?: ReactNode })
 
 export function ObjectSkeleton({ media = false }: { media?: boolean }) {
   return (
-    <PageFrame>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
       <Skeleton className="mb-6 h-5 w-40" />
-      {media ? <Skeleton className="mb-6 h-[50vh] w-full" /> : null}
-      <Skeleton className="h-10 w-2/3" />
-      <Skeleton className="mt-3 h-5 w-1/3" />
-      <Skeleton className="mt-10 h-56 w-full" />
-    </PageFrame>
+      <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
+        <Skeleton className={cn('h-[19rem] w-full shrink-0 rounded-3xl', media ? 'lg:h-[30rem] lg:w-[40rem]' : 'lg:h-[26rem] lg:w-[23rem]')} />
+        <div className="flex-1 space-y-4 lg:pt-4">
+          <Skeleton className="h-14 w-3/4" />
+          <Skeleton className="h-5 w-1/2" />
+          <Skeleton className="h-5 w-1/3" />
+        </div>
+      </div>
+      <div className="mt-10 grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+        <Skeleton className="h-56 rounded-3xl" />
+        <Skeleton className="h-80 rounded-3xl" />
+      </div>
+    </div>
   )
 }
 

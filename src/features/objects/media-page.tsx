@@ -4,20 +4,21 @@ import { useTranslation } from 'react-i18next'
 import { Download, ExternalLink, FileText, FileVideo, FileAudio, File as FileIcon, ScanText, SquareDashedMousePointer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/states'
-import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectToolbar } from '@/components/detail/object-header'
+import { FaceStack, Panel } from '@/components/detail/panel'
+import { Portrait } from '@/components/portrait'
+import { TagList } from '@/components/tag-list'
 import { ObjectHistory } from '@/components/detail/object-history'
-import { CitationsList, DetailSection, FactsTable, NotesList, SectionNav } from '@/components/detail/sections'
+import { CitationsList, FactsTable, NotesList } from '@/components/detail/sections'
 import { mediaFileUrl, mediaThumbUrl } from '@/lib/api'
 import { useAccessToken, useAuth } from '@/lib/auth'
 import { objectPath } from '@/lib/objects'
 import type { Media, MediaRef } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { AlbumFrame, AlbumGrid, HeroActions } from './album'
 import {
-  Columns,
   MetaList,
-  navItems,
   ObjectSkeleton,
-  PageFrame,
   referenceItems,
   RefRow,
   refsTo,
@@ -75,86 +76,146 @@ export function MediaPage() {
   const overlay = isImage ? parseBounds(media.attribute_list) : null
   const cites = media.citation_list ?? []
 
-  const nav = navItems([
-    regions.length > 0 && { id: 'references', label: t('detail:sections.references'), count: regions.length },
-    notes.length > 0 && { id: 'notes', label: t('detail:sections.notes'), count: notes.length },
-    cites.length > 0 && { id: 'sources', label: t('detail:sections.sources'), count: cites.length },
-    media.attribute_list.length > 0 && { id: 'facts', label: t('detail:sections.facts') },
-  ])
+  const people = regions.filter((r) => r.item.kind === 'person')
+  const others = regions.filter((r) => r.item.kind !== 'person')
+  const facePeople = people.map((r) => ({
+    handle: r.key,
+    gramps_id: r.item.raw.gramps_id,
+    name_given: refTitle(r.item, t).title,
+    sex: (r.item.profile?.sex as string) ?? '',
+  }))
+  const faceMap = new Map<string, MediaRef | undefined>(
+    people.map((r) => [r.key, r.rect ? ({ ref: media.handle, rect: r.rect } as MediaRef) : r.item.raw.media_list?.[0]]),
+  )
+  const kindLabel = isImage ? undefined : media.mime?.split('/')[1]?.toUpperCase()
+
+  const info = (
+    <div className="flex min-w-0 flex-1 flex-col lg:pt-2">
+      <p className="text-sm font-semibold text-brass max-lg:text-center">
+        {[profile.date, kindLabel].filter(Boolean).join(' · ') || t('common:object.media')}
+      </p>
+      <h1 className="mt-3 font-serif text-[2.2rem] font-medium leading-[1.05] tracking-[-0.02em] text-balance [overflow-wrap:anywhere] max-lg:text-center sm:text-5xl lg:text-[2.75rem]">
+        {title}
+      </h1>
+      <TagList tags={ext.tags} className="mt-3 max-lg:justify-center" />
+      {people.length > 0 && (
+        <div className="mt-6 flex items-center gap-3 max-lg:justify-center">
+          <FaceStack people={facePeople} portraits={faceMap} ring="ring-background" moreHref="#people" />
+          <a href="#people" className="text-sm text-muted-foreground hover:text-foreground">
+            {t('album.peopleInPhoto')}
+          </a>
+        </div>
+      )}
+      {!isImage && media.mime?.startsWith('video/') && (
+        <video controls preload="metadata" src={mediaFileUrl(media.handle)} className="mt-6 max-h-80 w-full rounded-2xl bg-card" />
+      )}
+      {!isImage && media.mime?.startsWith('audio/') && <audio controls preload="metadata" src={mediaFileUrl(media.handle)} className="mt-6 w-full" />}
+      <div className="mt-7">
+        <HeroActions>
+          {isImage && can('EditObject') && !editRegions && (
+            <Button size="sm" onClick={() => setEditRegions(true)}>
+              <SquareDashedMousePointer />
+              {t('regions.edit')}
+            </Button>
+          )}
+          {ocrAvailable && (
+            <Button size="sm" variant="secondary" aria-pressed={ocr} onClick={() => setOcr(!ocr)}>
+              <ScanText />
+              {t('ocr.title')}
+            </Button>
+          )}
+          <Button asChild size="sm" variant="secondary">
+            <a href={mediaFileUrl(media.handle)} target="_blank" rel="noreferrer">
+              <ExternalLink />
+              {t('openOriginal')}
+            </a>
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <a href={mediaFileUrl(media.handle, true)} download>
+              <Download />
+              {t('common:actions.download')}
+            </a>
+          </Button>
+        </HeroActions>
+      </div>
+    </div>
+  )
 
   return (
-    <PageFrame>
+    <AlbumFrame>
       <ObjectToolbar kind="media" object={media} title={title} onSaved={() => q.refetch()} />
 
       {isImage && editRegions ? (
-        <RegionEditor
-          media={media}
-          regions={withRect.map<LinkedRegion>((r) => ({ key: r.key, item: r.item, rect: r.rect!, stored: (r.ref?.rect ?? r.rect) as Rect }))}
-          onChanged={() => q.refetch()}
-          onClose={() => setEditRegions(false)}
-        />
-      ) : isImage ? (
-        <ImageViewer media={media} title={title} regions={withRect} active={active} setActive={setActive} />
+        <>
+          <RegionEditor
+            media={media}
+            regions={withRect.map<LinkedRegion>((r) => ({ key: r.key, item: r.item, rect: r.rect!, stored: (r.ref?.rect ?? r.rect) as Rect }))}
+            onChanged={() => q.refetch()}
+            onClose={() => setEditRegions(false)}
+          />
+          <div className="mt-8">{info}</div>
+        </>
       ) : (
-        <FileCard media={media} title={title} />
+        <section className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-12">
+          {isImage ? (
+            <ImageViewer media={media} title={title} regions={withRect} active={active} setActive={setActive} />
+          ) : (
+            <FileVisual media={media} />
+          )}
+          {info}
+        </section>
       )}
 
-      <ObjectTitle
-        className="mt-6"
-        title={title}
-        tags={ext.tags}
-        subtitle={
-          <MetaList
-            className="mt-3"
-            rows={[
-              [t('date'), profile.date ? <span className="tabular-nums text-foreground">{profile.date}</span> : ''],
-              [t('file'), media.path ? <span className="break-all text-foreground">{media.path}</span> : ''],
-              [t('fileType'), media.mime],
-            ]}
-          />
-        }
+      <AlbumGrid
         aside={
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            {isImage && can('EditObject') && !editRegions && (
-              <Button size="sm" variant="outline" onClick={() => setEditRegions(true)}>
-                <SquareDashedMousePointer />
-                {t('regions.edit')}
-              </Button>
+          <>
+            {people.length > 0 && (
+              <Panel id="people" title={t('album.peopleInPhoto')} count={people.length}>
+                {withRect.length > 0 && isImage && <p className="mb-3 text-sm text-muted-foreground">{t('regionsHint')}</p>}
+                <ul className="grid gap-0.5">
+                  {people.map((r) => (
+                    <li key={r.key} className="min-w-0">
+                      <PersonRegionRow
+                        region={r}
+                        mediaHandle={media.handle}
+                        note={r.rect ? undefined : isImage ? t('wholeImage') : undefined}
+                        active={active === r.key}
+                        onHover={r.rect ? (on) => setActive(on ? r.key : null) : undefined}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
             )}
-            {ocrAvailable && (
-              <Button size="sm" variant="outline" aria-pressed={ocr} onClick={() => setOcr(!ocr)}>
-                <ScanText />
-                {t('ocr.title')}
-              </Button>
+            <Panel id="facts" title={t('detail:sections.facts')}>
+              <MetaList
+                rows={[
+                  [t('date'), profile.date ? <span className="tabular-nums text-foreground">{profile.date}</span> : ''],
+                  [t('album.file'), media.path ? <span className="break-all text-foreground">{media.path}</span> : ''],
+                  [t('fileType'), media.mime],
+                ]}
+              />
+              {media.attribute_list.length > 0 && (
+                <div className="mt-5">
+                  <FactsTable attributes={media.attribute_list} />
+                </div>
+              )}
+            </Panel>
+            {overlay && (
+              <Panel id="map" title={t('overlay.title')}>
+                <OverlayMap handle={media.handle} bounds={overlay} />
+              </Panel>
             )}
-            <Button asChild size="sm" variant="outline">
-              <a href={mediaFileUrl(media.handle)} target="_blank" rel="noreferrer">
-                <ExternalLink />
-                {t('openOriginal')}
-              </a>
-            </Button>
-            <Button asChild size="sm" variant="outline">
-              <a href={mediaFileUrl(media.handle, true)} download>
-                <Download />
-                {t('common:actions.download')}
-              </a>
-            </Button>
-          </div>
+          </>
         }
-      />
-
-      <SectionNav items={nav} />
-
-      <Columns
         main={
           <>
             {ocr && ocrAvailable && <OcrPanel handle={media.handle} onClose={() => setOcr(false)} onSaved={() => q.refetch()} />}
-            {regions.length > 0 && (
-              <DetailSection id="references" title={t('detail:sections.references')} count={regions.length}>
-                {withRect.length > 0 && isImage && <p className="mb-2 text-sm text-muted-foreground">{t('regionsHint')}</p>}
+            {others.length > 0 && (
+              <Panel id="references" title={people.length ? t('album.alsoLinked') : t('detail:sections.references')} count={others.length}>
                 <ul className="grid gap-x-4 sm:grid-cols-2">
-                  {regions.map((r) => (
-                    <li key={r.key}>
+                  {others.map((r) => (
+                    <li key={r.key} className="min-w-0">
                       <RefRow
                         item={r.item}
                         thumb={r.rect && r.ref ? { ref: media.handle, rect: r.rect } : undefined}
@@ -165,37 +226,69 @@ export function MediaPage() {
                     </li>
                   ))}
                 </ul>
-              </DetailSection>
+              </Panel>
             )}
             {notes.length > 0 && (
-              <DetailSection id="notes" title={t('detail:sections.notes')} count={notes.length}>
+              <Panel id="notes" title={t('album.stories')} count={notes.length}>
                 <NotesList handles={notes} />
-              </DetailSection>
-            )}
-          </>
-        }
-        aside={
-          <>
-            {overlay && (
-              <DetailSection id="map" title={t('overlay.title')}>
-                <OverlayMap handle={media.handle} bounds={overlay} />
-              </DetailSection>
+              </Panel>
             )}
             {cites.length > 0 && (
-              <DetailSection id="sources" title={t('detail:sections.sources')} count={cites.length}>
+              <Panel id="sources" title={t('detail:sections.sources')} count={cites.length}>
                 <CitationsList handles={cites} />
-              </DetailSection>
-            )}
-            {media.attribute_list.length > 0 && (
-              <DetailSection id="facts" title={t('detail:sections.facts')}>
-                <FactsTable attributes={media.attribute_list} />
-              </DetailSection>
+              </Panel>
             )}
             <ObjectHistory objClass="Media" handle={media.handle} lastChange={media.change} />
           </>
         }
       />
-    </PageFrame>
+    </AlbumFrame>
+  )
+}
+
+/** A person in the picture: their cropped face (or own portrait), name and life span. */
+function PersonRegionRow({
+  region,
+  mediaHandle,
+  note,
+  active,
+  onHover,
+}: {
+  region: Region
+  mediaHandle: string
+  note?: string
+  active?: boolean
+  onHover?: (on: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const { item, rect } = region
+  const { title, subtitle } = refTitle(item, t)
+  const hover = onHover
+    ? { onMouseEnter: () => onHover(true), onMouseLeave: () => onHover(false), onFocus: () => onHover(true), onBlur: () => onHover(false) }
+    : {}
+  return (
+    <Link
+      to={objectPath(item.kind, item.raw.gramps_id)}
+      {...hover}
+      className={cn(
+        '-mx-2 flex min-w-0 items-center gap-3 rounded-2xl px-2 py-1.5 outline-none transition-colors duration-150 hover:bg-accent focus-visible:bg-accent',
+        active && 'bg-accent',
+      )}
+    >
+      <Portrait
+        mediaRef={rect ? { ref: mediaHandle, rect } : item.raw.media_list?.[0]}
+        name={title}
+        sex={item.profile?.sex}
+        size={44}
+        className={cn(active && 'ring-brass')}
+      />
+      <span className="min-w-0">
+        <span className="block truncate text-[15px] font-semibold">{title}</span>
+        {(subtitle || note) && (
+          <span className="block truncate text-xs tabular-nums text-muted-foreground">{[subtitle, note].filter(Boolean).join(' · ')}</span>
+        )}
+      </span>
+    </Link>
   )
 }
 
@@ -215,14 +308,14 @@ function ImageViewer({
   const { t } = useTranslation()
   const [loaded, setLoaded] = useState(false)
   return (
-    <figure className="flex justify-center rounded-xl border bg-muted/60 p-2 sm:p-4">
-      <div className="group/viewer relative inline-block max-w-full overflow-hidden rounded-md">
+    <figure className="flex min-w-0 shrink-0 justify-center lg:max-w-[min(62%,56rem)] lg:justify-start">
+      <div className="group/viewer relative inline-block max-w-full overflow-hidden rounded-3xl bg-card">
         <a href={mediaFileUrl(media.handle)} target="_blank" rel="noreferrer" tabIndex={-1}>
           <img
             src={mediaThumbUrl(media.handle, 1600)}
             alt={title}
             onLoad={() => setLoaded(true)}
-            className={cn('block max-h-[72vh] w-auto max-w-full bg-muted', !loaded && 'min-h-64 min-w-64')}
+            className={cn('block max-h-[78vh] w-auto max-w-full bg-card object-cover max-lg:max-h-[70vh] lg:min-h-[26rem]', !loaded && 'min-h-64 min-w-64')}
           />
         </a>
         {loaded &&
@@ -264,34 +357,32 @@ function ImageViewer({
   )
 }
 
-function FileCard({ media, title }: { media: Media; title: string }) {
+function FileVisual({ media }: { media: Media }) {
   const { t } = useTranslation('objects')
   const [thumbOk, setThumbOk] = useState(true)
   const mime = media.mime ?? ''
   const Icon = mime === 'application/pdf' || mime.startsWith('text/') ? FileText : mime.startsWith('video/') ? FileVideo : mime.startsWith('audio/') ? FileAudio : FileIcon
   return (
-    <div className="flex flex-col items-center gap-5 rounded-xl border bg-card p-6 sm:flex-row sm:items-center">
-      <div className="flex h-56 w-44 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
-        {thumbOk ? (
-          <img
-            src={mediaThumbUrl(media.handle, 400)}
-            alt=""
-            onError={() => setThumbOk(false)}
-            className="max-h-full max-w-full object-contain"
-          />
-        ) : (
-          <Icon className="size-14 text-muted-foreground" />
-        )}
-      </div>
-      <div className="min-w-0 flex-1 text-center sm:text-left">
-        <p className="font-serif text-xl">{title}</p>
-        <p className="mt-1 break-all text-sm text-muted-foreground">{media.path}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{mime || t('unknownType')}</p>
-        {mime.startsWith('video/') && (
-          <video controls preload="metadata" src={mediaFileUrl(media.handle)} className="mt-4 max-h-80 w-full rounded-md" />
-        )}
-        {mime.startsWith('audio/') && <audio controls preload="metadata" src={mediaFileUrl(media.handle)} className="mt-4 w-full" />}
-      </div>
-    </div>
+    <a
+      href={mediaFileUrl(media.handle)}
+      target="_blank"
+      rel="noreferrer"
+      className="mx-auto flex h-[19rem] w-full shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-card p-4 sm:h-[26rem] sm:max-w-md lg:mx-0 lg:h-[30rem] lg:w-[24rem]"
+      aria-label={t('openOriginal')}
+    >
+      {thumbOk ? (
+        <img
+          src={mediaThumbUrl(media.handle, 800)}
+          alt=""
+          onError={() => setThumbOk(false)}
+          className="max-h-full max-w-full rounded-lg object-contain shadow-sm"
+        />
+      ) : (
+        <span className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Icon className="size-16" />
+          <span className="text-sm">{mime || t('unknownType')}</span>
+        </span>
+      )}
+    </a>
   )
 }

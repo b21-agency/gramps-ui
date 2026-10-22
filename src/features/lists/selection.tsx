@@ -1,7 +1,6 @@
 // Multi-select on object lists: select rows, then delete them or merge two of them.
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CheckSquare, GitMerge, Loader2, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,12 +14,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { api } from '@/lib/api'
+import { objectsApi, useDeleteObjectsByHandleMutation, useMergeObjectsMutation, useUndoTransactionMutation } from '@/api/enhanced/objects'
+import { toApiError } from '@/api/enhanced/editor'
+import { useAppDispatch } from '@/store'
 import { useAuth } from '@/lib/auth'
 import { describeObject } from '@/lib/objects'
-import { endpointOf, type ObjectKind } from '@/lib/types'
+import type { ObjectKind } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { endpointsOfTx, errorMessage, invalidateAfterWrite, undoTransaction, type Transaction } from '@/features/editor/lib'
+import { errorMessage } from '@/features/editor/lib'
 
 export interface Selectable {
   handle: string
@@ -110,12 +111,14 @@ export function SelectionBar<T extends Selectable>({
 }) {
   const { t } = useTranslation(['lists', 'common', 'editor'])
   const { can } = useAuth()
-  const qc = useQueryClient()
+  const dispatch = useAppDispatch()
+  const [deleteByHandle] = useDeleteObjectsByHandleMutation()
+  const [mergeObjects] = useMergeObjectsMutation()
+  const [undo] = useUndoTransactionMutation()
   const [confirm, setConfirm] = useState<'delete' | 'merge' | null>(null)
   const [busy, setBusy] = useState(false)
   const n = selection.items.size
   const list = [...selection.items.values()]
-  const endpoint = endpointOf[kind]
   const what = t(`common:object.${kind}`)
   const label = (o: T) => {
     const d = describeObject(kind, o)
@@ -130,22 +133,24 @@ export function SelectionBar<T extends Selectable>({
       if (kind === 'place') {
         // a place that still encloses other places can't be deleted (as in the classic UI)
         const handles = new Set(list.map((o) => o.handle))
-        const backs = await Promise.all(
-          list.map((o) => api<{ backlinks?: { place?: string[] } }>(`/places/${o.handle}`, { query: { backlinks: true, keys: 'backlinks' } })),
-        )
+        const backs = (await Promise.all(
+          list.map((o) =>
+            dispatch(
+              objectsApi.endpoints.getObject.initiate(
+                { kind: 'place', handle: o.handle, query: { backlinks: true, keys: 'backlinks' } },
+                { subscribe: false, forceRefetch: true },
+              ),
+            ).unwrap(),
+          ),
+        )) as Array<{ backlinks?: { place?: string[] } }>
         if (backs.some((b) => (b.backlinks?.place ?? []).some((h) => !handles.has(h)))) {
           toast.error(t('select.placeBlocked'), { description: t('select.placeBlockedHint') })
           setConfirm(null)
           return
         }
       }
-      const tx = await api<Transaction>('/objects/delete-by-handle/', {
-        method: 'POST',
-        json: { namespace: endpoint, handles: list.map((o) => o.handle) },
-      })
-      invalidateAfterWrite(qc, [kind, ...endpointsOfTx(tx ?? [])])
-      void qc.invalidateQueries({ queryKey: ['metadata'] })
-      void qc.invalidateQueries({ queryKey: ['list'] })
+      // lists, the objects and derived views refresh through the transaction's cache tags
+      const tx = await deleteByHandle({ kind, handles: list.map((o) => o.handle) }).unwrap()
       setConfirm(null)
       selection.setActive(false)
       onDone?.()
@@ -156,20 +161,17 @@ export function SelectionBar<T extends Selectable>({
               label: t('editor:undo'),
               onClick: async () => {
                 try {
-                  const back = await undoTransaction(tx)
-                  invalidateAfterWrite(qc, [kind, ...endpointsOfTx(back)])
-                  void qc.invalidateQueries({ queryKey: ['metadata'] })
-      void qc.invalidateQueries({ queryKey: ['list'] })
+                  await undo(tx).unwrap()
                   toast.success(t('editor:delete.restored'))
                 } catch (e) {
-                  toast.error(t('editor:delete.undoFailed'), { description: errorMessage(e) })
+                  toast.error(t('editor:delete.undoFailed'), { description: errorMessage(toApiError(e)) })
                 }
               },
             }
           : undefined,
       })
     } catch (e) {
-      toast.error(t('editor:delete.failed'), { description: errorMessage(e) })
+      toast.error(t('editor:delete.failed'), { description: errorMessage(toApiError(e)) })
     } finally {
       setBusy(false)
     }
@@ -178,16 +180,13 @@ export function SelectionBar<T extends Selectable>({
   const runMerge = async (keep: T, other: T) => {
     setBusy(true)
     try {
-      await api(`/${endpoint}/${keep.handle}/merge/${other.handle}`, { method: 'POST', json: {} })
-      invalidateAfterWrite(qc, [kind, 'person', 'family', 'event', 'place', 'source', 'citation', 'repository', 'note', 'media'])
-      void qc.invalidateQueries({ queryKey: ['metadata'] })
-      void qc.invalidateQueries({ queryKey: ['list'] })
+      await mergeObjects({ kind, keep: keep.handle, other: other.handle }).unwrap()
       setConfirm(null)
       selection.setActive(false)
       onDone?.()
       toast.success(t('select.merged', { name: label(keep) }))
     } catch (e) {
-      toast.error(t('select.mergeFailed'), { description: errorMessage(e) })
+      toast.error(t('select.mergeFailed'), { description: errorMessage(toApiError(e)) })
     } finally {
       setBusy(false)
     }

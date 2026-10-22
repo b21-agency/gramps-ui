@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useGetTypesQuery } from '@/api/metadata-api-slice.gen'
+import { useGrampsTypeTranslationsQuery } from '@/api/enhanced/lists'
 import { apiLocale } from '@/i18n'
 
 export type TypeSet =
@@ -18,28 +19,19 @@ interface TypesResponse {
 
 /** Default + custom Gramps types of one kind; values are the English names the filter rules expect. */
 function useTypes(set: TypeSet) {
-  return useQuery({
-    queryKey: ['types', 'all'],
-    queryFn: () => api<TypesResponse>('/types/'),
-    staleTime: 10 * 60_000,
-    select: (d) => ({ defaults: d.default[set] ?? [], custom: d.custom[set] ?? [] }),
-  })
+  const { data: raw, ...rest } = useGetTypesQuery({})
+  const data = useMemo(() => {
+    const d = raw as TypesResponse | undefined
+    return d ? { defaults: d.default?.[set] ?? [], custom: d.custom?.[set] ?? [] } : undefined
+  }, [raw, set])
+  return { ...rest, data }
 }
 
 /** Translate Gramps core strings (type names) via the backend's catalogue. */
 export function useGrampsTranslations(strings: string[]) {
   const lang = apiLocale()
   const sorted = useMemo(() => [...new Set(strings.filter(Boolean))].sort(), [strings])
-  const { data } = useQuery({
-    queryKey: ['translations', lang, sorted],
-    enabled: lang !== 'en' && sorted.length > 0,
-    staleTime: Infinity,
-    queryFn: () =>
-      api<Array<{ original: string; translation: string }>>(`/translations/${lang}`, {
-        method: 'POST',
-        json: { strings: sorted },
-      }),
-  })
+  const { data } = useGrampsTypeTranslationsQuery(lang !== 'en' && sorted.length > 0 ? { lang, strings: sorted } : skipToken)
   const map = useMemo(() => new Map(data?.map((d) => [d.original, d.translation])), [data])
   return useCallback((s: string) => map.get(s) ?? s, [map])
 }

@@ -1,10 +1,9 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useGetPersonTimelineQuery } from '@/api/people-api-slice.gen'
 import { CalendarX2, Loader2, MapPin } from 'lucide-react'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
-import { api } from '@/lib/api'
 import { apiLocale } from '@/i18n'
 import { usePref } from '@/lib/prefs'
 import { profileName, yearOf } from '@/lib/format'
@@ -29,20 +28,16 @@ export function PersonTimeline({ person }: { person: Person }) {
   const allOn = active.length === ALL_GROUPS.length
   const relatives = allOn || active.length === 0 ? undefined : active.flatMap((g) => GROUPS[g])
 
-  const q = useQuery({
-    queryKey: ['people', person.handle, 'timeline', apiLocale(), relatives?.join(','), generations],
-    placeholderData: keepPreviousData,
-    queryFn: () =>
-      api<PersonTimelineItem[]>(`/people/${person.handle}/timeline`, {
-        query: {
-          locale: apiLocale(),
-          precision: 2,
-          ancestors: generations,
-          offspring: generations,
-          relatives,
-        },
-      }),
+  // `data` keeps the previous timeline while a new relatives/generations choice loads
+  const tq = useGetPersonTimelineQuery({
+    handle: person.handle,
+    locale: apiLocale(),
+    precision: 2,
+    ancestors: generations,
+    offspring: generations,
+    relatives,
   })
+  const q = { ...tq, data: tq.data as unknown as PersonTimelineItem[] | undefined, isPlaceholderData: tq.isFetching && !tq.currentData }
 
   const items = useMemo(() => {
     const list = q.data ?? []

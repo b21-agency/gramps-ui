@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useDnaParseQuery } from '@/api/enhanced/dna'
+import { toApiError } from '@/api/enhanced/editor'
 import { toast } from 'sonner'
 import { FileUp, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,9 +11,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ObjectPicker } from '@/components/object-picker'
 import { useDebounced } from '@/components/command-search'
-import { errorMessage, invalidateAfterWrite } from '@/features/editor/lib'
+import { errorMessage } from '@/features/editor/lib'
 import { cn } from '@/lib/utils'
-import { addDnaMatch, normChromosome, normSide, parseMatchData, updateDnaMatchData, type DnaMatch } from './data'
+import { addDnaMatch, normChromosome, normSide, updateDnaMatchData, type DnaMatch, type DnaSegment } from './data'
 
 export interface PersonValue {
   handle: string
@@ -86,12 +88,9 @@ export function RawDataField({
 /** Live preview of how the server parses the pasted segment data. */
 function useParsed(raw: string) {
   const d = useDebounced(raw.trim(), 300)
-  return useQuery({
-    queryKey: ['dna', 'parse', d],
-    enabled: !!d,
-    queryFn: () => parseMatchData(d),
-    staleTime: Infinity,
-  })
+  const q = useDnaParseQuery(d ? d : skipToken)
+  // only the parse of the current text (never a stale preview)
+  return { ...q, data: q.currentData as DnaSegment[] | undefined, error: q.error && toApiError(q.error) }
 }
 
 function Preview({ raw }: { raw: string }) {
@@ -155,7 +154,6 @@ export function MatchDialog({
   matchName?: string
 }) {
   const { t } = useTranslation(['dna', 'common'])
-  const qc = useQueryClient()
   const [first, setFirst] = useState<PersonValue | null>(source ?? null)
   const [second, setSecond] = useState<PersonValue | null>(null)
   const [raw, setRaw] = useState('')
@@ -182,7 +180,6 @@ export function MatchDialog({
     try {
       if (editing && source) await updateDnaMatchData(source.handle, match, raw.trim())
       else if (first && second) await addDnaMatch(first.handle, second.handle, raw.trim())
-      invalidateAfterWrite(qc, ['person', 'note'])
       toast.success(editing ? t('edit.saved') : t('edit.added'))
       onOpenChange(false)
     } catch (err) {

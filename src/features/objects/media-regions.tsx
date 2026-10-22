@@ -1,6 +1,6 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
 import { Check, Loader2, ScanFace, SquareDashedMousePointer, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,11 +15,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { ObjectPicker } from '@/components/object-picker'
-import { api, mediaThumbUrl } from '@/lib/api'
+import { mediaThumbUrl } from '@/lib/api'
+import { useFaceDetectionQuery } from '@/api/enhanced/shared'
 import { useMetadata } from '@/lib/queries'
 import type { Media, ObjectKind } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { errorMessage, invalidateAfterWrite, patchObject, type AnyObj } from '@/features/editor/lib'
+import { errorMessage, patchObject, type AnyObj } from '@/features/editor/lib'
 import { refTitle, type RefItem } from './shared'
 
 export type Rect = [number, number, number, number]
@@ -76,16 +77,9 @@ type Drag = { mode: 'draw' | 'move' | 'resize'; corner?: number; start: [number,
  */
 export function RegionEditor({ media, regions, onChanged, onClose }: { media: Media; regions: LinkedRegion[]; onChanged: () => void; onClose: () => void }) {
   const { t } = useTranslation(['objects', 'common'])
-  const qc = useQueryClient()
   const { data: meta } = useMetadata()
   const faceDetection = !!meta?.server?.face_detection
-  const faces = useQuery({
-    queryKey: ['media', 'faces', media.handle, media.checksum],
-    enabled: faceDetection,
-    staleTime: Infinity,
-    retry: false,
-    queryFn: () => api<number[][]>(`/media/${media.handle}/face_detection`),
-  })
+  const faces = useFaceDetectionQuery(faceDetection ? { handle: media.handle, checksum: media.checksum } : skipToken)
   const box = useRef<HTMLDivElement>(null)
   const [sel, setSel] = useState<Selection | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
@@ -106,11 +100,11 @@ export function RegionEditor({ media, regions, onChanged, onClose }: { media: Me
     return [clamp(((e.clientX - b.left) / b.width) * 100), clamp(((e.clientY - b.top) / b.height) * 100)]
   }
 
-  const save = async (fn: () => Promise<unknown>, kinds: ObjectKind[]) => {
+  // patchObject writes through RTK mutations, which invalidate what the transaction touched
+  const save = async (fn: () => Promise<unknown>) => {
     setBusy(true)
     try {
       await fn()
-      invalidateAfterWrite(qc, [...kinds, 'media'])
       onChanged()
       return true
     } catch (e) {
@@ -130,7 +124,7 @@ export function RegionEditor({ media, regions, onChanged, onClose }: { media: Me
     const ok = await save(async () => {
       await patchObject(kind, handle, (o) => (o.media_list = withRegion(o.media_list, media.handle, rect)))
       if (old) await patchObject(old.item.kind, old.item.raw.handle, (o) => (o.media_list = withoutRegion(o.media_list, media.handle, old.stored)))
-    }, old ? [kind, old.item.kind] : [kind])
+    })
     if (ok) {
       toast.success(t('regions.linked'))
       setSel(null)
@@ -147,7 +141,6 @@ export function RegionEditor({ media, regions, onChanged, onClose }: { media: Me
     }
     const ok = await save(
       () => patchObject(old.item.kind, old.item.raw.handle, (o) => (o.media_list = withoutRegion(o.media_list, media.handle, old.stored))),
-      [old.item.kind],
     )
     if (ok) setSel(null)
   }
@@ -156,7 +149,7 @@ export function RegionEditor({ media, regions, onChanged, onClose }: { media: Me
     const r = s.region
     if (!r || same(r.stored, s.rect)) return
     const to = s.rect
-    await save(() => patchObject(r.item.kind, r.item.raw.handle, (o) => (o.media_list = movedRegion(o.media_list, media.handle, r.stored, to))), [r.item.kind])
+    await save(() => patchObject(r.item.kind, r.item.raw.handle, (o) => (o.media_list = movedRegion(o.media_list, media.handle, r.stored, to))))
     setSel({ rect: to, region: { ...r, stored: to, rect: to } })
   }
 

@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { ArrowUpRight, FileText, MapPin, MapPinOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/states'
-import { api, mediaCroppedUrl, mediaThumbUrl } from '@/lib/api'
+import { mediaCroppedUrl, mediaThumbUrl } from '@/lib/api'
+import { useMapEventsByHandleQuery } from '@/api/enhanced/map'
 import { apiLocale } from '@/i18n'
 import { useObjectByHandle } from '@/lib/queries'
 import { profileName } from '@/lib/format'
@@ -24,26 +25,13 @@ export function PlaceDetails({ handle, range }: { handle: string; range?: [numbe
   const eventHandles = place?.backlinks?.event ?? []
   const [limit, setLimit] = useState(PAGE)
 
-  const events = useQuery({
-    queryKey: ['events', 'at-place', handle, eventHandles.length, apiLocale()],
-    enabled: eventHandles.length > 0,
-    queryFn: async () => {
-      // fetch all (raw dates are needed for sorting), but in slices to keep URLs short
-      const out: GEvent[] = []
-      for (let i = 0; i < eventHandles.length; i += 80) {
-        const part = await api<GEvent[]>('/events/', {
-          query: {
-            handles: eventHandles.slice(i, i + 80).join(','),
-            keys: 'handle,gramps_id,date,type,profile',
-            profile: 'participants',
-            locale: apiLocale(),
-          },
-        })
-        out.push(...part)
-      }
-      return out.sort((a, b) => (a.date?.sortval || Infinity) - (b.date?.sortval || Infinity))
-    },
-  })
+  // all of them (raw dates are needed for sorting); the endpoint fetches in slices
+  const eventsQ = useMapEventsByHandleQuery(eventHandles.length ? { handles: eventHandles, locale: apiLocale() } : skipToken)
+  const sorted = useMemo(
+    () => (eventsQ.data ? [...eventsQ.data].sort((a, b) => (a.date?.sortval || Infinity) - (b.date?.sortval || Infinity)) : undefined),
+    [eventsQ.data],
+  )
+  const events = { ...eventsQ, data: sorted }
 
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />
   if (!place) {

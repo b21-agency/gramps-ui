@@ -1,29 +1,19 @@
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { CalendarDays, ChartGantt, MapPin, UsersRound } from 'lucide-react'
+import { CalendarDays, ChartGantt, Map as MapIcon, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { PersonChip } from '@/components/person-chip'
 import { Portrait } from '@/components/portrait'
 import { ErrorState } from '@/components/states'
 import { ObjectHistory } from '@/components/detail/object-history'
-import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
-import { CitationsList, DetailSection, FactsTable, Gallery, NotesList, SectionNav } from '@/components/detail/sections'
-import { isEmpty, profileName, typeStr } from '@/lib/format'
+import { ObjectToolbar } from '@/components/detail/object-header'
+import { FaceRow, FaceStack, Panel } from '@/components/detail/panel'
+import { CitationsList, FactsTable, Gallery, NotesList } from '@/components/detail/sections'
+import { isEmpty, profileName, typeStr, yearOf } from '@/lib/format'
 import type { EventProfile, FamilyProfile, GEvent, MediaRef, PersonProfile, Place } from '@/lib/types'
 import { usePortraits } from '@/hooks/use-portraits'
 import { coords, PlaceMap } from './place-map'
-import {
-  Columns,
-  countRefs,
-  eventTitle,
-  familyTitle,
-  navItems,
-  ObjectSkeleton,
-  PageFrame,
-  referenceItems,
-  RichReferences,
-  useObjectPage,
-} from './shared'
+import { AlbumFrame, AlbumGrid, CoverVisual, HeroActions, HeroFacts, ObjectHero, PhotoVisual } from './album'
+import { countRefs, eventTitle, familyTitle, ObjectSkeleton, referenceItems, RichReferences, useObjectPage } from './shared'
 
 type Participants = {
   people?: Array<{ role: string; person: PersonProfile }>
@@ -56,119 +46,134 @@ export function EventPage() {
   // people and families are shown with their roles as participants
   const refs = referenceItems(ext.backlinks as never, (profile as { references?: never }).references, ['person', 'family'])
   const participantCount = people.length + families.length
+  const placeName = profile.place || profile.place_name || place?.title
+  // everyone involved as faces in the hero: people, then the partners of families
+  const faces = [
+    ...people.map((p) => p.person),
+    ...families.flatMap((f) => [f.family.father, f.family.mother] as Array<PersonProfile | undefined>),
+  ].filter((p): p is PersonProfile => !!p && !isEmpty(p))
+  const year = yearOf(profile.date)
 
-  const nav = navItems([
-    participantCount > 0 && { id: 'participants', label: t('detail:sections.participants'), count: participantCount },
-    !!ll && { id: 'map', label: t('detail:sections.map') },
-    media.length > 0 && { id: 'gallery', label: t('detail:sections.gallery'), count: media.length },
-    notes.length > 0 && { id: 'notes', label: t('detail:sections.notes'), count: notes.length },
-    cites.length > 0 && { id: 'sources', label: t('detail:sections.sources'), count: cites.length },
-    event.attribute_list.length > 0 && { id: 'facts', label: t('detail:sections.facts') },
-    refs.length > 0 && { id: 'references', label: t('detail:sections.references'), count: countRefs(refs) },
-  ])
+  const visual = ll ? (
+    <PlaceMap hero lat={ll[0]} lng={ll[1]} label={profile.place_name || place?.title} zoom={9} />
+  ) : media.length ? (
+    <PhotoVisual refs={media} media={ext.media} label={t('album.openPhotos')} />
+  ) : (
+    <CoverVisual icon={CalendarDays} glyph={year ? String(year) : undefined} label={profile.type || t('common:object.event')} sub={event.gramps_id} />
+  )
 
   return (
-    <PageFrame>
-      <ObjectToolbar
-        kind="event"
-        object={event}
-        title={title}
-        onSaved={() => q.refetch()}
-        extra={
-          event.date?.sortval ? (
-            <Button asChild variant="ghost" size="icon" className="max-md:size-11" aria-label={t('showOnTimeline')} title={t('showOnTimeline')}>
-              <Link to={`/timeline?event=${event.gramps_id}`}>
-                <ChartGantt />
-              </Link>
-            </Button>
-          ) : undefined
-        }
-      />
+    <AlbumFrame>
+      <ObjectToolbar kind="event" object={event} title={title} onSaved={() => q.refetch()} />
 
-      <ObjectTitle
+      <ObjectHero
+        size={ll ? 'wide' : media.length ? 'portrait' : 'cover'}
+        visual={visual}
+        eyebrow={<p className="text-sm font-semibold text-brass">{profile.type || typeStr(event.type)}</p>}
         title={title}
+        subtitle={event.description && !/^\S+ (of|von) /.test(event.description) ? event.description : undefined}
         tags={ext.tags}
-        subtitle={
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-x-5 gap-y-1 text-[0.95rem] text-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarDays className="size-4 text-muted-foreground" />
-                <span className="tabular-nums">{profile.date || t('noDate')}</span>
-              </span>
+        actions={
+          (event.date?.sortval || place) && (
+            <HeroActions>
+              {event.date?.sortval ? (
+                <Button asChild size="sm">
+                  <Link to={`/timeline?event=${event.gramps_id}`}>
+                    <ChartGantt />
+                    {t('showOnTimeline')}
+                  </Link>
+                </Button>
+              ) : null}
               {place && (
-                <Link to={`/place/${place.gramps_id}`} className="inline-flex items-center gap-1.5 hover:underline">
-                  <MapPin className="size-4 text-muted-foreground" />
-                  {profile.place || profile.place_name || place.title}
-                </Link>
+                <Button asChild size="sm" variant="secondary">
+                  <Link to={`/place/${place.gramps_id}`}>
+                    <MapIcon />
+                    {profile.place_name || place.title || place.gramps_id}
+                  </Link>
+                </Button>
               )}
-            </div>
-            {event.description && <p className="max-w-prose text-muted-foreground">{event.description}</p>}
-          </div>
+            </HeroActions>
+          )
         }
-      />
+      >
+        <HeroFacts
+          className="max-lg:justify-items-center max-lg:text-center sm:max-lg:justify-center"
+          items={[
+            { label: t('album.when'), value: profile.date || t('noDate') },
+            placeName && {
+              label: t('album.where'),
+              value: place ? (
+                <Link to={`/place/${place.gramps_id}`} className="hover:underline">
+                  {profile.place_name || place.title}
+                </Link>
+              ) : (
+                placeName
+              ),
+              detail: profile.place && profile.place !== profile.place_name ? profile.place : undefined,
+            },
+          ]}
+        />
+        {faces.length > 0 && (
+          <div className="mt-6 flex items-center gap-3 max-lg:justify-center">
+            <FaceStack people={faces} portraits={portraits} ring="ring-background" moreHref="#participants" />
+            <span className="text-sm text-muted-foreground">{t('album.participants', { count: participantCount })}</span>
+          </div>
+        )}
+      </ObjectHero>
 
-      <SectionNav items={nav} />
-
-      <Columns
-        main={
+      <AlbumGrid
+        aside={
           <>
             {participantCount > 0 && (
-              <DetailSection id="participants" title={t('detail:sections.participants')} count={participantCount}>
-                <ul className="grid gap-1 sm:grid-cols-2">
+              <Panel id="participants" title={t('detail:sections.participants')} count={participantCount}>
+                <ul className="grid gap-0.5">
                   {people.map((p) => (
-                    <li key={p.person.handle}>
-                      <PersonChip person={p.person} mediaRef={portraits.get(p.person.handle)} note={p.role} size={44} />
+                    <li key={p.person.handle} className="min-w-0">
+                      <FaceRow person={p.person} portrait={portraits.get(p.person.handle)} note={p.role} />
                     </li>
                   ))}
                   {families.map((f) => (
-                    <li key={f.family.handle}>
+                    <li key={f.family.handle} className="min-w-0">
                       <FamilyChip family={f.family} role={f.role} portraits={portraits} />
                     </li>
                   ))}
                 </ul>
-              </DetailSection>
+              </Panel>
             )}
-
-            {notes.length > 0 && (
-              <DetailSection id="notes" title={t('detail:sections.notes')} count={notes.length}>
-                <NotesList handles={notes} />
-              </DetailSection>
+            {media.length > 0 && (
+              <Panel id="gallery" title={t('album.photosAndDocs')} count={media.length}>
+                <Gallery refs={media} media={ext.media} />
+              </Panel>
             )}
-
-            {cites.length > 0 && (
-              <DetailSection id="sources" title={t('detail:sections.sources')} count={cites.length}>
-                <CitationsList handles={cites} />
-              </DetailSection>
+            {event.attribute_list.length > 0 && (
+              <Panel id="facts" title={t('detail:sections.facts')}>
+                <FactsTable attributes={event.attribute_list} />
+              </Panel>
             )}
           </>
         }
-        aside={
+        main={
           <>
-            {ll && place && (
-              <DetailSection id="map" title={t('detail:sections.map')}>
-                <PlaceMap lat={ll[0]} lng={ll[1]} label={profile.place_name || place.title} zoom={9} />
-              </DetailSection>
+            {notes.length > 0 && (
+              <Panel id="notes" title={t('album.stories')} count={notes.length}>
+                <NotesList handles={notes} />
+              </Panel>
             )}
-            {media.length > 0 && (
-              <DetailSection id="gallery" title={t('detail:sections.gallery')} count={media.length}>
-                <Gallery refs={media} media={ext.media} />
-              </DetailSection>
-            )}
-            {event.attribute_list.length > 0 && (
-              <DetailSection id="facts" title={t('detail:sections.facts')}>
-                <FactsTable attributes={event.attribute_list} />
-              </DetailSection>
+            {cites.length > 0 && (
+              <Panel id="sources" title={t('detail:sections.sources')} count={cites.length}>
+                <CitationsList handles={cites} />
+              </Panel>
             )}
             {refs.length > 0 && (
-              <DetailSection id="references" title={t('detail:sections.references')} count={countRefs(refs)}>
+              <Panel id="references" title={t('detail:sections.references')} count={countRefs(refs)}>
                 <RichReferences groups={refs} />
-              </DetailSection>
+              </Panel>
             )}
             <ObjectHistory objClass="Event" handle={event.handle} lastChange={event.change} />
           </>
         }
       />
-    </PageFrame>
+    </AlbumFrame>
   )
 }
 
@@ -188,12 +193,12 @@ function FamilyChip({
   return (
     <Link
       to={`/family/${family.gramps_id}`}
-      className="flex min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
+      className="-mx-2 flex min-w-0 items-center gap-3 rounded-2xl px-2 py-1.5 outline-none transition-colors duration-150 hover:bg-accent focus-visible:bg-accent"
     >
       <span className="flex shrink-0 -space-x-3">
         {partners.length ? (
           partners.map((p) => (
-            <Portrait key={p.handle} mediaRef={portraits.get(p.handle)} name={profileName(p)} sex={p.sex} size={40} />
+            <Portrait key={p.handle} mediaRef={portraits.get(p.handle)} name={profileName(p)} sex={p.sex} size={40} className="ring-[3px] ring-card" />
           ))
         ) : (
           <span className="flex size-10 items-center justify-center rounded-full bg-secondary">
@@ -202,7 +207,7 @@ function FamilyChip({
         )}
       </span>
       <span className="min-w-0">
-        <span className="block truncate font-medium leading-tight">{familyTitle(family, t('unknown'))}</span>
+        <span className="block truncate text-[15px] font-semibold leading-tight">{familyTitle(family, t('unknown'))}</span>
         <span className="block truncate text-xs tabular-nums text-muted-foreground">
           {[role, family.relationship, marriage && !isEmpty(marriage) && marriage.date ? `⚭ ${marriage.date}` : '']
             .filter(Boolean)

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowLeft, ChevronRight, Dna, Network, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
@@ -15,7 +14,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useAuth } from '@/lib/auth'
-import { errorMessage, invalidateAfterWrite, undoTransaction } from '@/features/editor/lib'
+import { errorMessage } from '@/features/editor/lib'
+import { useUndoTransactionMutation } from '@/api/enhanced/objects'
+import type { TxEntry } from '@/api/enhanced/tags'
+import { toApiError } from '@/api/enhanced/editor'
 import { MatchDialog } from './match-dialog'
 import { DnaTabs, useDefaultPerson } from './dna-tabs'
 import { Button } from '@/components/ui/button'
@@ -177,7 +179,7 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
   )
   const current = matchId ? rows.find((r) => r.p?.gramps_id === matchId) : undefined
   const { can } = useAuth()
-  const qc = useQueryClient()
+  const [undo] = useUndoTransactionMutation()
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   // legend click shows one match alone (without leaving the overview)
@@ -194,8 +196,8 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
     setDeleting(false)
     const mName = profileName(current.p?.profile) || current.p?.gramps_id || ''
     try {
+      // matches and people refresh through the transaction's cache tags
       const tx = await deleteDnaMatch(person.handle, current.m)
-      invalidateAfterWrite(qc, ['person'])
       navigate(`/dna-matches/${person.gramps_id}`, { replace: true })
       toast.success(t('edit.deleted', { name: mName }), {
         duration: 10_000,
@@ -203,10 +205,9 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
           label: t('edit.undo'),
           onClick: async () => {
             try {
-              await undoTransaction(tx)
-              invalidateAfterWrite(qc, ['person'])
+              await undo(tx as unknown as TxEntry[]).unwrap()
             } catch (e) {
-              toast.error(t('edit.failed'), { description: errorMessage(e) })
+              toast.error(t('edit.failed'), { description: errorMessage(toApiError(e)) })
             }
           },
         },

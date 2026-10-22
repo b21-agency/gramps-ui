@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
+import { shallowEqual } from 'react-redux'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowDownUp, ArrowUp, Check, Columns3, FlaskConical, Loader2, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -32,14 +32,17 @@ import { Page } from '@/components/app-shell'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { searchQuery, useDebounced } from '@/components/command-search'
-import { ApiError, apiRaw, type Query } from '@/lib/api'
+import type { Query } from '@/lib/api'
+import { listsApi, useListPageQuery, type ListPageArg } from '@/api/enhanced/lists'
+import type { Page as RowsPage } from '@/api/enhanced/objects'
+import { useAppDispatch, useAppSelector } from '@/store'
 import { apiLocale } from '@/i18n'
 import { useAuth } from '@/lib/auth'
 import { useMetadata } from '@/lib/queries'
 import { usePref } from '@/lib/prefs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { kindIcon, objectPath } from '@/lib/objects'
-import { endpointOf, type ObjectKind, type SearchHit } from '@/lib/types'
+import { endpointOf, type ObjectKind } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
 import { cn } from '@/lib/utils'
 import { ActiveFilterPills, FilterChips, FilterSheetSections, activeFilterCount, type FilterDef } from './filters'
@@ -166,13 +169,16 @@ export function useListState(filters: FilterDef[]): ListState {
 /* ------------------------------------------------------------------ data source */
 
 export interface ListSource<T> {
+  /** identifies the result set (args of every page without `page`) */
   key: unknown[]
+  arg: Omit<ListPageArg, 'page'>
   pageSize: number
   /** 'search' = quick filter via the full-text index (relevance order) */
   mode: 'search' | 'rules'
   filtered: boolean
   effectiveSort: string | null
-  fetchPage: (page: number) => Promise<{ items: T[]; total: number }>
+  /** phantom: the row type */
+  _row?: T
 }
 
 /**
@@ -182,7 +188,6 @@ export interface ListSource<T> {
  */
 export function useListSource<T extends ListItem>(config: ListConfig<T>, state: ListState): ListSource<T> {
   const locale = apiLocale()
-  const endpoint = endpointOf[config.kind]
   const pageSize = config.pageSize ?? 100
   const filterRules = config.filters
     .map((f) => (state.filters[f.id] ? f.toRule(state.filters[f.id]!) : null))
@@ -198,76 +203,66 @@ export function useListSource<T extends ListItem>(config: ListConfig<T>, state: 
   const allRules = [...(text ? [text] : []), ...filterRules]
   const rules = allRules.length ? JSON.stringify(and(...allRules)) : undefined
   const listQuery: Query = { ...config.query, locale, sort: effectiveSort, rules, gql, pagesize: pageSize }
-
-  const fetchRules = async (page: number) => {
-    const r = await apiRaw<T[]>(`/${endpoint}/`, { query: { ...listQuery, page } })
-    return { items: r.data, total: r.total ?? r.data.length }
-  }
-  const fetchSearch = async (page: number) => {
-    try {
-      const r = await apiRaw<SearchHit[]>('/search/', {
-        query: {
-          query: searchQuery(q),
-          type: config.kind,
-          locale,
-          profile: config.searchProfile ?? 'self',
-          page,
-          pagesize: pageSize,
-        },
-      })
-      return { items: r.data.map((h) => h.object as unknown as T), total: r.total ?? r.data.length }
-    } catch (e) {
-      // no search index for this tree -> fall back to filter rules
-      if (e instanceof ApiError && e.status >= 500) return fetchRules(page)
-      throw e
-    }
-  }
-
+  const search: Query | null = useSearch
+    ? { query: searchQuery(q), type: config.kind, locale, profile: config.searchProfile ?? 'self', pagesize: pageSize }
+    : null
+  const arg: Omit<ListPageArg, 'page'> = { kind: config.kind, query: listQuery, search }
   return {
-    key: useSearch
-      ? ['list', endpoint, 'search', q, config.kind, config.searchProfile ?? 'self', locale, pageSize]
-      : ['list', endpoint, 'rules', listQuery],
+    key: [arg],
+    arg,
     pageSize,
     mode: useSearch ? 'search' : 'rules',
     filtered: !!q || filterRules.length > 0 || !!gql,
     effectiveSort,
-    fetchPage: useSearch ? fetchSearch : fetchRules,
   }
 }
 
 /** First page (also carries the total); keeps previous results while a new filter loads. */
 export function useFirstPage<T>(source: ListSource<T>) {
-  return useQuery({
-    queryKey: [...source.key, 0],
-    queryFn: () => source.fetchPage(1),
-    placeholderData: keepPreviousData,
-    staleTime: 30_000,
-  })
+  const r = useListPageQuery({ ...source.arg, page: 1 })
+  // RTK keeps `data` from the previous args while new ones load; `currentData` is only for these args
+  const isPlaceholderData = r.isFetching && r.currentData === undefined && r.data !== undefined
+  return {
+    ...r,
+    data: (r.isError ? r.currentData : r.data) as RowsPage<T> | undefined,
+    isPlaceholderData,
+  }
 }
 
-/** Further pages by index (0-based); returns a lookup for item i. */
+/**
+ * Further pages by index (0-based), fetched only while on screen: each visible page holds a
+ * subscription to its own `listPage` cache entry (so it refreshes after writes and is dropped
+ * after a while off screen). Returns a lookup for item i.
+ */
 export function usePages<T>(source: ListSource<T>, first: { items: T[] } | undefined, pages: number[]) {
-  const results = useQueries({
-    queries: pages
-      .filter((p) => p > 0)
-      .map((p) => ({
-        queryKey: [...source.key, p],
-        queryFn: () => source.fetchPage(p + 1),
-        staleTime: 30_000,
-      })),
-  })
+  const dispatch = useAppDispatch()
+  const wanted = pages.filter((p) => p > 0)
+  const wantedKey = wanted.join(',')
+  const argKey = JSON.stringify(source.arg)
+  useEffect(() => {
+    const subs = wanted.map((p) => dispatch(listsApi.endpoints.listPage.initiate({ ...source.arg, page: p + 1 })))
+    return () => subs.forEach((s) => s.unsubscribe())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, argKey, wantedKey])
+  // flat [items, fetching, items, fetching, …] so shallowEqual keeps renders to real changes
+  const flat = useAppSelector(
+    (state) =>
+      wanted.flatMap((p) => {
+        const e = listsApi.endpoints.listPage.select({ ...source.arg, page: p + 1 })(state)
+        return [e.data?.items, e.status === 'pending']
+      }),
+    shallowEqual,
+  )
   const byPage = new Map<number, T[]>()
   if (first) byPage.set(0, first.items)
-  pages
-    .filter((p) => p > 0)
-    .forEach((p, i) => {
-      const d = results[i]?.data
-      if (d) byPage.set(p, d.items)
-    })
+  wanted.forEach((p, i) => {
+    const items = flat[i * 2] as T[] | undefined
+    if (items) byPage.set(p, items)
+  })
   const size = source.pageSize
   return {
     getItem: (i: number): T | undefined => byPage.get(Math.floor(i / size))?.[i % size],
-    loading: results.some((r) => r.isFetching),
+    loading: wanted.some((_, i) => !!flat[i * 2 + 1]),
   }
 }
 

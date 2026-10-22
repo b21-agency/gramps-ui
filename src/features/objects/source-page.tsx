@@ -1,25 +1,24 @@
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { Landmark } from 'lucide-react'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { BookOpen, Landmark } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/states'
-import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectToolbar } from '@/components/detail/object-header'
+import { Panel } from '@/components/detail/panel'
 import { ObjectHistory } from '@/components/detail/object-history'
-import { DetailSection, FactsTable, Gallery, NotesList, SectionNav } from '@/components/detail/sections'
-import { api } from '@/lib/api'
+import { FactsTable, Gallery, NotesList } from '@/components/detail/sections'
+import { useGetObjectsByHandlesQuery } from '@/api/enhanced/objects'
 import { apiLocale } from '@/i18n'
 import { typeStr } from '@/lib/format'
 import { kindIcon, objectPath } from '@/lib/objects'
 import type { Source } from '@/lib/types'
+import { AlbumFrame, AlbumGrid, CoverVisual, glyphOf, ObjectHero, PhotoVisual } from './album'
 import {
-  Columns,
   ConfidenceMeter,
   countRefs,
   MetaList,
-  navItems,
   ObjectSkeleton,
-  PageFrame,
   referenceItems,
   refTitle,
   RichReferences,
@@ -53,70 +52,54 @@ export function SourcePage() {
   const media = source.media_list ?? []
   const notes = source.note_list ?? []
 
-  const nav = navItems([
-    citations.length > 0 && { id: 'citations', label: t('detail:sections.citations'), count: citations.length },
-    source.reporef_list.length > 0 && { id: 'repositories', label: t('detail:sections.repositories'), count: source.reporef_list.length },
-    notes.length > 0 && { id: 'notes', label: t('detail:sections.notes'), count: notes.length },
-    media.length > 0 && { id: 'gallery', label: t('detail:sections.gallery'), count: media.length },
-    source.attribute_list.length > 0 && { id: 'facts', label: t('detail:sections.facts') },
-    refs.length > 0 && { id: 'references', label: t('detail:sections.references'), count: countRefs(refs) },
-  ])
+  const visual = media.length ? (
+    <PhotoVisual refs={media} media={ext.media} label={t('album.openPhotos')} />
+  ) : (
+    <CoverVisual icon={BookOpen} glyph={glyphOf(source.abbrev || title)} label={t('common:object.source')} sub={source.gramps_id} />
+  )
 
   return (
-    <PageFrame>
+    <AlbumFrame>
       <ObjectToolbar kind="source" object={source} title={title} onSaved={() => q.refetch()} />
 
-      <ObjectTitle
-        title={<span className="font-serif">{title}</span>}
+      <ObjectHero
+        size={media.length ? 'portrait' : 'cover'}
+        visual={visual}
+        eyebrow={
+          citations.length > 0 && <p className="text-sm font-semibold text-brass">{t('album.citations', { count: citations.length })}</p>
+        }
+        title={title}
+        subtitle={source.author ? t('byAuthor', { author: source.author }) : undefined}
         tags={ext.tags}
-        subtitle={
-          <div className="space-y-3">
-            {source.author && <p className="text-lg text-foreground">{t('byAuthor', { author: source.author })}</p>}
-            <MetaList
-              rows={[
-                [t('pubinfo'), source.pubinfo],
-                [t('abbrev'), source.abbrev],
-              ]}
-            />
-          </div>
-        }
-      />
+      >
+        <MetaList
+          className="mt-6 max-w-2xl"
+          rows={[
+            [t('pubinfo'), source.pubinfo],
+            [t('abbrev'), source.abbrev],
+          ]}
+        />
+      </ObjectHero>
 
-      <SectionNav items={nav} />
-
-      <Columns
-        main={
-          <>
-            {citations.length > 0 && (
-              <DetailSection id="citations" title={t('detail:sections.citations')} count={citations.length}>
-                <SourceCitations citations={citations} dates={citationDates} />
-              </DetailSection>
-            )}
-            {notes.length > 0 && (
-              <DetailSection id="notes" title={t('detail:sections.notes')} count={notes.length}>
-                <NotesList handles={notes} />
-              </DetailSection>
-            )}
-          </>
-        }
+      <AlbumGrid
         aside={
           <>
             {source.reporef_list.length > 0 && (
-              <DetailSection id="repositories" title={t('detail:sections.repositories')} count={source.reporef_list.length}>
-                <ul className="space-y-3">
+              <Panel id="repositories" title={t('detail:sections.repositories')} count={source.reporef_list.length}>
+                <ul className="grid gap-0.5">
                   {source.reporef_list.map((r, i) => {
                     const repo = repos.get(r.ref)
                     return (
-                      <li key={`${r.ref}-${i}`}>
+                      <li key={`${r.ref}-${i}`} className="min-w-0">
                         <Link
                           to={repo ? `/repository/${repo.gramps_id}` : '#'}
-                          className="-mx-2 flex gap-3 rounded-lg px-2 py-1.5 hover:bg-accent"
+                          className="-mx-2 flex gap-3 rounded-2xl px-2 py-1.5 transition-colors duration-150 hover:bg-accent"
                         >
-                          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+                          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-brass">
                             <Landmark className="size-4" />
                           </span>
                           <span className="min-w-0">
-                            <span className="block font-medium leading-tight">{repo?.name ?? r.ref}</span>
+                            <span className="block text-[15px] font-semibold leading-tight">{repo?.name ?? r.ref}</span>
                             <span className="block text-xs text-muted-foreground">
                               {[repo && typeStr(repo.type), typeStr(r.media_type)].filter(Boolean).join(' · ')}
                             </span>
@@ -132,28 +115,42 @@ export function SourcePage() {
                     )
                   })}
                 </ul>
-              </DetailSection>
+              </Panel>
             )}
             {media.length > 0 && (
-              <DetailSection id="gallery" title={t('detail:sections.gallery')} count={media.length}>
+              <Panel id="gallery" title={t('album.photosAndDocs')} count={media.length}>
                 <Gallery refs={media} media={ext.media} />
-              </DetailSection>
+              </Panel>
             )}
             {source.attribute_list.length > 0 && (
-              <DetailSection id="facts" title={t('detail:sections.facts')}>
+              <Panel id="facts" title={t('detail:sections.facts')}>
                 <FactsTable attributes={source.attribute_list} />
-              </DetailSection>
+              </Panel>
             )}
             {refs.length > 0 && (
-              <DetailSection id="references" title={t('detail:sections.references')} count={countRefs(refs)}>
+              <Panel id="references" title={t('detail:sections.references')} count={countRefs(refs)}>
                 <RichReferences groups={refs} />
-              </DetailSection>
+              </Panel>
+            )}
+          </>
+        }
+        main={
+          <>
+            {citations.length > 0 && (
+              <Panel id="citations" title={t('detail:sections.citations')} count={citations.length}>
+                <SourceCitations citations={citations} dates={citationDates} />
+              </Panel>
+            )}
+            {notes.length > 0 && (
+              <Panel id="notes" title={t('album.stories')} count={notes.length}>
+                <NotesList handles={notes} />
+              </Panel>
             )}
             <ObjectHistory objClass="Source" handle={source.handle} lastChange={source.change} />
           </>
         }
       />
-    </PageFrame>
+    </AlbumFrame>
   )
 }
 
@@ -163,36 +160,32 @@ const PAGE = 20
 function SourceCitations({ citations, dates }: { citations: AnyObj[]; dates: Map<string, string> }) {
   const { shown, hidden, all, setAll } = useLimited(citations, PAGE)
   const handles = shown.map((c) => c.handle)
-  const { data, isLoading } = useQuery({
-    queryKey: ['citations', 'cited-by', handles, apiLocale()],
-    enabled: handles.length > 0,
-    staleTime: 60_000,
-    queryFn: () =>
-      api<Array<{ handle: string; profile?: AnyObj; extended?: { backlinks?: Record<string, AnyObj[]> } }>>('/citations/', {
-        query: {
-          handles: handles.join(','),
-          profile: 'references',
-          backlinks: true,
-          extend: 'backlinks',
-          keys: 'handle,profile,extended',
-          locale: apiLocale(),
-        },
-      }),
-  })
+  const r = useGetObjectsByHandlesQuery(
+    handles.length
+      ? {
+          kind: 'citation',
+          handles,
+          query: { profile: 'references', backlinks: true, extend: 'backlinks', keys: 'handle,profile,extended', locale: apiLocale() },
+        }
+      : skipToken,
+  )
+  const data = r.data as Array<{ handle: string; profile?: AnyObj; extended?: { backlinks?: Record<string, AnyObj[]> } }> | undefined
   const citedBy = new Map((data ?? []).map((c) => [c.handle, referenceItems(c.extended?.backlinks, c.profile?.references)]))
+  // rows revealed by "show all" are loading until their answer arrives (data keeps the previous rows meanwhile)
+  const isLoading = (h: string) => r.isLoading || (r.isFetching && !citedBy.has(h))
   return (
     <>
-      <ol className="divide-y">
+      <ol className="divide-y divide-border/60">
         {shown.map((c) => (
-          <li key={c.handle} className="py-2.5">
+          <li key={c.handle} className="py-3">
             <div className="flex items-baseline gap-3">
-              <Link to={`/citation/${c.gramps_id}`} className="min-w-0 flex-1 font-medium hover:underline">
+              <Link to={`/citation/${c.gramps_id}`} className="min-w-0 flex-1 text-[15px] font-semibold [overflow-wrap:anywhere] hover:underline">
                 {c.page || c.gramps_id}
               </Link>
               {dates.get(c.handle) && <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{dates.get(c.handle)}</span>}
               <ConfidenceMeter value={c.confidence} compact className="hidden shrink-0 sm:inline-flex" />
             </div>
-            <CitedBy groups={citedBy.get(c.handle)} loading={isLoading} />
+            <CitedBy groups={citedBy.get(c.handle)} loading={isLoading(c.handle)} />
           </li>
         ))}
       </ol>

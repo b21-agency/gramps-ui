@@ -1,15 +1,16 @@
 // Background jobs of this tree (GET /api/tasks/): what is running now and what finished
 // recently, with the outcome and who started it. The server keeps this list, so unlike the
 // classic in-memory log it survives reloads and shows jobs started on other devices.
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { Bell, CircleAlert, CircleCheck, Copy, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Page } from '@/components/app-shell'
+import { Panel } from '@/components/detail/panel'
+import { cn } from '@/lib/utils'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
-import { api } from '@/lib/api'
+import { api as tasksApi, useGetTaskQuery, useGetTasksQuery } from '@/api/tasks-api-slice.gen'
 import { timeAgo } from '@/lib/format'
 import { useTitle } from '@/hooks/use-title'
 import { toast } from 'sonner'
@@ -50,14 +51,16 @@ const shortName = (n: string) => n.split('.').pop() ?? n
 const ts = (v?: string) => (v ? Date.parse(/(Z|[+-]\d\d:?\d\d)$/i.test(v) ? v : `${v}Z`) / 1000 : 0)
 
 export function useServerTasks() {
-  return useQuery({
-    queryKey: ['tasks', 'server'],
-    queryFn: async () =>
-      (await api<ServerTask[]>('/tasks/', { query: { include_state: true } })).filter((t) =>
-        (taskKinds as readonly string[]).includes(shortName(t.name)),
-      ),
-    refetchInterval: (q) => (q.state.data?.some((t) => !TERMINAL.has(t.state)) ? 2000 : 30_000),
-  })
+  const arg = { includeState: true }
+  // poll fast while something runs, slowly otherwise
+  const cached = tasksApi.endpoints.getTasks.useQueryState(arg)
+  const active = (cached.data as ServerTask[] | undefined)?.some((t) => !TERMINAL.has(t.state))
+  const r = useGetTasksQuery(arg, { pollingInterval: active ? 2000 : 30_000 })
+  const data = useMemo(
+    () => (r.data as ServerTask[] | undefined)?.filter((t) => (taskKinds as readonly string[]).includes(shortName(t.name))),
+    [r.data],
+  )
+  return { ...r, data }
 }
 
 export function NotificationsPage() {
@@ -78,18 +81,19 @@ export function NotificationsPage() {
         <button
           type="button"
           onClick={() => setDetail(x)}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent"
+          className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-2xl px-2 py-2 text-left outline-none transition-colors duration-150 hover:bg-accent focus-visible:bg-accent sm:gap-4"
         >
-          {isRunning ? (
-            <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
-          ) : ok ? (
-            <CircleCheck className="size-4 shrink-0 text-primary" />
-          ) : (
-            <CircleAlert className="size-4 shrink-0 text-destructive" />
-          )}
+          <span
+            className={cn(
+              'flex size-11 shrink-0 items-center justify-center rounded-full',
+              ok || isRunning ? 'bg-brass/15 text-brass' : 'bg-destructive/15 text-destructive',
+            )}
+          >
+            {isRunning ? <Loader2 className="size-5 animate-spin" /> : ok ? <CircleCheck className="size-5" /> : <CircleAlert className="size-5" />}
+          </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate">{label(x)}</span>
-            <span className="block truncate text-xs text-muted-foreground">
+            <span className="block truncate text-[15px] font-semibold">{label(x)}</span>
+            <span className="block truncate text-sm text-muted-foreground">
               {[
                 isRunning ? t('notifications.running') : ok ? t('notifications.succeeded') : t('notifications.failed'),
                 x.created_at && timeAgo(ts(x.created_at), i18n.language),
@@ -105,43 +109,45 @@ export function NotificationsPage() {
   }
 
   return (
-    <Page title={t('notifications.title')} description={t('notifications.description')}>
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <header className="mb-8">
+        <h1 className="font-serif text-[2.6rem] font-medium leading-[1] tracking-[-0.02em] sm:text-6xl">{t('notifications.title')}</h1>
+        <p className="mt-3 text-lg text-muted-foreground">{t('notifications.description')}</p>
+      </header>
       {q.isError ? (
-        <ErrorState error={q.error} onRetry={() => q.refetch()} />
+        <ErrorState error={q.error} onRetry={() => q.refetch()} className="rounded-3xl bg-card" />
       ) : q.isLoading ? (
-        <RowsSkeleton rows={5} />
+        <div className="rounded-3xl bg-card p-5 sm:p-6">
+          <RowsSkeleton rows={5} />
+        </div>
       ) : !tasks.length ? (
-        <EmptyState icon={Bell} title={t('notifications.empty')}>
+        <EmptyState icon={Bell} title={t('notifications.empty')} className="rounded-3xl bg-card py-20">
           {t('notifications.emptyHint')}
         </EmptyState>
       ) : (
-        <div className="grid max-w-3xl gap-8">
+        <div className="grid gap-6">
           {!!running.length && (
-            <section>
-              <h2 className="mb-2 text-xl font-medium">{t('notifications.runningTitle')}</h2>
-              <ul className="divide-y overflow-hidden rounded-xl border bg-card">{running.map(row)}</ul>
-            </section>
+            <Panel title={t('notifications.runningTitle')} count={running.length}>
+              <ul className="grid gap-0.5 [&>li]:min-w-0">{running.map(row)}</ul>
+            </Panel>
           )}
           {!!done.length && (
-            <section>
-              <h2 className="mb-2 text-xl font-medium">{t('notifications.recentTitle')}</h2>
-              <ul className="divide-y overflow-hidden rounded-xl border bg-card">{done.map(row)}</ul>
-            </section>
+            <Panel title={t('notifications.recentTitle')} count={done.length}>
+              <ul className="grid gap-x-6 gap-y-0.5 md:grid-cols-2 [&>li]:min-w-0">{done.map(row)}</ul>
+            </Panel>
           )}
         </div>
       )}
       <TaskDetail task={detail} label={detail ? label(detail) : ''} onClose={() => setDetail(null)} />
-    </Page>
+    </div>
   )
 }
 
 function TaskDetail({ task, label, onClose }: { task: ServerTask | null; label: string; onClose: () => void }) {
   const { t, i18n } = useTranslation('help')
-  const q = useQuery({
-    queryKey: ['tasks', 'detail', task?.task_id],
-    enabled: !!task,
-    queryFn: () => api<Record<string, unknown>>(`/tasks/${task!.task_id}`),
-  })
+  const r = useGetTaskQuery(task ? { taskId: task.task_id } : skipToken)
+  // never show the previously opened task's details while the next one loads
+  const q = { ...r, data: r.currentData as Record<string, unknown> | undefined, isLoading: r.isFetching && !r.currentData }
   const info = q.data?.info ?? q.data?.result
   const text = typeof info === 'string' ? info : info != null ? JSON.stringify(info, null, 2) : ''
   return (

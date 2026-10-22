@@ -25,6 +25,7 @@ export default {
   previous: 'Zurück',
   next: 'Weiter',
   help: {
+    tryOne: 'Tippe auf ein Beispiel oder gib einen Namen, Ort oder ein Wort ein.',
     title: 'Das ganze Archiv durchsuchen',
     intro: 'Findet Personen, Familien, Ereignisse, Orte, Quellen, Notizen und Medien. Wörter werden ab ihrem Anfang verglichen.',
     word: 'alle Einträge, die das Wort enthalten',

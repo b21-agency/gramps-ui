@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { History, Trash2, X } from 'lucide-react'
+import { History, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -14,10 +13,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Page } from '@/components/app-shell'
+import { Panel } from '@/components/detail/panel'
+import { ObjectRow, ObjectThumb } from '@/components/object-thumb'
+import { usePortraits } from '@/hooks/use-portraits'
 import { EmptyState } from '@/components/states'
 import { useRecent } from '@/lib/prefs'
-import { kindIcon, objectPath } from '@/lib/objects'
+import { objectPath } from '@/lib/objects'
 import { useTitle } from '@/hooks/use-title'
 
 function dayKey(ms: number) {
@@ -52,6 +53,9 @@ export function RecentPage() {
     g.items.push(item)
   }
 
+  // faces for the people in the history (one request)
+  const portraits = usePortraits(list.filter((r) => r.kind === 'person').map((r) => r.handle))
+
   const clear = () => {
     const prev = list
     setList([])
@@ -59,59 +63,43 @@ export function RecentPage() {
   }
 
   return (
-    <Page
-      title={t('recent.title')}
-      description={list.length ? t('recent.description') : undefined}
-      actions={
-        list.length > 0 && (
-          <Button variant="outline" onClick={() => setConfirm(true)}>
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="font-serif text-[2.6rem] font-medium leading-[1] tracking-[-0.02em] sm:text-6xl">{t('recent.title')}</h1>
+          {list.length > 0 && <p className="mt-3 text-lg text-muted-foreground">{t('recent.description')}</p>}
+        </div>
+        {list.length > 0 && (
+          <Button variant="secondary" className="h-11 rounded-full px-5 sm:h-10" onClick={() => setConfirm(true)}>
             <Trash2 />
             {t('recent.clear')}
           </Button>
-        )
-      }
-    >
+        )}
+      </header>
       {!list.length ? (
-        <EmptyState icon={History} title={t('recent.empty.title')}>
+        <EmptyState icon={History} title={t('recent.empty.title')} className="rounded-3xl bg-card py-20">
           {t('recent.empty.body')}
         </EmptyState>
       ) : (
-        <div className="max-w-3xl space-y-8">
+        <div className="grid gap-6">
           {groups.map((g) => (
-            <section key={g.key}>
-              <h2 className="mb-2 border-b pb-2 text-xl font-medium">{g.label}</h2>
-              <ul className="-mx-2">
-                {g.items.map((r) => {
-                  const Icon = kindIcon[r.kind] ?? History
-                  return (
-                    <li key={r.handle} className="group flex items-center gap-1 rounded-lg hover:bg-accent">
-                      <Link to={objectPath(r.kind, r.gramps_id)} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-                          <Icon className="size-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate">{r.title || r.gramps_id}</span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {t(`common:object.${r.kind}`)} · <span className="tabular-nums">{r.gramps_id}</span>
-                          </span>
-                        </span>
-                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{timeFmt.format(r.at)}</span>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="mr-1 text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-                        aria-label={t('recent.removeOne')}
-                        title={t('recent.removeOne')}
-                        onClick={() => setList((prev) => prev.filter((x) => x.handle !== r.handle))}
-                      >
-                        <X />
-                      </Button>
-                    </li>
-                  )
-                })}
+            <Panel key={g.key} title={g.label} count={g.items.length}>
+              <ul className="-mx-2 grid gap-x-4 gap-y-0.5 md:grid-cols-2">
+                {g.items.map((r) => (
+                  <li key={r.handle} className="min-w-0">
+                    <ObjectRow
+                      to={objectPath(r.kind, r.gramps_id)}
+                      thumb={<ObjectThumb kind={r.kind} handle={r.handle} mediaRef={portraits.get(r.handle)} name={r.title || r.gramps_id} size={48} />}
+                      title={r.title || r.gramps_id}
+                      subtitle={`${t(`common:object.${r.kind}`)} · ${r.gramps_id}`}
+                      meta={timeFmt.format(r.at)}
+                      onRemove={() => setList((prev) => prev.filter((x) => x.handle !== r.handle))}
+                      removeLabel={t('recent.removeOne')}
+                    />
+                  </li>
+                ))}
               </ul>
-            </section>
+            </Panel>
           ))}
         </div>
       )}
@@ -130,6 +118,6 @@ export function RecentPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Page>
+    </div>
   )
 }

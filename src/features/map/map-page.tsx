@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useGetPersonTimelineQuery } from '@/api/people-api-slice.gen'
 import { toast } from 'sonner'
 import { ArrowLeft, CalendarRange, List, Loader2, MapPinOff, Route, Search, X } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
@@ -13,7 +14,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ObjectPicker } from '@/components/object-picker'
 import { PersonChip } from '@/components/person-chip'
 import { ErrorState } from '@/components/states'
-import { api } from '@/lib/api'
 import { apiLocale } from '@/i18n'
 import { useObjectById } from '@/lib/queries'
 import { getPref, usePref } from '@/lib/prefs'
@@ -514,14 +514,8 @@ function usePersonLife(personId: string | null, byHandle: Map<string, PlacePoint
     profile: 'self',
   })
   const handle = personQ.data?.handle
-  const tl = useQuery({
-    queryKey: ['people', handle, 'timeline', 'self', apiLocale()],
-    enabled: !!handle,
-    queryFn: () =>
-      api<TimelineItem[]>(`/people/${handle}/timeline`, {
-        query: { locale: apiLocale(), discard_empty: false, precision: 1 },
-      }),
-  })
+  const tlQ = useGetPersonTimelineQuery(handle ? { handle, locale: apiLocale(), discardEmpty: false, precision: 1 } : skipToken)
+  const tl = { ...tlQ, data: tlQ.data as unknown as TimelineItem[] | undefined }
 
   return useMemo(() => {
     const own = (tl.data ?? []).filter((i) => i.person?.relationship === 'self')
@@ -555,8 +549,9 @@ function usePersonLife(personId: string | null, byHandle: Map<string, PlacePoint
       loading: personQ.isLoading || tl.isLoading,
       error: personQ.error ?? tl.error,
       refetch: () => {
-        personQ.refetch()
-        tl.refetch()
+        // refetch() throws on a skipped query
+        if (personId) personQ.refetch()
+        if (handle) tl.refetch()
       },
       person: personQ.data,
       entries,
@@ -565,7 +560,7 @@ function usePersonLife(personId: string | null, byHandle: Map<string, PlacePoint
       points,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tl.data, tl.isLoading, tl.error, personQ.data, personQ.isLoading, personQ.error, byHandle, handle])
+  }, [tl.data, tl.isLoading, tl.error, personQ.data, personQ.isLoading, personQ.error, byHandle, handle, personId])
 }
 
 function LifePanel({ life, onFocus, onClose }: { life: Life; onFocus: (h: string) => void; onClose: () => void }) {

@@ -1,20 +1,19 @@
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Map as MapIcon } from 'lucide-react'
+import { ChevronRight, Map as MapIcon, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/states'
-import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectToolbar } from '@/components/detail/object-header'
 import { ObjectHistory } from '@/components/detail/object-history'
-import { CitationsList, DetailSection, FactsTable, Gallery, NotesList, SectionNav } from '@/components/detail/sections'
-import { typeStr } from '@/lib/format'
+import { Panel } from '@/components/detail/panel'
+import { CitationsList, FactsTable, Gallery, NotesList } from '@/components/detail/sections'
+import { typeStr, yearOf } from '@/lib/format'
 import type { EventProfile, Place } from '@/lib/types'
 import { coords, PlaceMap } from './place-map'
+import { AlbumFrame, AlbumGrid, CoverVisual, glyphOf, HeroActions, ObjectHero, PhotoVisual, YearTimeline, type TimelineEntry } from './album'
 import {
-  Columns,
   countRefs,
-  navItems,
   ObjectSkeleton,
-  PageFrame,
   referenceItems,
   RichReferences,
   ShowMore,
@@ -43,6 +42,7 @@ export function PlacePage() {
   const backlinks = (ext.backlinks ?? {}) as Record<string, AnyObj[]>
   const references = profile.references ?? {}
   const ll = place.lat && place.long ? coords(profile.lat ?? place.lat, profile.long ?? place.long) : null
+  const type = profile.type || typeStr(place.place_type)
 
   // parent chain: profile.parent_places goes from the direct parent up to the root
   const parents = [...(profile.parent_places ?? [])].reverse()
@@ -61,148 +61,175 @@ export function PlacePage() {
   const events = evRaw
     .map((raw, i) => ({ raw, profile: (evProf.length === evRaw.length ? evProf[i] : undefined) as EventProfile | undefined }))
     .sort((a, b) => (a.raw.date?.sortval || Infinity) - (b.raw.date?.sortval || Infinity))
+  const entries: TimelineEntry[] = events.map(({ raw, profile: p }) => {
+    const names = summaryNames(p?.summary)
+    return {
+      key: raw.handle,
+      year: yearOf(p?.date),
+      date: p?.date ?? '',
+      title: (
+        <>
+          {p?.type || typeStr(raw.type)}
+          {names && <span className="font-normal"> · {names}</span>}
+        </>
+      ),
+      detail: raw.description && !/^\S+ (of|von) /.test(raw.description) ? raw.description : undefined,
+      to: `/event/${raw.gramps_id}`,
+    }
+  })
 
   const refs = referenceItems(backlinks, references, ['place', 'event'])
   const media = place.media_list ?? []
   const notes = place.note_list ?? []
   const cites = place.citation_list ?? []
 
-  const nav = navItems([
-    events.length > 0 && { id: 'events', label: t('detail:sections.events'), count: events.length },
-    enclosed.length > 0 && { id: 'enclosed', label: t('detail:sections.enclosed'), count: enclosed.length },
-    !!ll && { id: 'map', label: t('detail:sections.map') },
-    altNames.length > 0 && { id: 'names', label: t('detail:sections.altNames'), count: altNames.length },
-    media.length > 0 && { id: 'gallery', label: t('detail:sections.gallery'), count: media.length },
-    notes.length > 0 && { id: 'notes', label: t('detail:sections.notes'), count: notes.length },
-    cites.length > 0 && { id: 'sources', label: t('detail:sections.sources'), count: cites.length },
-    place.urls.length > 0 && { id: 'facts', label: t('detail:sections.facts') },
-    refs.length > 0 && { id: 'references', label: t('detail:sections.references'), count: countRefs(refs) },
-  ])
+  const visual = ll ? (
+    <PlaceMap hero lat={ll[0]} lng={ll[1]} label={title} zoom={zoomFor(type)} />
+  ) : media.length ? (
+    <PhotoVisual refs={media} media={ext.media} label={t('album.openPhotos')} />
+  ) : (
+    <CoverVisual icon={MapPin} glyph={glyphOf(title)} label={type || t('common:object.place')} sub={place.gramps_id} />
+  )
+
+  const years = entries.map((e) => e.year).filter((y): y is number => y != null)
+  const meta = [
+    type,
+    place.code,
+    place.title && place.title !== title ? place.title : '',
+    events.length ? t('album.eventsHere', { count: events.length }) + (years.length > 1 ? ` · ${Math.min(...years)}–${Math.max(...years)}` : '') : '',
+    enclosed.length ? t('album.placesWithin', { count: enclosed.length }) : '',
+  ].filter(Boolean)
 
   return (
-    <PageFrame>
+    <AlbumFrame>
       <ObjectToolbar kind="place" object={place} title={title} onSaved={() => q.refetch()} />
 
-      {parents.length > 0 && (
-        <nav aria-label={t('detail:sections.hierarchy')} className="-mt-1 mb-2">
-          <ol className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-sm text-muted-foreground">
-            {parents.map((p) => (
-              <li key={p.gramps_id} className="inline-flex items-center gap-1">
-                <Link to={`/place/${p.gramps_id}`} className="hover:text-foreground hover:underline" title={p.type}>
-                  {p.name}
-                </Link>
-                <ChevronRight className="size-3.5 opacity-60" aria-hidden />
-              </li>
-            ))}
-          </ol>
-        </nav>
-      )}
-      {showDirect && (
-        <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground" aria-label={t('detail:sections.hierarchy')}>
-          {directParents.map((d, i) => (
-            <li key={`${d.place.gramps_id}-${i}`}>
-              <span>{t('detail:sections.hierarchy')} </span>
-              <Link to={`/place/${d.place.gramps_id}`} className="text-foreground hover:underline" title={d.place.type}>
-                {d.place.name}
-              </Link>
-              {d.date_str && <span className="tabular-nums"> · {d.date_str}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <ObjectTitle
-        title={title}
-        tags={ext.tags}
-        subtitle={
-          <span className="flex flex-wrap gap-x-3">
-            {(profile.type || typeStr(place.place_type)) && <span>{profile.type || typeStr(place.place_type)}</span>}
-            {place.code && <span className="tabular-nums">{place.code}</span>}
-            {place.title && place.title !== title && <span>{place.title}</span>}
-          </span>
-        }
-        aside={
-          ll ? (
-            <Button asChild size="sm" variant="outline" className="self-start">
-              <Link to={`/map?place=${place.gramps_id}`}>
-                <MapIcon />
-                {t('openInMap')}
-              </Link>
-            </Button>
-          ) : undefined
-        }
-      />
-
-      <SectionNav items={nav} />
-
-      <Columns
-        main={
-          <>
-            {events.length > 0 && (
-              <DetailSection id="events" title={t('detail:sections.events')} count={events.length}>
-                <PlaceEvents events={events} />
-              </DetailSection>
-            )}
-
-            {enclosed.length > 0 && (
-              <DetailSection id="enclosed" title={t('detail:sections.enclosed')} count={enclosed.length}>
-                <EnclosedPlaces places={enclosed} />
-              </DetailSection>
-            )}
-
-            {notes.length > 0 && (
-              <DetailSection id="notes" title={t('detail:sections.notes')} count={notes.length}>
-                <NotesList handles={notes} />
-              </DetailSection>
-            )}
-
-            {cites.length > 0 && (
-              <DetailSection id="sources" title={t('detail:sections.sources')} count={cites.length}>
-                <CitationsList handles={cites} />
-              </DetailSection>
-            )}
-          </>
-        }
-        aside={
-          <>
-            {ll && (
-              <DetailSection id="map" title={t('detail:sections.map')}>
-                <PlaceMap lat={ll[0]} lng={ll[1]} label={title} zoom={zoomFor(profile.type || typeStr(place.place_type))} />
-              </DetailSection>
-            )}
-            {altNames.length > 0 && (
-              <DetailSection id="names" title={t('detail:sections.altNames')} count={altNames.length}>
-                <ul className="space-y-1.5 text-sm">
-                  {altNames.map((a, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="font-medium">{a.value}</span>
-                      {a.date_str && <span className="tabular-nums text-muted-foreground">{a.date_str}</span>}
-                      {place.alt_names[i]?.lang && <span className="text-muted-foreground">({place.alt_names[i].lang})</span>}
+      <ObjectHero
+        size={ll ? 'wide' : media.length ? 'portrait' : 'cover'}
+        visual={visual}
+        eyebrow={
+          (parents.length > 0 || showDirect) && (
+            <>
+              {parents.length > 0 && (
+                <nav aria-label={t('detail:sections.hierarchy')}>
+                  <ol className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-sm font-semibold text-brass max-lg:justify-center">
+                    {parents.map((p, i) => (
+                      <li key={p.gramps_id} className="inline-flex items-center gap-1">
+                        {i > 0 && <ChevronRight className="size-3.5 opacity-60" aria-hidden />}
+                        <Link to={`/place/${p.gramps_id}`} className="hover:underline" title={p.type}>
+                          {p.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              )}
+              {showDirect && (
+                <ul
+                  className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground max-lg:justify-center"
+                  aria-label={t('detail:sections.hierarchy')}
+                >
+                  {directParents.map((d, i) => (
+                    <li key={`${d.place.gramps_id}-${i}`}>
+                      <span>{t('detail:sections.hierarchy')} </span>
+                      <Link to={`/place/${d.place.gramps_id}`} className="text-foreground hover:underline" title={d.place.type}>
+                        {d.place.name}
+                      </Link>
+                      {d.date_str && <span className="tabular-nums"> · {d.date_str}</span>}
                     </li>
                   ))}
                 </ul>
-              </DetailSection>
+              )}
+            </>
+          )
+        }
+        title={title}
+        tags={ext.tags}
+        actions={
+          ll ? (
+            <HeroActions>
+              <Button asChild size="sm">
+                <Link to={`/map?place=${place.gramps_id}`}>
+                  <MapIcon />
+                  {t('openInMap')}
+                </Link>
+              </Button>
+            </HeroActions>
+          ) : undefined
+        }
+      >
+        {meta.length > 0 && (
+          <p className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground tabular-nums max-lg:justify-center max-lg:text-center">
+            {meta.map((m, i) => (
+              <span key={i}>
+                {i > 0 && <span className="mr-3 opacity-50">·</span>}
+                {m}
+              </span>
+            ))}
+          </p>
+        )}
+      </ObjectHero>
+
+      <AlbumGrid
+        aside={
+          <>
+            {enclosed.length > 0 && (
+              <Panel id="enclosed" title={t('detail:sections.enclosed')} count={enclosed.length}>
+                <EnclosedPlaces places={enclosed} />
+              </Panel>
+            )}
+            {altNames.length > 0 && (
+              <Panel id="names" title={t('detail:sections.altNames')} count={altNames.length}>
+                <ul className="space-y-2 text-sm">
+                  {altNames.map((a, i) => (
+                    <li key={i} className="flex flex-wrap gap-x-2">
+                      <span className="font-serif text-lg leading-tight">{a.value}</span>
+                      {a.date_str && <span className="self-end tabular-nums text-muted-foreground">{a.date_str}</span>}
+                      {place.alt_names[i]?.lang && <span className="self-end text-muted-foreground">({place.alt_names[i].lang})</span>}
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
             )}
             {media.length > 0 && (
-              <DetailSection id="gallery" title={t('detail:sections.gallery')} count={media.length}>
+              <Panel id="gallery" title={t('album.photosAndDocs')} count={media.length}>
                 <Gallery refs={media} media={ext.media} />
-              </DetailSection>
+              </Panel>
             )}
             {place.urls.length > 0 && (
-              <DetailSection id="facts" title={t('detail:sections.facts')}>
+              <Panel id="facts" title={t('detail:sections.facts')}>
                 <FactsTable urls={place.urls} />
-              </DetailSection>
+              </Panel>
             )}
             {refs.length > 0 && (
-              <DetailSection id="references" title={t('detail:sections.references')} count={countRefs(refs)}>
+              <Panel id="references" title={t('detail:sections.references')} count={countRefs(refs)}>
                 <RichReferences groups={refs} />
-              </DetailSection>
+              </Panel>
+            )}
+          </>
+        }
+        main={
+          <>
+            {events.length > 0 && (
+              <Panel id="events" title={t('album.happenedHere')} count={events.length}>
+                <YearTimeline entries={entries} limit={25} />
+              </Panel>
+            )}
+            {notes.length > 0 && (
+              <Panel id="notes" title={t('album.stories')} count={notes.length}>
+                <NotesList handles={notes} />
+              </Panel>
+            )}
+            {cites.length > 0 && (
+              <Panel id="sources" title={t('detail:sections.sources')} count={cites.length}>
+                <CitationsList handles={cites} />
+              </Panel>
             )}
             <ObjectHistory objClass="Place" handle={place.handle} lastChange={place.change} />
           </>
         }
       />
-    </PageFrame>
+    </AlbumFrame>
   )
 }
 
@@ -215,44 +242,24 @@ function zoomFor(type: string) {
   return 11
 }
 
-function PlaceEvents({ events }: { events: Array<{ raw: AnyObj; profile?: EventProfile }> }) {
-  const { shown, hidden, all, setAll } = useLimited(events, 25)
-  return (
-    <>
-      <ol className="divide-y">
-        {shown.map(({ raw, profile }) => {
-          const names = summaryNames(profile?.summary)
-          return (
-            <li key={raw.handle}>
-              <Link to={`/event/${raw.gramps_id}`} className="-mx-2 flex items-baseline gap-4 rounded-md px-2 py-2.5 hover:bg-accent">
-                <span className="w-28 shrink-0 text-sm tabular-nums text-muted-foreground sm:w-36">{profile?.date || '—'}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">
-                    {profile?.type || typeStr(raw.type)}
-                    {names && <span className="font-normal"> · {names}</span>}
-                  </span>
-                  {raw.description && <span className="block truncate text-sm text-muted-foreground">{raw.description}</span>}
-                </span>
-              </Link>
-            </li>
-          )
-        })}
-      </ol>
-      <ShowMore hidden={hidden} all={all} onToggle={() => setAll(!all)} />
-    </>
-  )
-}
-
 function EnclosedPlaces({ places }: { places: AnyObj[] }) {
   const { shown, hidden, all, setAll } = useLimited(places, 40)
   return (
     <>
-      <ul className="grid gap-x-6 sm:grid-cols-2">
+      <ul className="grid gap-0.5">
         {shown.map((p) => (
-          <li key={p.handle}>
-            <Link to={`/place/${p.gramps_id}`} className="-mx-2 flex items-baseline gap-2 rounded-md px-2 py-1.5 hover:bg-accent">
-              <span className="min-w-0 truncate font-medium">{p.name?.value || p.title || p.gramps_id}</span>
-              <span className="shrink-0 text-xs text-muted-foreground">{typeStr(p.place_type)}</span>
+          <li key={p.handle} className="min-w-0">
+            <Link
+              to={`/place/${p.gramps_id}`}
+              className="-mx-2 flex items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors duration-150 hover:bg-accent"
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+                <MapPin className="size-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[15px] font-semibold">{p.name?.value || p.title || p.gramps_id}</span>
+                <span className="block truncate text-xs text-muted-foreground">{typeStr(p.place_type)}</span>
+              </span>
             </Link>
           </li>
         ))}

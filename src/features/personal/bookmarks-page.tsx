@@ -1,19 +1,20 @@
-import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQueries } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
-import { Bookmark, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Page } from '@/components/app-shell'
+import { Bookmark } from 'lucide-react'
+import { Panel } from '@/components/detail/panel'
+import { ObjectRow, ObjectThumb } from '@/components/object-thumb'
+import { Portrait } from '@/components/portrait'
+import { usePortraits } from '@/hooks/use-portraits'
+import { profileName } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/states'
 import { useBookmarks, type ObjectRefLite } from '@/lib/prefs'
-import { describeObject, kindIcon, objectPath } from '@/lib/objects'
-import { endpointOf, type ObjectKind } from '@/lib/types'
-import { api, ApiError } from '@/lib/api'
+import { describeObject, objectPath } from '@/lib/objects'
+import type { MediaRef, ObjectKind } from '@/lib/types'
+import { useGetObjectsMixedQuery } from '@/api/enhanced/shared'
 import { apiLocale } from '@/i18n'
 import { useTitle } from '@/hooks/use-title'
-import { cn } from '@/lib/utils'
 
 const kindOrder: ObjectKind[] = ['person', 'family', 'event', 'place', 'media', 'source', 'citation', 'repository', 'note']
 
@@ -40,83 +41,90 @@ export function BookmarksPage() {
   }
 
   // current title/subtitle of each bookmark (names change, objects get deleted)
-  const fresh = useQueries({
-    queries: list.map((b) => ({
-      queryKey: [endpointOf[b.kind], 'handle', b.handle, { profile: 'self', locale: apiLocale() }],
-      queryFn: () => api<Record<string, unknown>>(`/${endpointOf[b.kind]}/${b.handle}`, { query: { profile: 'self', locale: apiLocale() } }),
-      staleTime: 60_000,
-      retry: false,
-    })),
-  })
+  // one request per kind; an object the server no longer returns was deleted
+  const fresh = useGetObjectsMixedQuery(
+    list.length
+      ? { refs: list.map((b) => ({ kind: b.kind, handle: b.handle })), query: { profile: 'self', locale: apiLocale() } }
+      : skipToken,
+  )
+  // `data` may be the previous list's answer while a changed list loads; only call
+  // something missing from the answer for the current list
+  const current = fresh.currentData
   const info = new Map(
-    list.map((b, i) => {
-      const q = fresh[i]
-      const d = q?.data ? describeObject(b.kind, q.data) : null
-      return [b.handle, { title: d?.title, subtitle: d?.subtitle, missing: q?.error instanceof ApiError && q.error.status === 404 }]
+    list.map((b) => {
+      const o = fresh.data?.[b.handle]
+      const d = o ? describeObject(b.kind, o) : null
+      return [b.handle, { title: d?.title, subtitle: d?.subtitle, missing: !!current && !current[b.handle] }]
     }),
   )
+
+  // families show the couple's faces
+  type Couple = { father?: { handle?: string; sex?: string } & Record<string, unknown>; mother?: { handle?: string; sex?: string } & Record<string, unknown> }
+  const coupleOf = (handle: string) => {
+    const p = (fresh.data?.[handle] as { profile?: Couple } | undefined)?.profile
+    return [p?.father, p?.mother].filter((x): x is NonNullable<Couple['father']> => !!x?.handle)
+  }
+  const portraits = usePortraits(list.filter((b) => b.kind === 'family').flatMap((b) => coupleOf(b.handle).map((x) => x.handle!)))
 
   const groups = kindOrder
     .map((kind) => ({ kind, items: list.filter((b) => b.kind === kind) }))
     .filter((g) => g.items.length)
 
   return (
-    <Page title={t('bookmarks.title')} description={list.length ? t('bookmarks.description') : undefined}>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <header className="mb-8">
+        <h1 className="font-serif text-[2.6rem] font-medium leading-[1] tracking-[-0.02em] sm:text-6xl">{t('bookmarks.title')}</h1>
+        {list.length > 0 && <p className="mt-3 text-lg text-muted-foreground">{t('bookmarks.description')}</p>}
+      </header>
       {!list.length ? (
-        <EmptyState icon={Bookmark} title={t('bookmarks.empty.title')}>
+        <EmptyState icon={Bookmark} title={t('bookmarks.empty.title')} className="rounded-3xl bg-card py-20">
           {t('bookmarks.empty.body')}
         </EmptyState>
       ) : (
-        <div className="grid gap-8 lg:grid-cols-2">
-          {groups.map(({ kind, items }) => {
-            const Icon = kindIcon[kind]
-            return (
-              <section key={kind}>
-                <div className="mb-2 flex items-baseline gap-2 border-b pb-2">
-                  <h2 className="text-xl font-medium">{t(`common:objects.${kind}`)}</h2>
-                  <span className="text-sm tabular-nums text-muted-foreground">{items.length}</span>
-                </div>
-                <ul className="-mx-2">
-                  {items.map((b) => (
-                    <li key={b.handle} className="group flex items-center gap-1 rounded-lg hover:bg-accent">
-                      <Link to={objectPath(b.kind, b.gramps_id)} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-                          <Icon className="size-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className={cn('block truncate font-serif text-[1.05rem]', info.get(b.handle)?.missing && 'text-muted-foreground line-through')}>
-                            {info.get(b.handle)?.title || b.title || b.gramps_id}
-                          </span>
-                          {(info.get(b.handle)?.missing || info.get(b.handle)?.subtitle) && (
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {info.get(b.handle)?.missing ? t('bookmarks.missing') : info.get(b.handle)?.subtitle}
+        <div className="grid gap-6">
+          {groups.map(({ kind, items }) => (
+            <Panel key={kind} title={t(`common:objects.${kind}`)} count={items.length}>
+              <ul className="-mx-2 grid gap-x-4 gap-y-0.5 md:grid-cols-2 xl:grid-cols-3">
+                {items.map((b) => {
+                  const i = info.get(b.handle)
+                  const o = fresh.data?.[b.handle] as { media_list?: MediaRef[]; profile?: { sex?: string } } | undefined
+                  const title = i?.title || b.title || b.gramps_id
+                  return (
+                    <li key={b.handle} className="min-w-0">
+                      <ObjectRow
+                        to={objectPath(b.kind, b.gramps_id)}
+                        thumb={
+                          b.kind === 'family' && coupleOf(b.handle).length ? (
+                            <span className="flex w-14 shrink-0">
+                              {coupleOf(b.handle).map((x, n) => (
+                                <Portrait
+                                  key={x.handle}
+                                  mediaRef={portraits.get(x.handle!)}
+                                  name={profileName(x)}
+                                  sex={x.sex}
+                                  size={40}
+                                  className={cn('ring-[3px] ring-card', n > 0 && '-ml-6 mt-4')}
+                                />
+                              ))}
                             </span>
-                          )}
-                        </span>
-                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{b.gramps_id}</span>
-                      </Link>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="mr-1 text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-                            aria-label={t('bookmarks.remove')}
-                            onClick={() => remove(b)}
-                          >
-                            <X />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>{t('bookmarks.remove')}</TooltipContent>
-                      </Tooltip>
+                          ) : (
+                            <ObjectThumb kind={b.kind} handle={b.handle} mediaRef={o?.media_list?.[0]} name={title} sex={o?.profile?.sex} size={56} />
+                          )
+                        }
+                        title={title}
+                        struck={i?.missing}
+                        subtitle={i?.missing ? t('bookmarks.missing') : [i?.subtitle, b.gramps_id].filter(Boolean).join(' · ')}
+                        onRemove={() => remove(b)}
+                        removeLabel={t('bookmarks.remove')}
+                      />
                     </li>
-                  ))}
-                </ul>
-              </section>
-            )
-          })}
+                  )
+                })}
+              </ul>
+            </Panel>
+          ))}
         </div>
       )}
-    </Page>
+    </div>
   )
 }

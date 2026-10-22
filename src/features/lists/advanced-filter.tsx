@@ -3,7 +3,7 @@
 // Stored in the URL (`adv` = JSON, `gql` = text) so it survives reloads and can be shared.
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { ChevronsUpDown, FlaskConical, Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { AdaptivePopover } from '@/components/adaptive-popover'
 import { ObjectPicker } from '@/components/object-picker'
-import { api } from '@/lib/api'
+import { useGetFiltersNamespaceQuery, useGetTypesQuery } from '@/api/metadata-api-slice.gen'
 import { apiLocale } from '@/i18n'
 import { useTags } from '@/lib/queries'
 import { endpointOf, type ObjectKind } from '@/lib/types'
@@ -90,24 +90,17 @@ function defaults(info: RuleInfo): string[] {
 
 function useCatalogue(kind: ObjectKind, enabled: boolean) {
   const locale = apiLocale()
-  return useQuery({
-    queryKey: ['filters', endpointOf[kind], locale],
-    enabled,
-    staleTime: 30 * 60_000,
-    queryFn: async () => {
-      const d = await api<{ rules: RuleInfo[] }>(`/filters/${endpointOf[kind]}`, { query: { locale } })
-      return d.rules.filter((r) => !refersToFilter(r))
-    },
-  })
+  const q = useGetFiltersNamespaceQuery(enabled ? { namespace: endpointOf[kind], locale } : skipToken)
+  const data = useMemo(
+    () => (q.data ? ((q.data.rules ?? []) as unknown as RuleInfo[]).filter((r) => !refersToFilter(r)) : undefined),
+    [q.data],
+  )
+  return { ...q, data }
 }
 
 function useTypeSets(enabled: boolean) {
-  return useQuery({
-    queryKey: ['types', 'all'],
-    enabled,
-    staleTime: 10 * 60_000,
-    queryFn: () => api<{ default: Record<string, string[]>; custom: Record<string, string[]> }>('/types/'),
-  })
+  const q = useGetTypesQuery(enabled ? {} : skipToken)
+  return { ...q, data: q.data as { default: Record<string, string[]>; custom: Record<string, string[]> } | undefined }
 }
 
 /** Chip shown in the filter row while an advanced filter is active. */

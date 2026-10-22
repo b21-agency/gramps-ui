@@ -25,6 +25,7 @@ export default {
   previous: 'Previous',
   next: 'Next',
   help: {
+    tryOne: 'Tap an example to try it, or type any name, place or word.',
     title: 'Search the whole archive',
     intro: 'Finds people, families, events, places, sources, notes and media. Words are matched from their beginning.',
     word: 'every record that mentions the word',

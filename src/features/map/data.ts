@@ -1,21 +1,13 @@
-import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { useEffect, useMemo, useState } from 'react'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useMapEventsQuery, useMapPlaceCoordinatesQuery, type MapEventRow } from '@/api/enhanced/map'
 import { apiLocale } from '@/i18n'
-import type { DateVal, Place } from '@/lib/types'
 
 export interface PlacePoint {
   handle: string
   name: string
   lat: number
   long: number
-}
-
-interface CoordRow {
-  handle: string
-  name: string
-  lat: number | null
-  long: number | null
 }
 
 function num(v: unknown): number | null {
@@ -39,40 +31,17 @@ export function validCoords(lat: unknown, long: unknown): [number, number] | nul
  * back to the place list with profiles on older servers.
  */
 export function usePlaceCoordinates() {
-  return useQuery({
-    queryKey: ['places', 'coordinates'],
-    staleTime: 5 * 60_000,
-    queryFn: async (): Promise<PlacePoint[]> => {
-      let rows: CoordRow[]
-      try {
-        rows = await api<CoordRow[]>('/places/coordinates/')
-      } catch (e) {
-        if ((e as { status?: number }).status !== 404) throw e
-        const list = await api<Array<Pick<Place, 'handle' | 'profile'>>>('/places/', {
-          query: { keys: 'handle,profile', profile: 'self', place_hierarchy: 0, locale: apiLocale() },
-        })
-        rows = list.map((p) => ({
-          handle: p.handle,
-          name: p.profile?.name ?? '',
-          lat: p.profile?.lat ?? null,
-          long: p.profile?.long ?? null,
-        }))
-      }
-      const out: PlacePoint[] = []
-      for (const r of rows) {
-        const c = validCoords(r.lat, r.long)
-        if (c) out.push({ handle: r.handle, name: r.name, lat: c[0], long: c[1] })
-      }
-      return out
-    },
-  })
-}
-
-interface EventLite {
-  handle: string
-  place?: string
-  type: string | { string?: string }
-  date?: Pick<DateVal, 'sortval' | 'year' | 'dateval'>
+  const q = useMapPlaceCoordinatesQuery({ locale: apiLocale() })
+  const data = useMemo(() => {
+    if (!q.data) return undefined
+    const out: PlacePoint[] = []
+    for (const r of q.data) {
+      const c = validCoords(r.lat, r.long)
+      if (c) out.push({ handle: r.handle, name: r.name, lat: c[0], long: c[1] })
+    }
+    return out
+  }, [q.data])
+  return { ...q, data }
 }
 
 export interface PlaceEvent {
@@ -114,43 +83,41 @@ export function filterPlacesByEvents(
 
 /** Years of all dated events per place, for the time filter. Fetched only when needed. */
 export function usePlaceYears(enabled: boolean) {
-  return useQuery({
-    queryKey: ['events', 'place-events'],
-    enabled,
-    staleTime: 5 * 60_000,
-    queryFn: async (): Promise<PlaceYears> => {
-      const events = await api<EventLite[]>('/events/', { query: { keys: 'date,handle,place,type' } })
-      const byPlace = new Map<string, Set<number>>()
-      const all = new Map<string, PlaceEvent[]>()
-      const counts = new Map<string, number>()
-      let min = Infinity
-      let max = -Infinity
-      for (const e of events) {
-        if (!e.place) continue
-        const type = typeof e.type === 'string' ? e.type : (e.type?.string ?? '')
-        const y = e.date?.year || e.date?.dateval?.[2]
-        const dated = !!y && !!e.date?.sortval
-        let list = all.get(e.place)
-        if (!list) all.set(e.place, (list = []))
-        list.push({ year: dated ? y! : null, type })
-        if (type) counts.set(type, (counts.get(type) ?? 0) + 1)
-        if (!dated) continue
-        let s = byPlace.get(e.place)
-        if (!s) byPlace.set(e.place, (s = new Set()))
-        s.add(y)
-        if (y < min) min = y
-        if (y > max) max = y
-      }
-      const out = new Map<string, number[]>()
-      byPlace.forEach((s, k) => out.set(k, [...s].sort((a, b) => a - b)))
-      const typeCounts = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      if (!Number.isFinite(min)) {
-        const now = new Date().getFullYear()
-        return { byPlace: out, events: all, typeCounts, min: now - 100, max: now }
-      }
-      return { byPlace: out, events: all, typeCounts, min, max }
-    },
-  })
+  const q = useMapEventsQuery(enabled ? undefined : skipToken)
+  const data = useMemo(() => (q.data ? placeYears(q.data) : undefined), [q.data])
+  return { ...q, data }
+}
+
+function placeYears(events: MapEventRow[]): PlaceYears {
+  const byPlace = new Map<string, Set<number>>()
+  const all = new Map<string, PlaceEvent[]>()
+  const counts = new Map<string, number>()
+  let min = Infinity
+  let max = -Infinity
+  for (const e of events) {
+    if (!e.place) continue
+    const type = typeof e.type === 'string' ? e.type : (e.type?.string ?? '')
+    const y = e.date?.year || e.date?.dateval?.[2]
+    const dated = !!y && !!e.date?.sortval
+    let list = all.get(e.place)
+    if (!list) all.set(e.place, (list = []))
+    list.push({ year: dated ? y! : null, type })
+    if (type) counts.set(type, (counts.get(type) ?? 0) + 1)
+    if (!dated) continue
+    let s = byPlace.get(e.place)
+    if (!s) byPlace.set(e.place, (s = new Set()))
+    s.add(y)
+    if (y < min) min = y
+    if (y > max) max = y
+  }
+  const out = new Map<string, number[]>()
+  byPlace.forEach((s, k) => out.set(k, [...s].sort((a, b) => a - b)))
+  const typeCounts = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  if (!Number.isFinite(min)) {
+    const now = new Date().getFullYear()
+    return { byPlace: out, events: all, typeCounts, min: now - 100, max: now }
+  }
+  return { byPlace: out, events: all, typeCounts, min, max }
 }
 
 /** Whether any of the (sorted) years falls into [from, to]. */

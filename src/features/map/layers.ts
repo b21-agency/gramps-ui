@@ -1,9 +1,13 @@
 // Extra map layers: historic map overlays (media with a `map:bounds` attribute), vector files
 // (KML/GPX/GeoJSON) attached to a place, OpenHistoricalMap date filtering, label localization
 // and external (Nominatim) place search.
-import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { skipToken } from '@reduxjs/toolkit/query'
 import type { Map as MapLibre, StyleSpecification } from 'maplibre-gl'
-import { api, freshAccessToken, qs, tokens } from '@/lib/api'
+import { qs, tokens } from '@/lib/api'
+import { useMapOverlayMediaQuery, useMapPlaceVectorFilesQuery, vectorFormat, type VectorFormat } from '@/api/enhanced/map'
+
+export { vectorFormat }
 
 export const MAP_STYLE_OHM = 'https://www.openhistoricalmap.org/map-styles/main/main.json'
 export type BaseLayer = 'base' | 'ohm'
@@ -17,16 +21,6 @@ export interface MapOverlay {
   checksum: string
   /** [west, south, east, north] */
   bounds: [number, number, number, number] | null
-}
-
-interface MediaWithAttrs {
-  handle: string
-  gramps_id: string
-  desc: string
-  checksum: string
-  mime: string
-  path: string
-  attribute_list?: Array<{ type: string | { string: string }; value: string }>
 }
 
 /** `map:bounds` = [[latA, lngA], [latB, lngB]] -> [west, south, east, north] */
@@ -45,20 +39,16 @@ function parseBounds(v: string | undefined): MapOverlay['bounds'] {
 
 /** Media objects that are georeferenced historic maps (served as tiles by the API). */
 export function useMapOverlays() {
-  return useQuery({
-    queryKey: ['media', 'map-overlays'],
-    staleTime: 5 * 60_000,
-    queryFn: async (): Promise<MapOverlay[]> => {
-      const rules = JSON.stringify({ rules: [{ name: 'HasAttribute', values: ['map:bounds', '*'], regex: true }] })
-      const list = await api<MediaWithAttrs[]>('/media/', {
-        query: { rules, keys: 'handle,gramps_id,desc,checksum,mime,path,attribute_list' },
-      })
-      return list.map((m) => {
+  const q = useMapOverlayMediaQuery()
+  const data = useMemo(
+    () =>
+      q.data?.map((m): MapOverlay => {
         const attr = m.attribute_list?.find((a) => (typeof a.type === 'string' ? a.type : a.type?.string) === 'map:bounds')
         return { handle: m.handle, gramps_id: m.gramps_id, desc: m.desc, checksum: m.checksum, bounds: parseBounds(attr?.value) }
-      })
-    },
-  })
+      }),
+    [q.data],
+  )
+  return { ...q, data }
 }
 
 /** Tile URL template (absolute: MapLibre needs it); the token goes in a header, see `authRequest`. */
@@ -75,17 +65,7 @@ export function authRequest(url: string) {
 
 /* ---------------- vector files of a place ---------------- */
 
-type Format = 'kml' | 'gpx' | 'geojson'
-
-/** The backend labels GeoJSON as JSON and GPX as XML, so the file extension counts too. */
-export function vectorFormat(m: { mime?: string; path?: string }): Format | null {
-  const mime = m.mime ?? ''
-  const path = m.path ?? ''
-  if (mime === 'application/vnd.google-earth.kml+xml' || /\.kml$/i.test(path)) return 'kml'
-  if (mime === 'application/gpx+xml' || /\.gpx$/i.test(path)) return 'gpx'
-  if (mime === 'application/geo+json' || mime === 'application/vnd.geo+json' || /\.geojson$/i.test(path)) return 'geojson'
-  return null
-}
+type Format = VectorFormat
 
 type Position = [number, number]
 type Geometry =
@@ -176,30 +156,21 @@ export interface VectorFile {
 
 /** KML/GPX/GeoJSON files in the gallery of a place, downloaded and converted to GeoJSON. */
 export function usePlaceVectors(placeHandle: string | null) {
-  return useQuery({
-    queryKey: ['places', placeHandle, 'vectors'],
-    enabled: !!placeHandle,
-    staleTime: 60_000,
-    queryFn: async (): Promise<VectorFile[]> => {
-      const place = await api<{ extended?: { media?: MediaWithAttrs[] } }>(`/places/${placeHandle}`, {
-        query: { extend: 'media_list', keys: 'handle,extended' },
-      })
-      const media = new Map((place.extended?.media ?? []).filter((m) => vectorFormat(m)).map((m) => [m.handle, m]))
-      return Promise.all(
-        [...media.values()].map(async (m) => {
-          let data: FeatureCollection | null = null
-          try {
-            const token = await freshAccessToken()
-            const res = await fetch(`/api/media/${m.handle}/file`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-            if (res.ok) data = parseVector(await res.text(), vectorFormat(m)!)
-          } catch {
-            /* unreadable file: listed, but nothing drawn */
-          }
-          return { handle: m.handle, gramps_id: m.gramps_id, desc: m.desc, data }
+  const q = useMapPlaceVectorFilesQuery(placeHandle ?? skipToken)
+  const data = useMemo(
+    () =>
+      q.data?.map(
+        (m): VectorFile => ({
+          handle: m.handle,
+          gramps_id: m.gramps_id,
+          desc: m.desc,
+          // unreadable file: listed, but nothing drawn
+          data: m.text != null ? parseVector(m.text, vectorFormat(m)!) : null,
         }),
-      )
-    },
-  })
+      ),
+    [q.data],
+  )
+  return { ...q, data }
 }
 
 /** [[west, south], [east, north]] of all features, or null. */

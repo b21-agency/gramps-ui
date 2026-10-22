@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, NotebookPen, ScanText, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { api } from '@/lib/api'
+import { useCreateObjectMutation } from '@/api/enhanced/objects'
+import { useRunOcrMutation } from '@/api/enhanced/shared'
+import { toApiError } from '@/api/enhanced/editor'
 import { useAuth } from '@/lib/auth'
 import { useMetadata } from '@/lib/queries'
-import { DetailSection } from '@/components/detail/sections'
+import { Panel } from '@/components/detail/panel'
 import { resolveTask, taskErrorMessage } from '@/features/tools/use-task'
-import { errorMessage, invalidateAfterWrite, patchObject, type Transaction } from '@/features/editor/lib'
+import { errorMessage, patchObject } from '@/features/editor/lib'
 
 /** UI language -> tesseract language code */
 const tesseractOf: Record<string, string> = { de: 'deu', en: 'eng', fr: 'fra', it: 'ita', es: 'spa', nl: 'nld', pl: 'pol', cs: 'ces' }
@@ -29,7 +30,8 @@ export function useOcrAvailable(mime?: string) {
 export function OcrPanel({ handle, onClose, onSaved }: { handle: string; onClose: () => void; onSaved: () => void }) {
   const { t, i18n } = useTranslation(['objects', 'common'])
   const { can } = useAuth()
-  const qc = useQueryClient()
+  const [runOcr] = useRunOcrMutation()
+  const [createObject] = useCreateObjectMutation()
   const { data: meta } = useMetadata()
   const langs = (meta?.server?.ocr_languages as string[] | undefined) ?? []
   const preferred = tesseractOf[i18n.language.slice(0, 2)]
@@ -52,7 +54,7 @@ export function OcrPanel({ handle, onClose, onSaved }: { handle: string; onClose
     setRunning(true)
     setText(null)
     try {
-      const res = await api<unknown>(`/media/${handle}/ocr`, { method: 'POST', query: { lang } })
+      const res = await runOcr({ handle, lang }).unwrap()
       const out = await resolveTask<unknown>(res)
       const s = typeof out === 'string' ? out : ((out as { data?: string })?.data ?? '')
       setText(s.trim())
@@ -67,13 +69,15 @@ export function OcrPanel({ handle, onClose, onSaved }: { handle: string; onClose
     if (!text) return
     setSaving(true)
     try {
-      const tx = await api<Transaction>('/notes/', {
-        method: 'POST',
-        json: { _class: 'Note', type: 'Transcript', text: { _class: 'StyledText', string: text, tags: [] } },
+      // both writes go through RTK mutations, which invalidate what their transactions touched
+      const tx = await createObject({
+        kind: 'note',
+        body: { _class: 'Note', type: 'Transcript', text: { _class: 'StyledText', string: text, tags: [] } },
       })
+        .unwrap()
+        .catch((e) => Promise.reject(toApiError(e)))
       const noteHandle = tx.find((e) => e._class === 'Note')?.handle ?? tx[0]?.handle
       if (noteHandle) await patchObject('media', handle, (o) => (o.note_list = [...(o.note_list ?? []), noteHandle]))
-      invalidateAfterWrite(qc, ['note', 'media'])
       toast.success(t('ocr.saved'))
       onSaved()
     } catch (e) {
@@ -84,7 +88,7 @@ export function OcrPanel({ handle, onClose, onSaved }: { handle: string; onClose
   }
 
   return (
-    <DetailSection id="ocr" title={t('ocr.title')}>
+    <Panel id="ocr" title={t('ocr.title')}>
       <div className="flex flex-wrap items-end gap-2">
         <div className="w-56">
           <Select value={lang} onValueChange={setLang}>
@@ -111,7 +115,7 @@ export function OcrPanel({ handle, onClose, onSaved }: { handle: string; onClose
       {text !== null && (
         <div className="mt-4">
           {text ? (
-            <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg border bg-card p-4 font-serif text-base leading-relaxed">{text}</pre>
+            <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-2xl bg-background/60 p-4 font-serif text-base leading-relaxed">{text}</pre>
           ) : (
             <p className="text-sm text-muted-foreground">{t('ocr.empty')}</p>
           )}
@@ -123,6 +127,6 @@ export function OcrPanel({ handle, onClose, onSaved }: { handle: string; onClose
           )}
         </div>
       )}
-    </DetailSection>
+    </Panel>
   )
 }

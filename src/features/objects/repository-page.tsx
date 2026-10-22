@@ -1,18 +1,17 @@
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, Landmark } from 'lucide-react'
 import { ErrorState } from '@/components/states'
-import { ObjectTitle, ObjectToolbar } from '@/components/detail/object-header'
+import { ObjectToolbar } from '@/components/detail/object-header'
+import { Panel } from '@/components/detail/panel'
 import { ObjectHistory } from '@/components/detail/object-history'
-import { DetailSection, FactsTable, NotesList, SectionNav } from '@/components/detail/sections'
+import { FactsTable, NotesList } from '@/components/detail/sections'
 import { typeStr } from '@/lib/format'
 import type { Repository } from '@/lib/types'
+import { AlbumFrame, AlbumGrid, CoverVisual, glyphOf, ObjectHero } from './album'
 import {
-  Columns,
   countRefs,
-  navItems,
   ObjectSkeleton,
-  PageFrame,
   referenceItems,
   RichReferences,
   ShowMore,
@@ -37,53 +36,55 @@ export function RepositoryPage() {
   const notes = repo.note_list ?? []
   const hasFacts = repo.address_list.length > 0 || repo.urls.length > 0
 
-  const nav = navItems([
-    sources.length > 0 && { id: 'sources', label: t('sourcesHeld'), count: sources.length },
-    hasFacts && { id: 'facts', label: t('contact') },
-    notes.length > 0 && { id: 'notes', label: t('detail:sections.notes'), count: notes.length },
-    refs.length > 0 && { id: 'references', label: t('detail:sections.references'), count: countRefs(refs) },
-  ])
-
   return (
-    <PageFrame>
+    <AlbumFrame>
       <ObjectToolbar kind="repository" object={repo} title={title} onSaved={() => q.refetch()} />
-      <ObjectTitle title={title} subtitle={typeStr(repo.type)} tags={ext.tags} />
-      <SectionNav items={nav} />
 
-      <Columns
-        main={
-          <>
-            {sources.length > 0 ? (
-              <DetailSection id="sources" title={t('sourcesHeld')} count={sources.length}>
-                <HeldSources sources={sources} repoHandle={repo.handle} />
-              </DetailSection>
-            ) : (
-              <p className="text-sm text-muted-foreground">{t('noSourcesHeld')}</p>
-            )}
-            {notes.length > 0 && (
-              <DetailSection id="notes" title={t('detail:sections.notes')} count={notes.length}>
-                <NotesList handles={notes} />
-              </DetailSection>
-            )}
-          </>
+      <ObjectHero
+        size="cover"
+        visual={<CoverVisual icon={Landmark} glyph={glyphOf(title)} label={typeStr(repo.type) || t('common:object.repository')} sub={repo.gramps_id} />}
+        eyebrow={
+          sources.length > 0 && <p className="text-sm font-semibold text-brass">{t('album.sourcesHeld', { count: sources.length })}</p>
         }
+        title={title}
+        subtitle={typeStr(repo.type) || undefined}
+        tags={ext.tags}
+      />
+
+      <AlbumGrid
         aside={
           <>
             {hasFacts && (
-              <DetailSection id="facts" title={t('contact')}>
+              <Panel id="facts" title={t('contact')}>
                 <FactsTable addresses={repo.address_list} urls={repo.urls} />
-              </DetailSection>
+              </Panel>
+            )}
+            {notes.length > 0 && (
+              <Panel id="notes" title={t('album.stories')} count={notes.length}>
+                <NotesList handles={notes} />
+              </Panel>
             )}
             {refs.length > 0 && (
-              <DetailSection id="references" title={t('detail:sections.references')} count={countRefs(refs)}>
+              <Panel id="references" title={t('detail:sections.references')} count={countRefs(refs)}>
                 <RichReferences groups={refs} />
-              </DetailSection>
+              </Panel>
             )}
+          </>
+        }
+        main={
+          <>
+            <Panel id="sources" title={t('sourcesHeld')} count={sources.length || undefined}>
+              {sources.length > 0 ? (
+                <HeldSources sources={sources} repoHandle={repo.handle} />
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('noSourcesHeld')}</p>
+              )}
+            </Panel>
             <ObjectHistory objClass="Repository" handle={repo.handle} lastChange={repo.change} />
           </>
         }
       />
-    </PageFrame>
+    </AlbumFrame>
   )
 }
 
@@ -92,15 +93,17 @@ function HeldSources({ sources, repoHandle }: { sources: AnyObj[]; repoHandle: s
   const { shown, hidden, all, setAll } = useLimited(sources, 30)
   return (
     <>
-      <ul className="divide-y">
+      <ul className="divide-y divide-border/60">
         {shown.map((s) => {
           const reporefs = ((s.reporef_list ?? []) as AnyObj[]).filter((r) => r.ref === repoHandle)
           return (
             <li key={s.handle}>
-              <Link to={`/source/${s.gramps_id}`} className="-mx-2 flex items-start gap-3 rounded-md px-2 py-2.5 hover:bg-accent">
-                <BookOpen className="mt-1 size-4 shrink-0 text-muted-foreground" />
+              <Link to={`/source/${s.gramps_id}`} className="-mx-2 flex items-start gap-3 rounded-xl px-2 py-3 transition-colors duration-150 hover:bg-accent">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-brass">
+                  <BookOpen className="size-4" />
+                </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{s.title || s.gramps_id}</span>
+                  <span className="block font-serif text-lg leading-snug">{s.title || s.gramps_id}</span>
                   {s.author && <span className="block truncate text-sm text-muted-foreground">{s.author}</span>}
                 </span>
                 <span className="shrink-0 text-right text-xs text-muted-foreground">

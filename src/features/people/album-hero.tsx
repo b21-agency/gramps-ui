@@ -1,14 +1,13 @@
 import { useState, type ReactNode } from 'react'
-import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Portrait, refThumbUrl } from '@/components/portrait'
+import { refThumbUrl } from '@/components/portrait'
+import { FaceRow, FaceStack, Panel, PanelGroup } from '@/components/detail/panel'
 import { TagList } from '@/components/tag-list'
 import { Lightbox } from '@/components/detail/lightbox'
 import { useAccessToken } from '@/lib/auth'
 import { mediaFileUrl, mediaThumbUrl } from '@/lib/api'
-import { initials, isEmpty, lifespan, profileName, yearOf } from '@/lib/format'
+import { initials, isEmpty, profileName, yearOf } from '@/lib/format'
 import type { EventProfile, FamilyProfile, Media, MediaRef, Person, PersonProfile } from '@/lib/types'
-import { cn } from '@/lib/utils'
 import { Lifeline } from './lifeline'
 import type { EventRow } from '@/components/detail/sections'
 
@@ -187,12 +186,12 @@ export function FamilyPanel({
       })}
       {children.length > 0 && (
         <PanelGroup label={t('hero.children', { count: children.length })}>
-          <FaceStack people={children} portraits={portraits} />
+          <FaceStack people={children} portraits={portraits} moreHref="#family" />
         </PanelGroup>
       )}
       {siblings.length > 0 && (
         <PanelGroup label={t('siblingsCount', { count: siblings.length })}>
-          <FaceStack people={siblings} portraits={portraits} />
+          <FaceStack people={siblings} portraits={portraits} moreHref="#family" />
         </PanelGroup>
       )}
       {!parents.length && !families.length && <p className="text-sm text-muted-foreground">{t('hero.noFamily')}</p>}
@@ -200,78 +199,4 @@ export function FamilyPanel({
   )
 }
 
-export function Panel({
-  title,
-  action,
-  children,
-  className,
-  id,
-}: {
-  title: ReactNode
-  action?: ReactNode
-  children: ReactNode
-  className?: string
-  id?: string
-}) {
-  return (
-    <section id={id} className={cn('scroll-mt-24 rounded-3xl bg-card p-5 sm:p-6', className)}>
-      <div className="mb-4 flex items-center gap-2">
-        <h2 className="font-serif text-2xl font-medium">{title}</h2>
-        {action && <div className="ml-auto">{action}</div>}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function PanelGroup({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="mb-5 last:mb-0">
-      <div className="mb-2 text-sm text-muted-foreground">{label}</div>
-      {children}
-    </div>
-  )
-}
-
-function FaceRow({ person, portrait }: { person: Partial<PersonProfile>; portrait?: MediaRef }) {
-  return (
-    <Link
-      to={`/person/${person.gramps_id}`}
-      className="-mx-2 flex min-w-0 items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors duration-150 hover:bg-accent"
-    >
-      <Portrait mediaRef={portrait} name={profileName(person)} sex={person.sex} size={44} />
-      <span className="min-w-0">
-        <span className="block truncate text-[15px] font-semibold">{profileName(person)}</span>
-        <span className="block text-xs tabular-nums text-muted-foreground">
-          {lifespan(person.birth as EventProfile, person.death as EventProfile)}
-        </span>
-      </span>
-    </Link>
-  )
-}
-
-function FaceStack({ people, portraits }: { people: Array<Partial<PersonProfile>>; portraits: Map<string, MediaRef | undefined> }) {
-  const shown = people.slice(0, 7)
-  return (
-    <div className="flex flex-wrap items-center">
-      {shown.map((p, i) => (
-        <Link
-          key={p.handle}
-          to={`/person/${p.gramps_id}`}
-          title={`${profileName(p)} ${lifespan(p.birth as EventProfile, p.death as EventProfile)}`}
-          className={cn('rounded-full transition-transform duration-150 ease-out hover:z-10 hover:-translate-y-0.5', i > 0 && '-ml-2.5')}
-        >
-          <Portrait mediaRef={portraits.get(p.handle ?? '')} name={profileName(p)} sex={p.sex} size={44} className="ring-[3px] ring-card" />
-        </Link>
-      ))}
-      {people.length > shown.length && (
-        <a
-          href="#family"
-          className="-ml-2.5 flex size-11 items-center justify-center rounded-full bg-brass text-sm font-bold text-brass-foreground ring-[3px] ring-card"
-        >
-          +{people.length - shown.length}
-        </a>
-      )}
-    </div>
-  )
-}
+export { Panel }
