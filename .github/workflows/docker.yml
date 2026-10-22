@@ -1,11 +1,15 @@
 name: Build Docker image
 
-# Manual only for now. Add `push: branches: [0.x]` here to build on every push.
+# Manual only: GitHub → Actions → "Build Docker image" → Run workflow.
 on:
   workflow_dispatch:
     inputs:
+      grampsweb_version:
+        description: Gramps Web base image tag for the drop-in image (e.g. latest, v26.10.2)
+        type: string
+        default: latest
       deploy:
-        description: Trigger the hosting deployment after pushing the image
+        description: Trigger the hosting deployment after pushing the images
         type: boolean
         default: false
 
@@ -19,7 +23,25 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # drop-in replacement for ghcr.io/gramps-project/grampsweb (the default image)
+          - variant: dropin
+            target: dropin
+            suffix: ''
+          # small nginx image that proxies /api/ to an existing Gramps Web container
+          - variant: proxy
+            target: proxy
+            suffix: '-proxy'
     steps:
+      - name: Free disk space (the Gramps Web base image is ~7 GB unpacked)
+        if: matrix.variant == 'dropin'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -35,6 +57,9 @@ jobs:
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.IMAGE }}
+          flavor: |
+            latest=false
+            suffix=${{ matrix.suffix }},onlatest=true
           tags: |
             type=raw,value=latest
             type=sha,format=long,prefix=
@@ -43,14 +68,22 @@ jobs:
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
+          target: ${{ matrix.target }}
+          build-args: |
+            GRAMPSWEB_VERSION=${{ inputs.grampsweb_version || 'latest' }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # cache only our own build stage, not the large base image
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,scope=${{ matrix.variant }},mode=min
 
+  deploy:
+    needs: build
+    if: ${{ inputs.deploy }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy via hosting
-        if: ${{ inputs.deploy }}
         env:
           DEPLOY_WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
           DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}

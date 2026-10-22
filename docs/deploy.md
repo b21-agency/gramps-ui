@@ -1,37 +1,36 @@
-# Deployment (hosting)
+# Deployment
 
-The UI image only contains the static app and an nginx that proxies `/api/` to the existing
-Gramps Web container. Gramps Web itself (API, Celery, Redis, data volumes) stays as it is.
+Two image variants are built by the **Build Docker image** workflow (GitHub → Actions → *Run workflow*,
+manual only). Tags: `ghcr.io/b21-agency/gramps-ui:{latest,<sha>,0.x}` and `…:{latest,<sha>,0.x}-proxy`.
 
-## Image
+## A) Drop-in (recommended)
 
-Built by the **Build Docker image** workflow (GitHub → Actions → *Run workflow*, manual only):
-`ghcr.io/b21-agency/gramps-ui:latest` and `:<commit sha>`. Tick *deploy* to call the hosting
-webhook afterwards (secrets `DEPLOY_WEBHOOK`, `DEPLOY_TOKEN`).
+The official Gramps Web image with this UI in `/app/static`. In the existing compose/hosting stack change
+the image of `grampsweb` **and** `grampsweb_celery` to `ghcr.io/b21-agency/gramps-ui:latest` and redeploy.
+Nothing else changes (same env, volumes, ports). Verified locally by swapping the image in the official
+docker-compose: login, data, photos, editing, search and a Celery report job all work.
 
-The repo is private, so the image is private: hosting needs a registry login for `ghcr.io`
-(username + a GitHub token with `read:packages`).
+The workflow input `grampsweb_version` pins the Gramps Web base image (default `latest`).
 
-## Compose service
+## B) Proxy variant (classic UI side by side)
 
-Add next to the existing `grampsweb` service in the same hosting compose:
+`ghcr.io/b21-agency/gramps-ui:latest-proxy`: nginx serving the UI and proxying `/api/` to
+`GRAMPSWEB_UPSTREAM` (default `http://grampsweb:5000`); `CLIENT_MAX_BODY_SIZE` (default `1g`).
 
 ```yaml
   ui:
-    image: ghcr.io/b21-agency/gramps-ui:latest
+    image: ghcr.io/b21-agency/gramps-ui:latest-proxy
     restart: unless-stopped
-    environment:
-      GRAMPSWEB_UPSTREAM: http://grampsweb:5000   # default
-      CLIENT_MAX_BODY_SIZE: 1g                    # media / tree imports
     depends_on: [grampsweb]
 ```
-
-Domains:
-- `gramps.example.org` → `ui:80` (new UI, API under `/api/` on the same origin)
-- `gramps-classic.example.org` → `grampsweb:5000` (classic UI, keep for fallback)
-
-Set `GRAMPSWEB_BASE_URL=https://gramps.example.org` on grampsweb. Password-reset and
-e-mail-confirmation links point to pages the API serves itself
-(`/api/users/-/password/reset/?jwt=...`), so they work through the proxy unchanged.
-
+Domains then: `gramps.example.org` → `ui:80`, `gramps-classic.example.org` → `grampsweb:5000`.
 Health check: `GET /healthz` → `ok`.
+
+## Notes
+
+- The repo is private, so the images are private: the server needs a `ghcr.io` registry login
+  (username + a token with `read:packages`). Make the package public to drop that requirement.
+- Optional automatic deploy: tick *deploy* when running the workflow; needs repository secrets
+  `DEPLOY_WEBHOOK` and `DEPLOY_TOKEN`.
+- Password-reset and e-mail-confirmation links point to pages the API serves itself
+  (`/api/users/-/password/reset/?jwt=…`), so they work with both variants.
