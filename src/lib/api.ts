@@ -196,6 +196,11 @@ export async function login(username: string, password: string) {
     throw new ApiError(res.status, type, body)
   }
   const data = await res.json()
+  try {
+    localStorage.setItem('gw.hasUsers', '1')
+  } catch {
+    /* storage unavailable */
+  }
   tokens.set(data.access_token, data.refresh_token)
 }
 

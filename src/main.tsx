@@ -11,6 +11,20 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
 import { I18nSync } from '@/components/i18n-sync'
 
+// After a new deploy the hashed chunk names change; an open tab then fails to load the next
+// page's code. Reload once to pick up the new build instead of showing an error.
+window.addEventListener('vite:preloadError', (event) => {
+  const key = 'gw.reloadedForChunk'
+  try {
+    if (sessionStorage.getItem(key) === location.pathname) return
+    sessionStorage.setItem(key, location.pathname)
+  } catch {
+    /* storage unavailable */
+  }
+  event.preventDefault()
+  location.reload()
+})
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

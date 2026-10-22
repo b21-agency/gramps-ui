@@ -15,8 +15,24 @@ export function useOwnerSetupToken() {
   const [token, setToken] = useState<string | null>(null)
   useEffect(() => {
     let alive = true
+    // once a server is known to have users there is no first run any more; skip the probe
+    // (it also counts against the 1/s token rate limit)
+    try {
+      if (localStorage.getItem('gw.hasUsers')) return
+    } catch {
+      /* storage unavailable */
+    }
     fetch('/api/token/create_owner/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (r.status === 405) {
+          try {
+            localStorage.setItem('gw.hasUsers', '1')
+          } catch {
+            /* storage unavailable */
+          }
+        }
+        return r.ok ? r.json() : null
+      })
       .then((d) => alive && d?.access_token && setToken(d.access_token))
       .catch(() => {})
     return () => {

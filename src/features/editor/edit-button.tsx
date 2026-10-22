@@ -275,9 +275,10 @@ export function DeleteDialog({
     setBusy(true)
     try {
       const tx = await deleteObject(kind, object.handle)
-      invalidateAfterWrite(qc, [kind, ...endpointsOfTx(tx)])
       onOpenChange(false)
+      // leave the page first so the deleted record isn't refetched
       navigate(listPathOf[kind])
+      setTimeout(() => invalidateAfterWrite(qc, [kind, ...endpointsOfTx(tx)]), 0)
       toast.success(t('editor:delete.done', { name: title }), {
         duration: 10_000,
         action: {

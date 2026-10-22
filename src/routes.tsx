@@ -20,6 +20,11 @@ function RequireAuth() {
 
 function RouteError() {
   const error = useRouteError()
+  // stale build: the page's code was removed by a newer deploy
+  if (error instanceof TypeError && /dynamically imported module|Importing a module script failed|error loading dynamically/i.test(error.message)) {
+    window.location.reload()
+    return null
+  }
   return <ErrorState error={error} onRetry={() => window.location.reload()} />
 }
 

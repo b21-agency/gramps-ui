@@ -111,7 +111,7 @@ export function formatBytes(n: number | undefined, lang: string) {
     v /= 1024
     i++
   }
-  return new Intl.NumberFormat(lang, { style: 'unit', unit: units[i], unitDisplay: 'short', maximumFractionDigits: i ? 1 : 0 }).format(v)
+  return new Intl.NumberFormat(lang, { style: 'unit', unit: units[i], unitDisplay: i ? 'short' : 'narrow' /* short bytes read "249 byte" */, maximumFractionDigits: i ? 1 : 0 }).format(v)
 }
 
 /** Trigger a browser download of a generated file. */
