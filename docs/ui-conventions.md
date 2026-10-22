@@ -103,19 +103,23 @@ Rules:
 - Raw `fetch`/`apiRaw` is only allowed for binary streams (file upload body, downloads) and task polling helpers; after such a write dispatch `api.util.invalidateTags(...)`.
 - Errors: RTK errors are `{ status, data }`; `ErrorState` handles them.
 
-## Visual direction (decided 2026-10-22)
+## Visual direction (decided 2026-10-22): variant A "Album"
 
-Chosen: **B "Family first"** screen designs, plus C's year timeline; shell unchanged.
+Reference implementation: `src/features/people/person-page.tsx` + `album-hero.tsx` + `life-story.tsx`.
 
-- Light theme: white ground `#FFFFFF`, soft section ground `#F3F5F4`, ink `#14201B`,
-  moss primary `#2F6B4A` (tint `#EAF2ED`, deep `#1F4D34`), brass `#A9833A` (text `#8A6A28`),
-  muted text `#5B6B64`, hairlines `#E6EBE8`, lineage `#B7C9BE`, story tint `#F8F4EA`.
-- Dark theme (from A): ground `#0E1A16`, surface `#15241F`, raised `#1F322B`, text `#E8EDE9`,
-  muted `#9AAAA2`, moss `#8CBF9B`, brass `#D2AD62`, hairlines `#1F322B`/`#2B4038`.
-- **App shell stays as is** (sidebar, header with search, phone tab bar + "Mehr" sheet). The redesign
-  is per screen only: modernise each page's content area.
-- Person page: family constellation header (parents → person card with brass ring → partner,
-  siblings stack, children row), then three columns: life timeline (years in serif brass), stories,
-  photos. Phone: centred card version (board B phone).
-- Radii: cards 18–24px, chips/buttons 12px, pills 999px. Soft shadow only on the focal card.
-- Names and years in Newsreader; everything else Instrument Sans.
+- **App shell stays as is** (collapsible sidebar, header with search, phone tab bar + "Mehr" sheet).
+  Only each screen's content area is redesigned.
+- **Dark is the default theme** (ink green `#0E1A16`, cards `#15241F`, raised `#1F322B`, text `#E8EDE9`,
+  muted `#9AAAA2`, gold `#D2AD62` = `primary`/`brass` for main actions and highlights, moss `#8CBF9B` as
+  chart/lineage accent). Light theme remains available and must keep working (use tokens only).
+- **Hero first**: every object screen opens with a large visual (portrait/photo/map/cover) next to the
+  title in big Newsreader (`text-5xl`–`text-7xl`, tight leading), a quiet meta line, then primary
+  action buttons (gold primary + secondary). Phones: visual on top (~19rem), centred title.
+- **Panels instead of hairline sections**: content below the hero lives in `Panel`s
+  (`rounded-3xl bg-card p-5 sm:p-6`, serif `text-2xl` title, optional action) arranged in a
+  two-column grid (`lg:grid-cols-[22rem_minmax(0,1fr)]`, narrow column for people/photos/details,
+  wide column for the main story/content). No borders around panels; separation by surface colour.
+- **Faces as navigation**: people appear as portraits (44px rows, overlapping stacks with a gold "+N").
+- **Years in gold serif**, dates/IDs `tabular-nums`, quotes/notes in serif italic.
+- Generous whitespace; `max-w-7xl` content width; motion only on interaction (press `scale(0.97)`,
+  150ms ease-out hovers).
