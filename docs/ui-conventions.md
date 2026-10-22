@@ -109,9 +109,11 @@ Reference implementation: `src/features/people/person-page.tsx` + `album-hero.ts
 
 - **App shell stays as is** (collapsible sidebar, header with search, phone tab bar + "Mehr" sheet).
   Only each screen's content area is redesigned.
-- **Dark is the default theme** (ink green `#0E1A16`, cards `#15241F`, raised `#1F322B`, text `#E8EDE9`,
-  muted `#9AAAA2`, gold `#D2AD62` = `primary`/`brass` for main actions and highlights, moss `#8CBF9B` as
-  chart/lineage accent). Light theme remains available and must keep working (use tokens only).
+- **Neutral palette** (user request 2026-10-23, replaces the green ink): dark is the default — graphite
+  `#131416`, cards `#1B1C1F`, raised `#24262A`, text `#ECECEC`, muted `#A2A4AA`; light — `#F7F7F5`,
+  white cards, ink `#1B1B1D`. Gold (`primary`/`brass`) is the single accent. Users can pick another
+  accent in Settings → Preferences (`html[data-accent=neutral|gold|moss|blue|rose]`, see `index.css`);
+  "Family tree colour" follows the tree's customization. Use tokens only.
 - **Hero first**: every object screen opens with a large visual (portrait/photo/map/cover) next to the
   title in big Newsreader (`text-5xl`–`text-7xl`, tight leading), a quiet meta line, then primary
   action buttons (gold primary + secondary). Phones: visual on top (~19rem), centred title.

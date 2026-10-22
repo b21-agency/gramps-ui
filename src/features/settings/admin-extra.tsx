@@ -307,7 +307,7 @@ function ColorsForm({ config }: { config: TreeConfig }) {
   const { t } = useTranslation('settings')
   const savedPrimary = configString(config, TREE_CONFIG.primaryColor)
   const savedAccent = configString(config, TREE_CONFIG.secondaryColor)
-  const [primary, setPrimary] = useState(hex6(savedPrimary, '#3e6a4e'))
+  const [primary, setPrimary] = useState(hex6(savedPrimary, '#d4a94f'))
   const [accent, setAccent] = useState(hex6(savedAccent, '#a9833a'))
   const { save, saving } = useSaveConfig()
   const custom = !!(savedPrimary || savedAccent)
@@ -350,7 +350,7 @@ function ColorsForm({ config }: { config: TreeConfig }) {
               void save({ [TREE_CONFIG.primaryColor]: '', [TREE_CONFIG.secondaryColor]: '' }, t('custom.colorsReset')).then(
                 (ok) => {
                   if (ok) {
-                    setPrimary('#3e6a4e')
+                    setPrimary('#d4a94f')
                     setAccent('#a9833a')
                   }
                 },

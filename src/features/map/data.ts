@@ -180,7 +180,7 @@ export function useIsDark() {
 }
 
 /** Resolve a CSS custom property (design token) to a concrete colour for canvas/WebGL use. */
-export function cssVar(name: string, fallback = '#3e6a4e') {
+export function cssVar(name: string, fallback = '#a7adb7') {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return v || fallback
 }

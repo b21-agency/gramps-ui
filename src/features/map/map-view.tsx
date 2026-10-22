@@ -358,7 +358,7 @@ function addLayers(
   },
 ) {
   // Album palette: gold clusters with a soft halo, moss places, gold selection
-  const moss = cssVar('--chart-1', '#3e6a4e')
+  const moss = cssVar('--chart-1', '#a7adb7')
   const onBrass = cssVar('--brass-foreground', '#2b2310')
   const card = cssVar('--card', '#ffffff')
   const brass = cssVar('--brass', '#a9833a')

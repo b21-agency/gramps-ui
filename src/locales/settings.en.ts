@@ -1,4 +1,14 @@
 export default {
+  accent: {
+    label: 'Accent colour',
+    hint: 'Used for buttons and highlights. “Family tree colour” follows the tree’s own setting.',
+    default: 'Family tree colour',
+    neutral: 'Neutral',
+    gold: 'Gold',
+    moss: 'Moss',
+    blue: 'Blue',
+    rose: 'Rose',
+  },
   title: 'Settings',
   description: 'Your account, how the app looks, and who has access.',
   nav: {

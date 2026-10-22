@@ -1,4 +1,14 @@
 export default {
+  accent: {
+    label: 'Akzentfarbe',
+    hint: 'Für Schaltflächen und Hervorhebungen. „Farbe des Stammbaums“ folgt der Einstellung des Stammbaums.',
+    default: 'Farbe des Stammbaums',
+    neutral: 'Neutral',
+    gold: 'Gold',
+    moss: 'Moos',
+    blue: 'Blau',
+    rose: 'Rosé',
+  },
   title: 'Einstellungen',
   description: 'Dein Konto, das Aussehen der App und wer Zugriff hat.',
   nav: {

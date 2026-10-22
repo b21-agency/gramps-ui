@@ -4,11 +4,12 @@ import { toast } from 'sonner'
 import { Monitor, Moon, Sun, UserRound, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Portrait } from '@/components/portrait'
 import { ObjectPicker } from '@/components/object-picker'
-import { useTheme, type Theme } from '@/components/theme'
+import { ACCENTS, useTheme, type Theme } from '@/components/theme'
 import { languages } from '@/i18n'
 import { useHomePerson } from '@/lib/prefs'
 import { useObjectById } from '@/lib/queries'
@@ -18,7 +19,7 @@ import { SettingsBlock } from './parts'
 
 export function PreferencesSection() {
   const { t, i18n } = useTranslation('settings')
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, accent, setAccent } = useTheme()
   const themes: Array<{ v: Theme; icon: typeof Sun }> = [
     { v: 'light', icon: Sun },
     { v: 'dark', icon: Moon },
@@ -66,6 +67,30 @@ export function PreferencesSection() {
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
+          </div>
+          <div className="grid gap-2">
+            <span className="text-sm font-medium" id="pref-accent-label">
+              {t('accent.label')}
+            </span>
+            <div role="radiogroup" aria-labelledby="pref-accent-label" className="flex flex-wrap gap-2">
+              {ACCENTS.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={accent === a.id}
+                  onClick={() => setAccent(a.id)}
+                  className={cn(
+                    'flex h-10 items-center gap-2 rounded-full border px-3.5 text-sm transition-[transform,background-color] duration-150 ease-out active:scale-[0.97] max-md:h-11',
+                    accent === a.id ? 'border-primary bg-accent font-medium' : 'hover:bg-accent',
+                  )}
+                >
+                  <span className="size-4 rounded-full ring-1 ring-foreground/15" style={{ background: a.swatch }} />
+                  {t(`accent.${a.id}`)}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">{t('accent.hint')}</p>
           </div>
         </div>
       </SettingsBlock>
