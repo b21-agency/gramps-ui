@@ -8,10 +8,6 @@ on:
         description: Gramps Web base image tag for the drop-in image (e.g. latest, v26.10.2)
         type: string
         default: latest
-      deploy:
-        description: Trigger the hosting deployment after pushing the images
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -77,16 +73,3 @@ jobs:
           # cache only our own build stage, not the large base image
           cache-from: type=gha,scope=${{ matrix.variant }}
           cache-to: type=gha,scope=${{ matrix.variant }},mode=min
-
-  deploy:
-    needs: build
-    if: ${{ inputs.deploy }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy via hosting
-        env:
-          DEPLOY_WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
-          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
-        run: |
-          if [ -z "$DEPLOY_WEBHOOK" ]; then echo "DEPLOY_WEBHOOK secret not set"; exit 1; fi
-          curl -fsS -X GET "$DEPLOY_WEBHOOK" -H "Authorization: Bearer $DEPLOY_TOKEN"

@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // GRAMPS_API_TARGET selects the backend for the dev proxy:
-// local docker stack by default (see dev/README.md), or e.g. https://gramps.example.org
+// local docker stack by default (see dev/README.md), or any Gramps Web instance URL
 const target = process.env.GRAMPS_API_TARGET ?? 'http://localhost:5055'
 
 export default defineConfig({

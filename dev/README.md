@@ -12,6 +12,6 @@ pnpm dev                 # http://localhost:5173, /api proxied to http://localho
 Users: `owner/owner` (owner), `editor/editor` (editor), `guest/guest` (guest).
 Classic UI for comparison: http://localhost:5055.
 
-Against production instead: `GRAMPS_API_TARGET=https://gramps.example.org pnpm dev`.
+Against another Gramps Web instance: `GRAMPS_API_TARGET=https://your-gramps-web.example pnpm dev`.
 
 Reset everything: `docker compose -p gramps-dev -f dev/docker-compose.yml down -v`.

@@ -39,7 +39,7 @@ Access token claims (decode client-side with `jwt-decode`):
   "fresh": true,                     // true only for tokens from POST /token/
   "exp": 1760000000,
   "permissions": ["ViewPrivate", "AddObject", "EditObject", "DeleteObject", ...],
-  "tree": "00000000-0000-0000-0000-000000000000",   // absent for tree-less admins
+  "tree": "<tree uuid>",   // absent for tree-less admins
   "oidc_provider": "..."             // only for OIDC logins
 }
 ```
