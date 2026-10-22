@@ -433,7 +433,7 @@ export function useRefTitle(kind: ObjectKind, handle: string | null | undefined)
   const { label } = useGrampsTypes()
   const local = s.objOf(handle)
   const preferLocal = !!local && (s.isNew(handle!) || ['person', 'event', 'place', 'note', 'source', 'repository', 'media'].includes(kind))
-  const q = useObjectByHandle<AnyObj>(kind, preferLocal ? null : handle, { profile: 'self' }, { staleTime: 60_000 })
+  const q = useObjectByHandle<AnyObj>(kind, preferLocal ? null : handle, { profile: 'self' })
   if (!handle) return { title: '', subtitle: '', loading: false }
   if (preferLocal) return { title: describeLocal(kind, local, i18n.language, label), subtitle: local?.gramps_id ?? '', loading: false }
   if (q.data) {

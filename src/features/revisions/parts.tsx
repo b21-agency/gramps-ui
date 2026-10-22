@@ -21,7 +21,7 @@ export function ClassIcon({ cls, className }: { cls?: string; className?: string
 function RefLink({ kind, handle }: { kind: ObjectKind; handle: string }) {
   const { t } = useTranslation('revisions')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const q = useObjectByHandle<any>(kind, handle, { profile: 'self' }, { retry: false, staleTime: 5 * 60_000 })
+  const q = useObjectByHandle<any>(kind, handle, { profile: 'self' })
   const Icon = kindIcon[kind]
   if (q.isLoading) return <span className="text-muted-foreground">…</span>
   if (!q.data)

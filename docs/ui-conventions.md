@@ -78,3 +78,27 @@ Reference implementations: `src/features/people/person-page.tsx`,
   tree, users `owner/owner` (role 4), `editor/editor` (3), `guest/guest` (0)).
   Use curl against it to inspect real JSON shapes. Token: `POST /api/token/`.
   A Vite dev server runs at http://127.0.0.1:5173 (proxying /api), HMR picks up your files.
+
+## Data layer: RTK Query
+
+All server data goes through RTK Query. **No TanStack Query, no hand-rolled fetch-in-effect
+for reads.** Layout:
+
+| Path | What |
+|---|---|
+| `src/api/index.ts` | `createApi` with the auth base query (JWT, refresh on 401) and `tagTypes` |
+| `src/api/config/openapi.json` + `openapi-config.cjs` | Gramps Web OpenAPI spec + codegen config (one slice per resource) |
+| `src/api/*-api-slice.gen.ts` | **Generated**, never edit. `pnpm api:fetch-spec && pnpm api:generate` |
+| `src/api/enhanced/objects.ts` | Typed object endpoints with per-object tags: `useGetObjectsQuery` (paged, `{items,total}`), `useGetObjectByIdQuery`, `useGetObjectQuery`, `useGetObjectsByHandlesQuery`, `useCreate/Update/DeleteObjectMutation`, `usePostObjectsMutation`, `useDeleteObjectsByHandleMutation`, `useMergeObjectsMutation`, `useUndoTransactionMutation`, `useSearchQuery`, `useMetadataQuery`, `useAllTagsQuery` |
+| `src/api/enhanced/tags.ts` | Tag model: `tagOf`, `tagsForTransaction`, `tagsForKind`, `DERIVED` |
+| `src/api/enhanced/writes.ts` | Listener: after ANY mutation that returns a Gramps transaction, invalidate exactly the touched objects + lists + derived views |
+| `src/api/enhanced/<area>.ts` | Your additions: `api.injectEndpoints` / `enhanceEndpoints` for endpoints that need better types, `X-Total-Count`, custom tags, or that the spec describes wrongly |
+| `src/store/index.ts` | `configureStore`, `useAppDispatch`, `useAppSelector`; API state reset on sign-in/out |
+| `src/lib/queries.ts` | Thin wrappers: `useObjectById`, `useObjectByHandle`, `useObjectList`, `useMetadata`, `useTags` |
+
+Rules:
+- **Reads**: use the generated hook (`useGetPeopleQuery`, `useGetTreeConfigQuery`, …; args are camelCase, e.g. `grampsId`) or an enhanced one. Disable with `skipToken`. `data` keeps the previous result while new args load (no `keepPreviousData` needed); use `currentData` when you must not show stale results. Polling: `pollingInterval`. On-demand: `useLazy…Query`.
+- **Tags**: every query provides tags, every mutation invalidates tags. Object kinds use `People | Families | Events | Places | Sources | Citations | Repositories | Notes | Media | Tags` with `id: handle` and `id: 'LIST'`; derived views `Search | Metadata | Timeline | Relations | Transactions`; others `Users | Trees | Tasks | Bookmarks`. Writes returning a transaction are invalidated automatically by the listener; for other writes set `invalidatesTags` in an enhanced endpoint (e.g. tree config → `Trees`, users → `Users`).
+- **Writes**: use mutations (`const [save, { isLoading }] = useUpdateObjectMutation()`; `await save(arg).unwrap()`). Never clear caches by hand; if you must, `dispatch(api.util.invalidateTags([...]))`.
+- Raw `fetch`/`apiRaw` is only allowed for binary streams (file upload body, downloads) and task polling helpers; after such a write dispatch `api.util.invalidateTags(...)`.
+- Errors: RTK errors are `{ status, data }`; `ErrorState` handles them.

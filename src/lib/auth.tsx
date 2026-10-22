@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { decodeJwt, onAuthChange, refreshAccessToken, tokens } from './api'
 
 interface AuthState {
@@ -25,7 +24,6 @@ function subscribe(cb: () => void) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const access = useSyncExternalStore(subscribe, () => tokens.access)
   const refresh = useSyncExternalStore(subscribe, () => tokens.refresh)
-  const qc = useQueryClient()
 
   // keep the access token fresh so <img src="...?jwt="> URLs stay valid
   useEffect(() => {
@@ -38,10 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const id = window.setInterval(tick, 30_000)
     return () => window.clearInterval(id)
   }, [refresh])
-
-  useEffect(() => {
-    if (!refresh) qc.clear()
-  }, [refresh, qc])
 
   const value = useMemo<AuthState>(() => {
     const claims = decodeJwt(access)

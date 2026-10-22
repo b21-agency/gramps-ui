@@ -10,6 +10,8 @@ import { ThemeProvider } from '@/components/theme'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
 import { I18nSync } from '@/components/i18n-sync'
+import { Provider as ReduxProvider } from 'react-redux'
+import { store } from '@/store'
 
 // After a new deploy the hashed chunk names change; an open tab then fails to load the next
 // page's code. Reload once to pick up the new build instead of showing an error.
@@ -42,6 +44,7 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <ReduxProvider store={store}>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider>
@@ -53,5 +56,6 @@ createRoot(document.getElementById('root')!).render(
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
+    </ReduxProvider>
   </StrictMode>,
 )
