@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Crosshair, LocateFixed, MapPin, Shapes, Tag } from 'lucide-react'
-import type { Place } from '@/lib/types'
+import { Crosshair, LocateFixed, Shapes, Tag } from 'lucide-react'
+import type { MediaRef, Place } from '@/lib/types'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
 import { useExtraFacets } from './facets'
 import { not, rule } from './rules'
-import { ChangedCell, Dash, IconTile, IdCell } from './cells'
+import { ObjectThumb } from '@/components/object-thumb'
+import { ChangedCell, Dash, IdCell, RowLead } from './cells'
 import { useTypeOptions } from './use-types'
 
 export interface PlaceRow {
@@ -15,17 +16,22 @@ export interface PlaceRow {
   change?: number
   lat?: string
   long?: string
+  media_list?: MediaRef[]
   profile: NonNullable<Place['profile']>
 }
 
 const hasCoords = (p: PlaceRow) => !!(p.lat && p.long)
 const enclosing = (p: PlaceRow) => (p.profile.parent_places ?? []).map((x) => x.name).filter(Boolean).join(', ')
 
+function PlaceThumb({ p }: { p: PlaceRow }) {
+  return <ObjectThumb kind="place" mediaRef={p.media_list?.[0]} size={44} />
+}
+
 function CoordsMark({ p }: { p: PlaceRow }) {
   const { t } = useTranslation('lists')
   if (!hasCoords(p)) return <span className="sr-only">{t('places.noCoords')}</span>
   return (
-    <span className="inline-flex items-center text-primary" title={`${p.lat}, ${p.long}`}>
+    <span className="inline-flex items-center text-brass" title={`${p.lat}, ${p.long}`}>
       <LocateFixed className="size-4" aria-hidden />
       <span className="sr-only">{t('places.hasCoords')}</span>
     </span>
@@ -57,7 +63,7 @@ export function PlacesListPage() {
     ]
     return {
       kind: 'place',
-      query: { profile: 'self', keys: 'handle,gramps_id,change,lat,long,profile' },
+      query: { profile: 'self', keys: 'handle,gramps_id,change,lat,long,media_list,profile' },
       searchProfile: 'self',
       defaultSort: 'title',
       sorts: [
@@ -71,8 +77,8 @@ export function PlacesListPage() {
       textRule: (w) => rule('HasData', w, '', ''),
       filters,
       placeholder: t('places.placeholder'),
-      rowHeight: 56,
-      compactRowHeight: 60,
+      rowHeight: 64,
+      compactRowHeight: 64,
       addPath: '/new_place',
       columns: [
         {
@@ -80,15 +86,7 @@ export function PlacesListPage() {
           header: t('places.col.name'),
           sort: 'title',
           width: 'minmax(0,1.4fr)',
-          cell: (p) => (
-            <div className="flex min-w-0 items-center gap-3">
-              <IconTile icon={MapPin} />
-              <div className="min-w-0">
-                <div className="truncate font-serif text-[1.05rem] leading-snug">{p.profile.name || p.gramps_id}</div>
-                <div className="truncate text-xs text-muted-foreground">{p.profile.type}</div>
-              </div>
-            </div>
-          ),
+          cell: (p) => <RowLead visual={<PlaceThumb p={p} />} title={p.profile.name || p.gramps_id} sub={p.profile.type} />,
         },
         {
           id: 'within',
@@ -111,11 +109,7 @@ export function PlacesListPage() {
       ],
       compact: (p) => (
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <IconTile icon={MapPin} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-serif text-[1.05rem] leading-snug">{p.profile.name || p.gramps_id}</div>
-            <div className="truncate text-xs text-muted-foreground">{[p.profile.type, enclosing(p)].filter(Boolean).join(' · ')}</div>
-          </div>
+          <RowLead visual={<PlaceThumb p={p} />} title={p.profile.name || p.gramps_id} sub={[p.profile.type, enclosing(p)].filter(Boolean).join(' · ')} />
           <CoordsMark p={p} />
         </div>
       ),

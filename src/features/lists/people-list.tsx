@@ -8,7 +8,7 @@ import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
 import { useExtraFacets } from './facets'
 import { rule, yearRangeDate } from './rules'
-import { ChangedCell, Dash, EventCell, IdCell } from './cells'
+import { ChangedCell, Dash, EventCell, IdCell, RowLead } from './cells'
 
 export interface PersonRow {
   handle: string
@@ -29,17 +29,22 @@ function ageAtDeath(p: PersonProfile): number | null {
   return age >= 0 ? age : null
 }
 
-function PersonName({ p, media, size = 36 }: { p: PersonProfile; media?: MediaRef[]; size?: number }) {
+function PersonName({ p, gid, media, place }: { p: PersonProfile; gid: string; media?: MediaRef[]; place?: string }) {
   const name = profileName(p)
   const span = lifespan(p.birth, p.death)
   return (
-    <div className="flex min-w-0 items-center gap-3">
-      <Portrait mediaRef={media?.[0]} name={name} sex={p.sex} size={size} />
-      <div className="min-w-0">
-        <div className="truncate font-serif text-[1.05rem] leading-snug">{name || p.gramps_id}</div>
-        {span && <div className="text-xs tabular-nums text-brass">{span}</div>}
-      </div>
-    </div>
+    <RowLead
+      visual={<Portrait mediaRef={media?.[0]} name={name} sex={p.sex} size={44} />}
+      title={name || gid}
+      sub={
+        span || place ? (
+          <>
+            {span && <span className="tabular-nums text-brass">{span}</span>}
+            {place && <span>{span ? ' · ' : ''}{place}</span>}
+          </>
+        ) : null
+      }
+    />
   )
 }
 
@@ -106,7 +111,7 @@ export function PeopleListPage() {
         label: (p) => p.profile.name_surname || <span className="text-muted-foreground">{t('people.noSurname')}</span>,
       },
       placeholder: t('people.placeholder'),
-      rowHeight: 60,
+      rowHeight: 64,
       compactRowHeight: 64,
       addPath: '/new_person',
       columns: [
@@ -115,7 +120,7 @@ export function PeopleListPage() {
           header: t('people.col.name'),
           sort: 'name',
           width: 'minmax(0,1.5fr)',
-          cell: (p) => <PersonName p={p.profile} media={p.media_list} />,
+          cell: (p) => <PersonName p={p.profile} gid={p.gramps_id} media={p.media_list} />,
         },
         {
           id: 'birth',
@@ -140,7 +145,7 @@ export function PeopleListPage() {
           minWidth: 800,
           align: 'end',
           defaultHidden: true,
-          cell: (p) => <span className="font-serif tabular-nums">{ageAtDeath(p.profile) ?? <Dash />}</span>,
+          cell: (p) => <span className="font-serif text-lg tabular-nums">{ageAtDeath(p.profile) ?? <Dash />}</span>,
         },
         { id: 'id', header: t('col.id'), sort: 'gramps_id', width: '4.5rem', minWidth: 880, cell: (p) => <IdCell id={p.gramps_id} /> },
         {
@@ -156,19 +161,7 @@ export function PeopleListPage() {
       compact: (p) => {
         const birth = ev(p.profile.birth)
         const death = ev(p.profile.death)
-        const place = birth?.place_name || death?.place_name
-        return (
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Portrait mediaRef={p.media_list?.[0]} name={profileName(p.profile)} sex={p.profile.sex} size={42} />
-            <div className="min-w-0">
-              <div className="truncate font-serif text-[1.05rem] leading-snug">{profileName(p.profile) || p.gramps_id}</div>
-              <div className="truncate text-xs text-muted-foreground">
-                <span className="tabular-nums text-brass">{lifespan(birth, death)}</span>
-                {place && <span>{lifespan(birth, death) ? ' · ' : ''}{place}</span>}
-              </div>
-            </div>
-          </div>
-        )
+        return <PersonName p={p.profile} gid={p.gramps_id} media={p.media_list} place={birth?.place_name || death?.place_name} />
       },
     }
   }, [t, tagFilter, extraFacets])

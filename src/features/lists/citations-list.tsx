@@ -5,7 +5,7 @@ import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
 import { useExtraFacets } from './facets'
 import { or, rule, yearRangeDate } from './rules'
-import { ChangedCell, Dash, IconTile, IdCell } from './cells'
+import { ChangedCell, Dash, IconTile, IdCell, RowLead } from './cells'
 
 export interface CitationRow {
   handle: string
@@ -22,7 +22,7 @@ export function ConfidenceDots({ level }: { level: number }) {
   return (
     <span className="inline-flex items-center gap-1" title={t(`citations.confidence.${level}`)}>
       {[0, 1, 2, 3, 4].map((i) => (
-        <span key={i} className={i <= level ? 'size-1.5 rounded-full bg-brass' : 'size-1.5 rounded-full bg-border'} aria-hidden />
+        <span key={i} className={i <= level ? 'size-2 rounded-full bg-brass' : 'size-2 rounded-full bg-border'} aria-hidden />
       ))}
       <span className="sr-only">{t(`citations.confidence.${level}`)}</span>
     </span>
@@ -64,23 +64,15 @@ export function CitationsListPage() {
       textRule: (w) => or(rule('MatchesPageSubstringOf', w), rule('HasSource', w, '', '', '')),
       filters,
       placeholder: t('citations.placeholder'),
-      rowHeight: 56,
-      compactRowHeight: 60,
+      rowHeight: 64,
+      compactRowHeight: 64,
       addPath: '/new_citation',
       columns: [
         {
           id: 'source',
           header: t('citations.col.source'),
           width: 'minmax(0,2fr)',
-          cell: (c) => (
-            <div className="flex min-w-0 items-center gap-3">
-              <IconTile icon={Quote} />
-              <div className="min-w-0">
-                <div className="truncate font-serif text-[1.05rem] leading-snug">{title(c) || <Dash />}</div>
-                {c.page && <div className="truncate text-xs text-muted-foreground">{c.page}</div>}
-              </div>
-            </div>
-          ),
+          cell: (c) => <RowLead visual={<IconTile icon={Quote} />} title={title(c) || <Dash />} sub={c.page} />,
         },
         {
           id: 'date',
@@ -88,7 +80,7 @@ export function CitationsListPage() {
           sort: 'date',
           width: 'minmax(6rem,0.7fr)',
           minWidth: 560,
-          cell: (c) => <span className="truncate tabular-nums">{c.profile?.date || <Dash />}</span>,
+          cell: (c) => <span className="block truncate text-[15px] tabular-nums">{c.profile?.date || <Dash />}</span>,
         },
         {
           id: 'confidence',
@@ -111,11 +103,7 @@ export function CitationsListPage() {
       ],
       compact: (c) => (
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <IconTile icon={Quote} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-serif text-[1.05rem] leading-snug">{title(c) || c.gramps_id}</div>
-            <div className="truncate text-xs text-muted-foreground">{[c.page, c.profile?.date].filter(Boolean).join(' · ')}</div>
-          </div>
+          <RowLead visual={<IconTile icon={Quote} />} title={title(c) || c.gramps_id} sub={[c.page, c.profile?.date].filter(Boolean).join(' · ')} />
           <ConfidenceDots level={c.confidence} />
         </div>
       ),

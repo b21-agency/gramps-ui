@@ -7,7 +7,7 @@ import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
 import { useExtraFacets } from './facets'
 import { rule } from './rules'
-import { ChangedCell, Dash, IconTile, IdCell } from './cells'
+import { ChangedCell, Dash, IconTile, IdCell, RowLead } from './cells'
 import { useTypeLabel, useTypeOptions } from './use-types'
 
 export interface RepositoryRow {
@@ -51,8 +51,8 @@ export function RepositoriesListPage() {
       textRule: (w) => rule('MatchesNameSubstringOf', w),
       filters,
       placeholder: t('repositories.placeholder'),
-      rowHeight: 56,
-      compactRowHeight: 60,
+      rowHeight: 64,
+      compactRowHeight: 64,
       addPath: '/new_repository',
       columns: [
         {
@@ -60,15 +60,7 @@ export function RepositoriesListPage() {
           header: t('repositories.col.name'),
           sort: 'name',
           width: 'minmax(0,2fr)',
-          cell: (r) => (
-            <div className="flex min-w-0 items-center gap-3">
-              <IconTile icon={Landmark} />
-              <div className="min-w-0">
-                <div className="truncate font-serif text-[1.05rem] leading-snug">{r.name || r.gramps_id}</div>
-                {r.urls?.[0]?.path && <div className="truncate text-xs text-muted-foreground">{r.urls[0].path}</div>}
-              </div>
-            </div>
-          ),
+          cell: (r) => <RowLead visual={<IconTile icon={Landmark} />} title={r.name || r.gramps_id} sub={r.urls?.[0]?.path} />,
         },
         {
           id: 'type',
@@ -76,7 +68,7 @@ export function RepositoriesListPage() {
           sort: 'type',
           width: 'minmax(0,0.8fr)',
           minWidth: 520,
-          cell: (r) => <span className="block truncate text-sm">{typeLabel(typeStr(r.type)) || <Dash />}</span>,
+          cell: (r) => <span className="block truncate text-[15px]">{typeLabel(typeStr(r.type)) || <Dash />}</span>,
         },
         {
           id: 'where',
@@ -97,13 +89,11 @@ export function RepositoriesListPage() {
         },
       ],
       compact: (r) => (
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <IconTile icon={Landmark} />
-          <div className="min-w-0">
-            <div className="truncate font-serif text-[1.05rem] leading-snug">{r.name || r.gramps_id}</div>
-            <div className="truncate text-xs text-muted-foreground">{[typeLabel(typeStr(r.type)), where(r)].filter(Boolean).join(' · ')}</div>
-          </div>
-        </div>
+        <RowLead
+          visual={<IconTile icon={Landmark} />}
+          title={r.name || r.gramps_id}
+          sub={[typeLabel(typeStr(r.type)), where(r)].filter(Boolean).join(' · ')}
+        />
       ),
     }
   }, [t, tagFilter, types, typeLabel, extraFacets])

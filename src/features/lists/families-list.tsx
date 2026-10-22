@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Heart, HeartHandshake, Tag } from 'lucide-react'
 import { profileName } from '@/lib/format'
@@ -7,7 +7,7 @@ import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
 import { useExtraFacets } from './facets'
 import { or, rule, yearRangeDate } from './rules'
-import { ChangedCell, Dash, EventCell, HandlePortrait, IdCell } from './cells'
+import { ChangedCell, Dash, EventCell, HandlePortrait, IdCell, RowLead } from './cells'
 import { useTypeOptions } from './use-types'
 
 export interface FamilyRow {
@@ -20,23 +20,28 @@ export interface FamilyRow {
 const person = (p: FamilyProfile['father']) => (p && 'handle' in p ? (p as PersonProfile) : undefined)
 const ev = (e: FamilyProfile['marriage']) => (e && 'date' in e ? (e as EventProfile) : undefined)
 
-function Partners({ f, size = 32 }: { f: FamilyProfile; size?: number }) {
+function Partners({ f, sub }: { f: FamilyProfile; sub?: ReactNode }) {
   const { t } = useTranslation('lists')
   const father = person(f.father)
   const mother = person(f.mother)
   const names = [father, mother].map((p) => (p ? profileName(p) : null))
   return (
-    <div className="flex min-w-0 items-center gap-3">
-      <span className="flex shrink-0 -space-x-2.5">
-        <HandlePortrait person={father} size={size} className="ring-offset-2 ring-offset-background" />
-        <HandlePortrait person={mother} size={size} className="ring-offset-2 ring-offset-background" />
-      </span>
-      <div className="min-w-0 truncate font-serif text-[1.05rem] leading-snug">
-        {names[0] || <span className="text-muted-foreground">{t('families.unknown')}</span>}
-        <span className="px-1.5 text-muted-foreground">&amp;</span>
-        {names[1] || <span className="text-muted-foreground">{t('families.unknown')}</span>}
-      </div>
-    </div>
+    <RowLead
+      visual={
+        <span className="flex shrink-0">
+          <HandlePortrait person={father} size={42} />
+          <HandlePortrait person={mother} size={42} className="-ml-1" />
+        </span>
+      }
+      title={
+        <>
+          {names[0] || <span className="text-muted-foreground">{t('families.unknown')}</span>}
+          <span className="px-1.5 text-brass">&amp;</span>
+          {names[1] || <span className="text-muted-foreground">{t('families.unknown')}</span>}
+        </>
+      }
+      sub={sub}
+    />
   )
 }
 
@@ -84,12 +89,18 @@ export function FamiliesListPage() {
       textRule: (w) => or(rule('SearchFatherName', w), rule('SearchMotherName', w)),
       filters,
       placeholder: t('families.placeholder'),
-      rowHeight: 56,
+      rowHeight: 64,
       compactRowHeight: 64,
       addPath: '/new_family',
       addNeedsEdit: true,
       columns: [
-        { id: 'partners', header: t('families.col.partners'), sort: 'surname', width: 'minmax(0,2fr)', cell: (f) => <Partners f={f.profile} /> },
+        {
+          id: 'partners',
+          header: t('families.col.partners'),
+          sort: 'surname',
+          width: 'minmax(0,2fr)',
+          cell: (f) => <Partners f={f.profile} />,
+        },
         {
           id: 'marriage',
           header: t('families.col.marriage'),
@@ -111,7 +122,7 @@ export function FamiliesListPage() {
           width: '5.5rem',
           minWidth: 720,
           align: 'end',
-          cell: (f) => <span className="font-serif tabular-nums">{children(f) || <Dash />}</span>,
+          cell: (f) => <span className="font-serif text-lg tabular-nums">{children(f) || <Dash />}</span>,
         },
         { id: 'id', header: t('col.id'), sort: 'gramps_id', width: '4.5rem', minWidth: 980, cell: (f) => <IdCell id={f.gramps_id} /> },
         {
@@ -128,14 +139,14 @@ export function FamiliesListPage() {
         const m = ev(f.profile.marriage)
         const n = children(f)
         return (
-          <div className="min-w-0 flex-1 space-y-1">
-            <Partners f={f.profile} size={30} />
-            <div className="truncate pl-[3.25rem] text-xs text-muted-foreground">
-              {[m?.date && t('families.marriedOn', { date: m.date }), n > 0 && t('families.childCount', { count: n })]
+          <Partners
+            f={f.profile}
+            sub={
+              [m?.date && t('families.marriedOn', { date: m.date }), n > 0 && t('families.childCount', { count: n })]
                 .filter(Boolean)
-                .join(' · ') || f.profile.relationship}
-            </div>
-          </div>
+                .join(' · ') || f.profile.relationship
+            }
+          />
         )
       },
     }

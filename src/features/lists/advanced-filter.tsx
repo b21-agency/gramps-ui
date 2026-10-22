@@ -111,17 +111,17 @@ export function AdvancedChip({ count, gql, onEdit, onClear }: { count: number; g
       <button
         type="button"
         onClick={onEdit}
-        className="inline-flex h-8 items-center gap-1.5 rounded-l-full border border-r-0 border-primary/35 bg-primary/10 pr-2 pl-3 text-sm hover:bg-primary/15"
+        className="inline-flex h-10 items-center gap-1.5 rounded-l-full bg-primary pr-2 pl-4 text-sm text-primary-foreground transition-colors duration-150 outline-none hover:bg-primary/85 focus-visible:ring-3 focus-visible:ring-ring/50 max-sm:h-11"
       >
-        <FlaskConical className="size-3.5 text-primary" />
-        <span className="text-muted-foreground">{t('adv.chip')}</span>
+        <FlaskConical className="size-3.5" />
+        <span className="text-primary-foreground/80">{t('adv.chip')}</span>
         <span className="font-medium">{[count ? t('adv.conditions', { count }) : null, gql ? 'GQL' : null].filter(Boolean).join(' + ')}</span>
       </button>
       <button
         type="button"
         onClick={onClear}
         aria-label={t('filters.remove', { what: t('adv.chip') })}
-        className="inline-flex h-8 items-center rounded-r-full border border-l-0 border-primary/35 bg-primary/10 px-2 text-muted-foreground hover:bg-primary/15 hover:text-foreground"
+        className="inline-flex h-10 items-center rounded-r-full bg-primary pr-3 pl-2 text-primary-foreground/80 transition-colors duration-150 outline-none hover:bg-primary/85 hover:text-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/50 max-sm:h-11"
       >
         <X className="size-3.5" />
       </button>

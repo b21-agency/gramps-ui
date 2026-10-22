@@ -28,9 +28,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
-import { Page } from '@/components/app-shell'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
+import { EmptyState, ErrorState } from '@/components/states'
 import { searchQuery, useDebounced } from '@/components/command-search'
 import type { Query } from '@/lib/api'
 import { listsApi, useListPageQuery, type ListPageArg } from '@/api/enhanced/lists'
@@ -343,6 +342,14 @@ function useScrollRestore(ready: boolean) {
 
 /* ------------------------------------------------------------------ toolbar */
 
+/** Select toggle while selecting: gold like the active chips. */
+const selectOn =
+  'data-[variant=default]:bg-primary data-[variant=default]:text-primary-foreground data-[variant=default]:hover:bg-primary/85 dark:data-[variant=default]:bg-primary dark:data-[variant=default]:hover:bg-primary/85'
+
+/** Quiet round tool button on the page canvas (sort, columns, advanced filter, select). */
+export const toolBtn =
+  'h-10 rounded-full border-transparent bg-card text-foreground dark:border-transparent dark:bg-card transition-[background-color,transform] duration-150 ease-out hover:bg-accent active:scale-[0.97] aria-expanded:bg-accent dark:hover:bg-accent motion-reduce:active:scale-100'
+
 export function QuickFilter({ value, onChange, placeholder }: { value: string; onChange: (q: string) => void; placeholder: string }) {
   const { t } = useTranslation('lists')
   const [text, setText] = useState(value)
@@ -363,9 +370,9 @@ export function QuickFilter({ value, onChange, placeholder }: { value: string; o
     }
   }, [debounced, onChange])
   return (
-    <InputGroup className="h-9 w-full bg-card sm:max-w-sm">
-      <InputGroupAddon>
-        <Search />
+    <InputGroup className="h-12 w-full rounded-2xl border-transparent bg-card shadow-none has-[[data-slot=input-group-control]:focus-visible]:border-brass/60 sm:h-14 dark:bg-card">
+      <InputGroupAddon className="pl-4">
+        <Search className="size-5! text-brass" />
       </InputGroupAddon>
       <InputGroupInput
         type="search"
@@ -379,11 +386,11 @@ export function QuickFilter({ value, onChange, placeholder }: { value: string; o
             setText('')
           }
         }}
-        className="[&::-webkit-search-cancel-button]:hidden"
+        className="font-serif text-lg placeholder:text-muted-foreground/80 md:text-lg [&::-webkit-search-cancel-button]:hidden"
       />
       {text && (
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton size="icon-xs" aria-label={t('common:actions.clear')} onClick={() => setText('')}>
+        <InputGroupAddon align="inline-end" className="pr-2">
+          <InputGroupButton size="icon-sm" className="size-10 rounded-full" aria-label={t('common:actions.clear')} onClick={() => setText('')}>
             <X />
           </InputGroupButton>
         </InputGroupAddon>
@@ -410,7 +417,7 @@ export function SortMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="h-9 bg-card" aria-label={t('sort.label')}>
+        <Button variant="ghost" className={cn(toolBtn, 'px-4')} aria-label={t('sort.label')}>
           <ArrowDownUp className="text-muted-foreground" />
           <span className="max-w-32 truncate">{label}</span>
         </Button>
@@ -454,10 +461,10 @@ export function AddButton({ kind, path, needsEdit }: { kind: ObjectKind; path?: 
   const { can } = useAuth()
   if (!path || !can('AddObject') || (needsEdit && !can('EditObject'))) return null
   return (
-    <Button asChild>
-      <Link to={path}>
-        <Plus />
-        {t(`add.${kind}`)}
+    <Button asChild className="h-11 gap-2 rounded-full px-5 text-[15px] transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] max-sm:size-12 max-sm:px-0">
+      <Link to={path} title={t(`add.${kind}`)}>
+        <Plus className="size-5" />
+        <span className="max-sm:sr-only">{t(`add.${kind}`)}</span>
       </Link>
     </Button>
   )
@@ -515,7 +522,7 @@ function ColumnsMenu<T extends ListItem>({ config, ctl }: { config: ListConfig<T
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="size-9 bg-card" aria-label={t('columns.label')} title={t('columns.label')}>
+        <Button variant="ghost" size="icon" className={cn(toolBtn, 'size-10')} aria-label={t('columns.label')} title={t('columns.label')}>
           <Columns3 />
         </Button>
       </DropdownMenuTrigger>
@@ -569,9 +576,9 @@ function useAdvanced<T extends ListItem>(config: ListConfig<T>, ctl: ListControl
   ) : null
   const button = (
     <Button
-      variant="outline"
+      variant="ghost"
       size="icon"
-      className={cn('size-9 bg-card', active && 'border-primary/40 text-primary')}
+      className={cn(toolBtn, 'size-10', active && 'text-primary ring-1 ring-primary/40')}
       aria-label={t('adv.title')}
       title={t('adv.title')}
       onClick={() => setOpen(true)}
@@ -599,21 +606,25 @@ export function ListToolbar<T extends ListItem>({
   const advanced = useAdvanced(config, ctl)
   if (isMobile) return <MobileListToolbar config={config} ctl={ctl} extra={extra} noSelect={noSelect} advanced={advanced} />
   return (
-    <div className="mb-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-0 flex-1 basis-60">
+    <div className="mb-6 space-y-4 sm:mb-8">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
+        <div className="min-w-0 flex-1 basis-80">
           <QuickFilter value={state.q} onChange={state.setQ} placeholder={config.placeholder} />
         </div>
-        <SortMenu
-          sorts={config.sorts}
-          current={source.effectiveSort}
-          relevance={!!state.q}
-          onChange={(s) => state.setSort(s)}
-        />
-        {extra}
-        {advanced.button}
-        {!noSelect && <ColumnsMenu config={config} ctl={ctl} />}
-        {!noSelect && <SelectToggle selection={ctl.selection as unknown as Selection<ListItem>} className="h-9" />}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <SortMenu
+            sorts={config.sorts}
+            current={source.effectiveSort}
+            relevance={!!state.q}
+            onChange={(s) => state.setSort(s)}
+          />
+          {extra}
+          {advanced.button}
+          {!noSelect && <ColumnsMenu config={config} ctl={ctl} />}
+          {!noSelect && (
+            <SelectToggle selection={ctl.selection as unknown as Selection<ListItem>} className={cn(toolBtn, 'px-4', selectOn)} />
+          )}
+        </div>
       </div>
       {(config.filters.length > 0 || advanced.chip) && (
         <div className="flex flex-wrap items-center gap-2">
@@ -655,16 +666,16 @@ function MobileListToolbar<T extends ListItem>({
       on ? 'border-primary bg-primary text-primary-foreground' : 'bg-card',
     )
   return (
-    <div className="mb-3 space-y-2.5">
-      <div className="flex items-center gap-2 [&_[data-slot=input-group]]:h-11">
+    <div className="mb-5 space-y-3">
+      <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <QuickFilter value={state.q} onChange={state.setQ} placeholder={config.placeholder} />
         </div>
         <Drawer open={open} onOpenChange={setOpen}>
           <DrawerTrigger asChild>
             <Button
-              variant="outline"
-              className={cn('relative size-11 shrink-0 bg-card', count > 0 && 'border-primary/40 text-primary')}
+              variant="ghost"
+              className={cn(toolBtn, 'relative size-12 shrink-0', count > 0 && 'text-primary ring-1 ring-primary/40')}
               aria-label={count ? `${t('filters.title')} (${count})` : t('filters.title')}
             >
               <SlidersHorizontal className="size-5" />
@@ -757,11 +768,35 @@ function MobileListToolbar<T extends ListItem>({
           </DrawerContent>
         </Drawer>
         {extra}
-        {!noSelect && <SelectToggle selection={ctl.selection as unknown as Selection<ListItem>} className="size-11 shrink-0" />}
+        {!noSelect && (
+          <SelectToggle
+            selection={ctl.selection as unknown as Selection<ListItem>}
+            className={cn(toolBtn, 'size-12 shrink-0', selectOn)}
+          />
+        )}
       </div>
       {advanced.chip && <div className="flex">{advanced.chip}</div>}
       <ActiveFilterPills filters={config.filters} values={state.filters} onChange={state.setFilter} />
       {advanced.dialog}
+    </div>
+  )
+}
+
+/**
+ * Album page frame for object lists: big serif title with the count as a quiet meta line
+ * (like search), the add action on the right.
+ */
+export function ListFrame({ title, count, actions, children }: { title: ReactNode; count?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">
+      <header className="mb-6 flex items-end justify-between gap-4 sm:mb-8">
+        <div className="min-w-0">
+          <h1 className="truncate pb-1 font-serif text-[2.6rem] font-medium leading-[1.05] tracking-[-0.02em] sm:text-6xl">{title}</h1>
+          <p className="mt-2 min-h-7 text-lg text-muted-foreground">{count}</p>
+        </div>
+        {actions && <div className="flex shrink-0 items-center gap-2 pb-2">{actions}</div>}
+      </header>
+      {children}
     </div>
   )
 }
@@ -771,23 +806,23 @@ export function DataListPage<T extends ListItem>({ title, config }: { title: str
   useTitle(title)
   const ctl = useListController(config)
   return (
-    <Page
+    <ListFrame
       title={title}
-      description={<CountDescription label={ctl.countLabel} busy={ctl.first.isFetching} />}
+      count={<CountDescription label={ctl.countLabel} busy={ctl.first.isFetching} />}
       actions={<AddButton kind={config.kind} path={config.addPath} needsEdit={config.addNeedsEdit} />}
     >
       <ListToolbar config={config} ctl={ctl} />
       <VirtualList config={config} ctl={ctl} />
-    </Page>
+    </ListFrame>
   )
 }
 
 export function CountDescription({ label, busy }: { label: string | null; busy?: boolean }) {
-  if (!label) return <span className="inline-block h-4 w-28 animate-pulse rounded-md bg-muted align-middle" aria-hidden />
+  if (!label) return <span className="inline-block h-5 w-36 animate-pulse rounded-md bg-muted align-middle" aria-hidden />
   return (
     <span className="inline-flex items-center gap-2 tabular-nums" aria-live="polite">
       {label}
-      {busy && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
+      {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
     </span>
   )
 }
@@ -795,11 +830,11 @@ export function CountDescription({ label, busy }: { label: string | null; busy?:
 export function ListEmpty({ kind, filtered, onClear }: { kind: ObjectKind; filtered: boolean; onClear: () => void }) {
   const { t } = useTranslation('lists')
   return (
-    <EmptyState icon={filtered ? undefined : kindIcon[kind]} title={filtered ? t('empty.filtered') : t('empty.none')}>
+    <EmptyState icon={filtered ? undefined : kindIcon[kind]} title={filtered ? t('empty.filtered') : t('empty.none')} className="py-16">
       {filtered ? (
         <>
           <p>{t('empty.filteredHint')}</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={onClear}>
+          <Button className="mt-4 h-11 rounded-full px-5 sm:h-10" onClick={onClear}>
             {t('filters.clearAll')}
           </Button>
         </>
@@ -869,13 +904,30 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
     return it && config.group ? config.group.key(it) : undefined
   }
 
-  if (first.isError && !first.data) return <ErrorState error={first.error} onRetry={() => first.refetch()} />
+  if (first.isError && !first.data)
+    return <ErrorState error={first.error} onRetry={() => first.refetch()} className="rounded-3xl bg-card" />
+
+  const rowClass = (on = false) =>
+    cn(
+      'group/row rounded-2xl px-3 outline-none transition-colors duration-150 ease-out hover:bg-accent focus-visible:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-accent',
+      on && 'bg-primary/10 hover:bg-primary/15',
+      compact ? 'flex w-full items-center gap-3 py-2 text-left' : 'grid w-full items-center gap-x-5 py-2 text-left',
+    )
+  const rowStyle = compact ? { minHeight: config.compactRowHeight } : { gridTemplateColumns: grid, minHeight: config.rowHeight }
+  const cells = (item: T) =>
+    compact
+      ? config.compact(item)
+      : columns.map((c) => (
+          <div key={c.id} className={cn('min-w-0', c.align === 'end' && 'text-right')}>
+            {c.cell(item)}
+          </div>
+        ))
 
   return (
-    <div ref={wrapRef} className="min-w-0">
-      {!compact && width > 0 && (
+    <div ref={wrapRef} className="min-w-0 overflow-clip rounded-3xl bg-card">
+      {!compact && width > 0 && total > 0 && (
         <div
-          className="sticky top-[var(--header-h)] z-10 grid items-center gap-x-4 border-b bg-background/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80"
+          className="sticky top-[var(--header-h)] z-10 grid items-center gap-x-5 border-b border-border/60 bg-card/95 px-6 pt-4 pb-3 text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-card/85"
           style={{ gridTemplateColumns: grid }}
         >
           {selecting && (
@@ -891,9 +943,7 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
         </div>
       )}
       {!first.data ? (
-        <div className="pt-2">
-          <RowsSkeleton rows={10} />
-        </div>
+        <RowsLoading compact={compact} />
       ) : total === 0 ? (
         <ListEmpty
           kind={config.kind}
@@ -901,80 +951,87 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
           onClear={() => state.setMany({ q: null, adv: null, gql: null, ...Object.fromEntries(config.filters.map((f) => [f.id, null])) })}
         />
       ) : (
-        <ul
-          ref={listRef}
-          role="list"
-          aria-label={t('listLabel')}
-          aria-busy={first.isPlaceholderData}
-          className={cn('relative transition-opacity', first.isPlaceholderData && 'opacity-60')}
-          style={{ height: virtualizer.getTotalSize() }}
-        >
-          {items.map((v) => {
-            const item = getItem(v.index)
-            const showGroup = grouping && item && (v.index === 0 || groupKey(v.index - 1) !== config.group!.key(item))
-            return (
-              <li
-                key={v.key}
-                data-index={v.index}
-                ref={virtualizer.measureElement}
-                className="absolute inset-x-0 top-0 border-b border-border/50"
-                style={{ transform: `translateY(${v.start - virtualizer.options.scrollMargin}px)` }}
-              >
-                {showGroup && (
-                  <div className="px-3 pt-5 pb-1.5 font-serif text-lg font-medium text-foreground" aria-hidden={false}>
-                    {config.group!.label(item)}
-                  </div>
-                )}
-                {item && selecting ? (
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={selection.has(item.handle)}
-                    onClick={() => selection.toggle(item)}
-                    className={cn(
-                      'w-full rounded-md px-3 text-left outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:ring-3 focus-visible:ring-ring/50',
-                      selection.has(item.handle) && 'bg-primary/8 hover:bg-primary/12',
-                      compact ? 'flex items-center gap-3 py-2.5' : 'grid items-center gap-x-4 py-2',
-                    )}
-                    style={compact ? { minHeight: config.compactRowHeight } : { gridTemplateColumns: grid, minHeight: config.rowHeight }}
-                  >
-                    <CheckMark on={selection.has(item.handle)} />
-                    {compact
-                      ? config.compact(item)
-                      : columns.map((c) => (
-                          <div key={c.id} className={cn('min-w-0', c.align === 'end' && 'text-right')}>
-                            {c.cell(item)}
-                          </div>
-                        ))}
-                  </button>
-                ) : item ? (
-                  <Link
-                    to={objectPath(config.kind, item.gramps_id)}
-                    className={cn(
-                      'rounded-md px-3 outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 active:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50',
-                      compact ? 'flex items-center gap-3 py-2.5' : 'grid items-center gap-x-4 py-2',
-                    )}
-                    style={compact ? { minHeight: config.compactRowHeight } : { gridTemplateColumns: grid, minHeight: config.rowHeight }}
-                  >
-                    {compact
-                      ? config.compact(item)
-                      : columns.map((c) => (
-                          <div key={c.id} className={cn('min-w-0', c.align === 'end' && 'text-right')}>
-                            {c.cell(item)}
-                          </div>
-                        ))}
-                  </Link>
-                ) : (
-                  <div className="flex items-center px-3" style={{ height: compact ? config.compactRowHeight : config.rowHeight }}>
-                    <Skeleton className="h-5 w-full" style={{ opacity: 0.6 }} />
-                  </div>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+        <div className="p-1.5 sm:p-3">
+          <ul
+            ref={listRef}
+            role="list"
+            aria-label={t('listLabel')}
+            aria-busy={first.isPlaceholderData}
+            className={cn('relative transition-opacity', first.isPlaceholderData && 'opacity-60')}
+            style={{ height: virtualizer.getTotalSize() }}
+          >
+            {items.map((v) => {
+              const item = getItem(v.index)
+              const showGroup = grouping && item && (v.index === 0 || groupKey(v.index - 1) !== config.group!.key(item))
+              return (
+                <li
+                  key={v.key}
+                  data-index={v.index}
+                  ref={virtualizer.measureElement}
+                  className="absolute inset-x-0 top-0"
+                  style={{ transform: `translateY(${v.start - virtualizer.options.scrollMargin}px)` }}
+                >
+                  {showGroup && (
+                    <div className={cn('px-3 pb-2 font-serif text-xl font-medium text-brass sm:text-2xl', v.index === 0 ? 'pt-2' : 'pt-7')}>
+                      {config.group!.label(item)}
+                    </div>
+                  )}
+                  {item && selecting ? (
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={selection.has(item.handle)}
+                      onClick={() => selection.toggle(item)}
+                      className={rowClass(selection.has(item.handle))}
+                      style={rowStyle}
+                    >
+                      <CheckMark on={selection.has(item.handle)} />
+                      {cells(item)}
+                    </button>
+                  ) : item ? (
+                    <Link to={objectPath(config.kind, item.gramps_id)} className={rowClass()} style={rowStyle}>
+                      {cells(item)}
+                    </Link>
+                  ) : (
+                    <RowPlaceholder height={compact ? config.compactRowHeight : config.rowHeight} />
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       )}
       {selecting && <SelectionBar kind={config.kind} selection={selection} merge={config.merge !== false} />}
+    </div>
+  )
+}
+
+/** A row that is scrolled into view before its page has loaded. */
+function RowPlaceholder({ height }: { height: number }) {
+  return (
+    <div className="flex items-center gap-4 px-3" style={{ height }} aria-hidden>
+      <Skeleton className="size-11 shrink-0 rounded-full opacity-60" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-4 w-2/5 opacity-60" />
+        <Skeleton className="h-3 w-1/5 opacity-40" />
+      </div>
+    </div>
+  )
+}
+
+function RowsLoading({ compact }: { compact: boolean }) {
+  return (
+    <div className="space-y-1 p-3 sm:p-4" aria-hidden>
+      {Array.from({ length: 10 }, (_, i) => (
+        <div key={i} className="flex items-center gap-4 px-1 py-2.5" style={{ opacity: 1 - i / 11 }}>
+          <Skeleton className="size-11 shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3 w-1/5" />
+          </div>
+          {!compact && <Skeleton className="hidden h-4 w-1/5 md:block" />}
+        </div>
+      ))}
     </div>
   )
 }
@@ -985,7 +1042,7 @@ function CheckMark({ on }: { on: boolean }) {
     <span
       aria-hidden
       className={cn(
-        'flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input',
+        'flex size-5 shrink-0 items-center justify-center rounded-md border border-input transition-colors duration-150',
         on && 'border-primary bg-primary text-primary-foreground',
       )}
     >

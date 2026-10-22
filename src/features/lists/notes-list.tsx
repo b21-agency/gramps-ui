@@ -19,6 +19,18 @@ export interface NoteRow {
 
 const preview = (n: NoteRow) => n.text?.string?.replace(/\s+/g, ' ').trim() ?? ''
 
+/** Note preview as a quote: gold mark, serif italic, two lines. */
+function NoteText({ n }: { n: NoteRow }) {
+  return (
+    <div className="flex min-w-0 gap-2">
+      <span className="w-5 shrink-0 font-serif text-3xl leading-[0.9] text-brass" aria-hidden>
+        “
+      </span>
+      <p className="line-clamp-2 min-w-0 font-serif text-[17px] leading-snug italic">{preview(n) || <Dash />}</p>
+    </div>
+  )
+}
+
 export function NotesListPage() {
   const { t } = useTranslation(['lists', 'common'])
   const tagFilter = useTagFilter(t('filters.tag'), Tag)
@@ -45,8 +57,8 @@ export function NotesListPage() {
       textRule: (w) => rule('MatchesSubstringOf', w),
       filters,
       placeholder: t('notes.placeholder'),
-      rowHeight: 72,
-      compactRowHeight: 84,
+      rowHeight: 80,
+      compactRowHeight: 88,
       addPath: '/new_note',
       columns: [
         {
@@ -54,7 +66,7 @@ export function NotesListPage() {
           header: t('notes.col.text'),
           sort: 'text',
           width: 'minmax(0,3fr)',
-          cell: (n) => <p className="line-clamp-2 font-serif leading-snug">{preview(n) || <Dash />}</p>,
+          cell: (n) => <NoteText n={n} />,
         },
         {
           id: 'type',
@@ -77,8 +89,8 @@ export function NotesListPage() {
       ],
       compact: (n) => (
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 font-serif leading-snug">{preview(n) || n.gramps_id}</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{typeLabel(typeStr(n.type))}</p>
+          <NoteText n={n} />
+          <p className="mt-1 truncate pl-7 text-[13px] text-muted-foreground">{typeLabel(typeStr(n.type))}</p>
         </div>
       ),
     }

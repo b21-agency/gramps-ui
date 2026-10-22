@@ -72,10 +72,10 @@ export function useTagFilter(label: string, icon?: LucideIcon): FilterDef | null
   )
 }
 
-const chip =
-  'inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
-const chipIdle = 'border-border bg-card text-foreground hover:bg-accent'
-const chipActive = 'border-primary/35 bg-primary/10 text-foreground hover:bg-primary/15'
+export const chip =
+  'inline-flex h-10 max-w-full items-center gap-1.5 rounded-full px-4 text-sm transition-[background-color,transform] duration-150 ease-out outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] motion-reduce:active:scale-100'
+export const chipIdle = 'bg-card text-foreground hover:bg-accent aria-expanded:bg-accent'
+export const chipActive = 'bg-primary font-medium text-primary-foreground hover:bg-primary/85'
 
 export function FilterChips({
   filters,
@@ -101,7 +101,7 @@ export function FilterChips({
         ),
       )}
       {anyActive && onClear && (
-        <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={onClear}>
+        <Button variant="ghost" className="h-10 rounded-full px-4 text-muted-foreground" onClick={onClear}>
           {t('filters.clear')}
         </Button>
       )}
@@ -118,7 +118,7 @@ function ToggleChip({ filter, active, onChange }: { filter: FilterDef; active: b
       className={cn(chip, active ? chipActive : chipIdle)}
       onClick={() => onChange(!active)}
     >
-      {active ? <Check className="size-3.5 text-primary" /> : Icon && <Icon className="size-3.5 text-muted-foreground" />}
+      {active ? <Check className="size-3.5" /> : Icon && <Icon className="size-3.5 text-muted-foreground" />}
       {filter.label}
     </button>
   )
@@ -144,12 +144,12 @@ function PopoverChip({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className={cn(chip, value ? cn(chipActive, 'rounded-r-none border-r-0 pr-2') : chipIdle)}
+            className={cn(chip, value ? cn(chipActive, 'rounded-r-none pr-2') : chipIdle)}
             aria-label={display ? `${filter.label}: ${display}` : filter.label}
           >
-            {Icon && <Icon className={cn('size-3.5', value ? 'text-primary' : 'text-muted-foreground')} />}
-            <span className={cn(value && 'text-muted-foreground')}>{filter.label}</span>
-            {display && <span className="truncate font-medium">{display}</span>}
+            {Icon && <Icon className={cn('size-3.5', !value && 'text-muted-foreground')} />}
+            <span className={cn(value && 'font-normal text-primary-foreground/80')}>{filter.label}</span>
+            {display && <span className="truncate">{display}</span>}
             {!value && <ChevronDown className="size-3.5 text-muted-foreground" />}
           </button>
         </PopoverTrigger>
@@ -229,7 +229,7 @@ function PopoverChip({
       {value && (
         <button
           type="button"
-          className={cn(chip, chipActive, 'rounded-l-none border-l-0 px-2 text-muted-foreground hover:text-foreground')}
+          className={cn(chip, chipActive, 'rounded-l-none pr-3 pl-2 text-primary-foreground/80 hover:text-primary-foreground')}
           aria-label={t('filters.remove', { what: filter.label })}
           onClick={() => onChange(null)}
         >
@@ -356,19 +356,19 @@ export function ActiveFilterPills({
           <button
             key={f.id}
             type="button"
-            className={cn(pill, 'min-h-9 shrink-0 border-primary/35 bg-primary/10 pr-2.5 text-sm')}
+            className={cn(pill, 'min-h-11 shrink-0 border-transparent bg-primary pr-3 text-sm text-primary-foreground')}
             aria-label={t('filters.remove', { what: f.label })}
             onClick={() => onChange(f.id, null)}
           >
             {display ? (
               <>
-                <span className="text-muted-foreground">{f.label}</span>
+                <span className="text-primary-foreground/80">{f.label}</span>
                 <span className="max-w-40 truncate font-medium">{display}</span>
               </>
             ) : (
               <span className="font-medium">{f.label}</span>
             )}
-            <X className="size-4 text-muted-foreground" />
+            <X className="size-4 text-primary-foreground/80" />
           </button>
         )
       })}

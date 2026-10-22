@@ -200,7 +200,7 @@ export function SelectionBar<T extends Selectable>({
       <div
         role="toolbar"
         aria-label={t('select.toolbar')}
-        className="sticky bottom-[calc(var(--tabbar-h)+0.75rem)] z-20 mx-auto mt-3 flex w-fit max-w-full flex-wrap items-center gap-2 rounded-xl border bg-popover p-2 pl-4 shadow-lg"
+        className="sticky bottom-[calc(var(--tabbar-h)+0.75rem)] z-20 mx-auto mt-1 mb-3 flex w-fit max-w-[calc(100%-1rem)] flex-wrap items-center gap-1.5 rounded-3xl border bg-popover p-2 pl-4 shadow-lg sm:gap-2 sm:pl-5 [&>[data-slot=button]]:h-10 [&>[data-slot=button]]:rounded-full [&>[data-slot=button]]:px-3 sm:[&>[data-slot=button]]:px-4"
       >
         <span className="text-sm tabular-nums" aria-live="polite">
           {t('select.count', { count: n })}
@@ -227,7 +227,7 @@ export function SelectionBar<T extends Selectable>({
             {t('select.delete')}
           </Button>
         )}
-        <Button variant="ghost" size="icon" aria-label={t('select.cancel')} onClick={() => selection.setActive(false)}>
+        <Button variant="ghost" size="icon" className="size-10" aria-label={t('select.cancel')} onClick={() => selection.setActive(false)}>
           <X />
         </Button>
       </div>

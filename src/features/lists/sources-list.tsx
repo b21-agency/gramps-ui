@@ -1,11 +1,13 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, BookOpen, Tag } from 'lucide-react'
+import { Archive, Tag } from 'lucide-react'
 import { DataListPage, type ListConfig } from './data-list'
 import { useTagFilter, type FilterDef } from './filters'
 import { useExtraFacets } from './facets'
 import { or, rule } from './rules'
-import { ChangedCell, Dash, IconTile, IdCell } from './cells'
+import { ObjectThumb } from '@/components/object-thumb'
+import type { MediaRef } from '@/lib/types'
+import { ChangedCell, Dash, IdCell, RowLead } from './cells'
 
 export interface SourceRow {
   handle: string
@@ -15,6 +17,7 @@ export interface SourceRow {
   author: string
   pubinfo: string
   abbrev: string
+  media_list?: MediaRef[]
 }
 
 export function SourcesListPage() {
@@ -36,7 +39,7 @@ export function SourcesListPage() {
     ]
     return {
       kind: 'source',
-      query: { keys: 'handle,gramps_id,change,title,author,pubinfo,abbrev' },
+      query: { keys: 'handle,gramps_id,change,title,author,pubinfo,abbrev,media_list' },
       defaultSort: 'title',
       sorts: [
         { key: 'title', label: t('sources.sort.title') },
@@ -49,8 +52,8 @@ export function SourcesListPage() {
       textRule: (w) => or(rule('HasSource', w, '', '', ''), rule('HasSource', '', w, '', ''), rule('HasSource', '', '', w, '')),
       filters,
       placeholder: t('sources.placeholder'),
-      rowHeight: 56,
-      compactRowHeight: 60,
+      rowHeight: 64,
+      compactRowHeight: 64,
       addPath: '/new_source',
       columns: [
         {
@@ -58,15 +61,7 @@ export function SourcesListPage() {
           header: t('sources.col.title'),
           sort: 'title',
           width: 'minmax(0,2fr)',
-          cell: (s) => (
-            <div className="flex min-w-0 items-center gap-3">
-              <IconTile icon={BookOpen} />
-              <div className="min-w-0">
-                <div className="truncate font-serif text-[1.05rem] leading-snug">{s.title || s.gramps_id}</div>
-                {s.abbrev && <div className="truncate text-xs text-muted-foreground">{s.abbrev}</div>}
-              </div>
-            </div>
-          ),
+          cell: (s) => <RowLead visual={<ObjectThumb kind="source" mediaRef={s.media_list?.[0]} size={44} />} title={s.title || s.gramps_id} sub={s.abbrev} />,
         },
         {
           id: 'author',
@@ -74,7 +69,7 @@ export function SourcesListPage() {
           sort: 'author',
           width: 'minmax(0,1.2fr)',
           minWidth: 560,
-          cell: (s) => <span className="block truncate text-sm">{s.author || <Dash />}</span>,
+          cell: (s) => <span className="block truncate text-[15px]">{s.author || <Dash />}</span>,
         },
         {
           id: 'pubinfo',
@@ -96,13 +91,11 @@ export function SourcesListPage() {
         },
       ],
       compact: (s) => (
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <IconTile icon={BookOpen} />
-          <div className="min-w-0">
-            <div className="truncate font-serif text-[1.05rem] leading-snug">{s.title || s.gramps_id}</div>
-            <div className="truncate text-xs text-muted-foreground">{[s.author, s.pubinfo].filter(Boolean).join(' · ')}</div>
-          </div>
-        </div>
+        <RowLead
+          visual={<ObjectThumb kind="source" mediaRef={s.media_list?.[0]} size={44} />}
+          title={s.title || s.gramps_id}
+          sub={[s.author, s.pubinfo].filter(Boolean).join(' · ')}
+        />
       ),
     }
   }, [t, tagFilter, extraFacets])
