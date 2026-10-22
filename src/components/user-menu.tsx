@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
 import { Check, Languages, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,7 +15,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { api, logout } from '@/lib/api'
+import { logout } from '@/lib/api'
+import { useGetUserQuery } from '@/api/users-api-slice.gen'
 import type { UserInfo } from '@/lib/types'
 import { initials } from '@/lib/format'
 import { languages } from '@/i18n'
@@ -25,7 +25,9 @@ import { ActionSheet } from './action-sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 export function useCurrentUser() {
-  return useQuery({ queryKey: ['user', 'me'], queryFn: () => api<UserInfo>('/users/-/'), staleTime: 10 * 60_000 })
+  // tagged `Users`: profile/user writes invalidate it
+  const r = useGetUserQuery({ userName: '-' })
+  return { ...r, data: r.data as UserInfo | undefined }
 }
 
 export function UserMenu() {

@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { api } from '@/lib/api'
+import { useSearchQuery } from '@/api/enhanced/objects'
 import { apiLocale } from '@/i18n'
 import { describeObject, kindIcon } from '@/lib/objects'
-import type { ObjectKind, SearchHit } from '@/lib/types'
+import type { ObjectKind } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { searchQuery, useDebounced } from './command-search'
 import { AdaptivePopover } from './adaptive-popover'
@@ -39,15 +39,13 @@ export function ObjectSearchList({
   const { t } = useTranslation()
   const [q, setQ] = useState('')
   const dq = useDebounced(q, 180)
-  const { data, isFetching } = useQuery({
-    queryKey: ['search', 'picker', kinds.join(','), dq, apiLocale()],
-    enabled: dq.trim().length > 0,
-    placeholderData: keepPreviousData,
-    queryFn: () =>
-      api<SearchHit[]>('/search/', {
-        query: { query: searchQuery(dq), type: kinds.join(','), locale: apiLocale(), profile: 'self', page: 1, pagesize: 20 },
-      }),
-  })
+  // `data` keeps the previous hits while the next query loads
+  const { data: page, isFetching } = useSearchQuery(
+    dq.trim().length > 0
+      ? { query: searchQuery(dq), type: kinds.join(','), locale: apiLocale(), profile: 'self', page: 1, pagesize: 20 }
+      : skipToken,
+  )
+  const data = page?.items
   return (
     <Command shouldFilter={false}>
       <CommandInput value={q} onValueChange={setQ} placeholder={placeholder ?? t('actions.searchPlaceholder')} autoFocus={autoFocus} />

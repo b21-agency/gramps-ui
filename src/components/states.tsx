@@ -8,15 +8,21 @@ import { cn } from '@/lib/utils'
 
 export function ErrorState({ error, onRetry, className }: { error: unknown; onRetry?: () => void; className?: string }) {
   const { t } = useTranslation()
-  const status = (error as { status?: number })?.status
+  // ApiError, or an RTK Query error ({ status, data } / { status: 'FETCH_ERROR', error })
+  const rawStatus = (error as { status?: number | string })?.status
+  const status = typeof rawStatus === 'number' ? rawStatus : undefined
+  const rtkData = (error as { data?: { error?: { message?: string }; message?: string } })?.data
+  const rtkMessage = rtkData?.error?.message ?? rtkData?.message ?? (error as { error?: string })?.error
   const message =
     status === 404
       ? t('error.notFound')
-      : error instanceof TypeError && /fetch|network|load failed/i.test(error.message)
+      : rawStatus === 'FETCH_ERROR' || (error instanceof TypeError && /fetch|network|load failed/i.test(error.message))
         ? t('error.network')
         : error instanceof ApiError
           ? error.message
-          : String((error as Error)?.message ?? error)
+          : typeof rawStatus !== 'undefined' && !(error instanceof Error)
+            ? String(rtkMessage ?? `HTTP ${rawStatus}`)
+            : String((error as Error)?.message ?? error)
   return (
     <div className={cn('flex flex-col items-center gap-3 px-6 py-16 text-center', className)}>
       <CircleAlert className="size-8 text-destructive" aria-hidden />

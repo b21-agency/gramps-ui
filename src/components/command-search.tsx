@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { Search } from 'lucide-react'
 import {
   Command,
@@ -15,10 +15,10 @@ import {
 import { Kbd } from './kbd'
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/components/ui/drawer'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { api } from '@/lib/api'
+import { useSearchQuery } from '@/api/enhanced/objects'
 import { apiLocale } from '@/i18n'
 import { describeObject, kindIcon, objectPath } from '@/lib/objects'
-import type { ObjectKind, SearchHit } from '@/lib/types'
+import type { ObjectKind } from '@/lib/types'
 import { useRecent } from '@/lib/prefs'
 
 export function useDebounced<T>(value: T, ms = 200) {
@@ -78,15 +78,11 @@ export function CommandSearch() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const { data, isFetching } = useQuery({
-    queryKey: ['search', 'palette', dq, apiLocale()],
-    enabled: dq.trim().length > 1,
-    placeholderData: keepPreviousData,
-    queryFn: () =>
-      api<SearchHit[]>('/search/', {
-        query: { query: searchQuery(dq), locale: apiLocale(), profile: 'self', page: 1, pagesize: 12 },
-      }),
-  })
+  // `data` keeps the previous hits while the next query loads
+  const { data: page, isFetching } = useSearchQuery(
+    dq.trim().length > 1 ? { query: searchQuery(dq), locale: apiLocale(), profile: 'self', page: 1, pagesize: 12 } : skipToken,
+  )
+  const data = page?.items
 
   const go = (path: string) => {
     setSearchOpen(false)

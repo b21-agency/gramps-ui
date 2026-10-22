@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { Skeleton } from '@/components/ui/skeleton'
 import { NoteHtml } from '@/components/note-html'
 import { Lightbox } from './lightbox'
 import { refThumbUrl } from '@/components/portrait'
-import { api, mediaFileUrl, mediaThumbUrl } from '@/lib/api'
+import { mediaFileUrl, mediaThumbUrl } from '@/lib/api'
+import { useGetObjectsByHandlesQuery } from '@/api/enhanced/objects'
 import { useAccessToken } from '@/lib/auth'
 import { apiLocale } from '@/i18n'
 import { describeObject, kindIcon, normalizeKind, objectPath } from '@/lib/objects'
@@ -146,14 +147,12 @@ export function Gallery({ refs, media }: { refs: MediaRef[]; media?: Media[] }) 
 const noteFormatOptions = JSON.stringify({ link_format: '/{obj_class}/{gramps_id}' })
 
 export function useNotesHtml(handles: string[] | undefined) {
-  return useQuery({
-    queryKey: ['notes', 'html', handles],
-    enabled: !!handles?.length,
-    queryFn: () =>
-      api<Note[]>('/notes/', {
-        query: { handles: handles!.join(','), formats: 'html', format_options: noteFormatOptions, locale: apiLocale() },
-      }),
-  })
+  const r = useGetObjectsByHandlesQuery(
+    handles?.length
+      ? { kind: 'note', handles, query: { formats: 'html', format_options: noteFormatOptions, locale: apiLocale() } }
+      : skipToken,
+  )
+  return { ...r, data: r.data as Note[] | undefined }
 }
 
 export function NotesList({ handles }: { handles: string[] }) {
@@ -189,11 +188,11 @@ const confidenceKeys = ['veryLow', 'low', 'normal', 'high', 'veryHigh'] as const
 
 export function CitationsList({ handles }: { handles: string[] }) {
   const { t } = useTranslation('detail')
-  const { data, isLoading } = useQuery({
-    queryKey: ['citations', 'handles', handles, apiLocale()],
-    enabled: handles.length > 0,
-    queryFn: () => api<Citation[]>('/citations/', { query: { handles: handles.join(','), profile: 'self', locale: apiLocale() } }),
-  })
+  const r = useGetObjectsByHandlesQuery(
+    handles.length ? { kind: 'citation', handles, query: { profile: 'self', locale: apiLocale() } } : skipToken,
+  )
+  const { isLoading } = r
+  const data = r.data as Citation[] | undefined
   if (isLoading) return <Skeleton className="h-16" />
   return (
     <ul className="divide-y">

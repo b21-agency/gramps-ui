@@ -1,23 +1,14 @@
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { FilePlus2, FilePen, FileX2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { apiRaw } from '@/lib/api'
+import { useObjectHistoryInfiniteQuery } from '@/api/enhanced/shared'
 import { useAuth } from '@/lib/auth'
 import { timeAgo } from '@/lib/format'
 import { DetailSection } from './sections'
 
-interface ObjectChange {
-  trans_type: 0 | 1 | 2
-  timestamp: number
-  transaction_id?: number
-  connection?: { user?: { name?: string; full_name?: string } }
-}
-
-const PAGE = 10
-const MAX = 50
 const verbs = ['added', 'changed', 'deleted'] as const
 const icons = [FilePlus2, FilePen, FileX2]
 
@@ -30,21 +21,10 @@ export function ObjectHistory({ objClass, handle, lastChange, id = 'history' }: 
   const { t, i18n } = useTranslation(['revisions', 'detail'])
   const { can } = useAuth()
   const allowed = can('ViewPrivate')
-  const q = useInfiniteQuery({
-    queryKey: ['object-history', objClass, handle, lastChange],
-    enabled: allowed && !!handle,
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
-      apiRaw<ObjectChange[]>(`/transactions/history/objects/${objClass}/${handle}`, {
-        query: { sort: '-id', page: pageParam, pagesize: PAGE },
-      }),
-    getNextPageParam: (last, all) => {
-      const n = all.reduce((s, p) => s + p.data.length, 0)
-      return n < (last.total ?? 0) && n < MAX && last.data.length === PAGE ? all.length + 1 : undefined
-    },
-  })
+  // pages of OBJECT_HISTORY_PAGE, up to OBJECT_HISTORY_MAX; refetched after writes (Transactions tag)
+  const q = useObjectHistoryInfiniteQuery(allowed && handle ? { objClass, handle, lastChange } : skipToken)
   if (!allowed) return null
-  const items = q.data?.pages.flatMap((p) => p.data) ?? []
+  const items = q.data?.pages.flatMap((p) => p.items) ?? []
   const total = q.data?.pages[0]?.total ?? 0
   return (
     <DetailSection id={id} title={t('detail:sections.revisions')} count={total || undefined}>

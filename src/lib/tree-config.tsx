@@ -3,8 +3,9 @@
 // free-form blob; we read and write the same keys so both UIs stay in sync.
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, type QueryClient } from '@tanstack/react-query'
-import { api } from './api'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useGetTreeConfigQuery } from '@/api/trees-api-slice.gen'
+import type { TreeConfig } from '@/api/enhanced/shared'
 import { useAuth } from './auth'
 
 export const TREE_CONFIG = {
@@ -15,18 +16,13 @@ export const TREE_CONFIG = {
   homePageImage: 'frontend.homePageImage',
 } as const
 
-export type TreeConfig = Record<string, unknown>
+export type { TreeConfig }
 
-export const treeConfigKey = ['tree-config'] as const
-
+/** The tree's UI config (cached under the `Trees` tag; saving invalidates it). */
 export function useTreeConfig() {
   const { authenticated } = useAuth()
-  return useQuery({
-    queryKey: treeConfigKey,
-    enabled: authenticated,
-    queryFn: () => api<TreeConfig>('/trees/-/config'),
-    staleTime: 10 * 60_000,
-  })
+  const r = useGetTreeConfigQuery(authenticated ? { treeId: '-' } : skipToken)
+  return { ...r, data: r.data as TreeConfig | undefined }
 }
 
 /** Reads a string value; also accepts a nested {frontend: {...}} shape. */
@@ -39,20 +35,7 @@ export function configString(config: TreeConfig | undefined, key: string): strin
   return typeof nested === 'string' ? nested : ''
 }
 
-/** Merges a patch into the current config (re-read from the server) and saves it. */
-export async function updateTreeConfig(qc: QueryClient, patch: TreeConfig) {
-  const current = await api<TreeConfig>('/trees/-/config').catch(() => (qc.getQueryData(treeConfigKey) as TreeConfig) ?? {})
-  const merged = { ...(current ?? {}), ...patch }
-  await api('/trees/-/config', { method: 'PUT', json: merged })
-  qc.setQueryData(treeConfigKey, merged)
-  return merged
-}
-
-/** Replaces the whole config (used by "import settings"). */
-export async function replaceTreeConfig(qc: QueryClient, config: TreeConfig) {
-  await api('/trees/-/config', { method: 'PUT', json: config })
-  qc.setQueryData(treeConfigKey, config)
-}
+// Saving: useUpdateTreeConfigMutation / useReplaceTreeConfigMutation from '@/api/enhanced/shared'.
 
 /** App title: the tree's custom title, else our default app name. */
 export function useAppTitle() {
