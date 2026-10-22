@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { AlbumSkeleton } from '@/components/album-skeleton'
 import { PersonChip } from '@/components/person-chip'
 import { refThumbUrl } from '@/components/portrait'
 import { useAccessToken } from '@/lib/auth'
@@ -34,7 +34,7 @@ export function useObjectPage<T extends { handle: string; gramps_id: string }>(
 }
 
 export function PageFrame({ children }: { children: ReactNode }) {
-  return <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-8">{children}</div>
+  return <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">{children}</div>
 }
 
 /** Main + aside columns, same proportions as the person page. */
@@ -48,23 +48,7 @@ export function Columns({ main, aside }: { main: ReactNode; aside?: ReactNode })
 }
 
 export function ObjectSkeleton({ media = false }: { media?: boolean }) {
-  return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
-      <Skeleton className="mb-6 h-5 w-40" />
-      <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
-        <Skeleton className={cn('h-[19rem] w-full shrink-0 rounded-3xl', media ? 'lg:h-[30rem] lg:w-[40rem]' : 'lg:h-[26rem] lg:w-[23rem]')} />
-        <div className="flex-1 space-y-4 lg:pt-4">
-          <Skeleton className="h-14 w-3/4" />
-          <Skeleton className="h-5 w-1/2" />
-          <Skeleton className="h-5 w-1/3" />
-        </div>
-      </div>
-      <div className="mt-10 grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-        <Skeleton className="h-56 rounded-3xl" />
-        <Skeleton className="h-80 rounded-3xl" />
-      </div>
-    </div>
-  )
+  return <AlbumSkeleton media={media} />
 }
 
 export type NavItem = { id: string; label: string; count?: number }

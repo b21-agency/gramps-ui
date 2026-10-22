@@ -90,9 +90,16 @@ export function CommandSearch() {
     navigate(path)
   }
 
-  const itemCls = isMobile ? 'gap-3 py-3 text-base [&_svg]:size-5' : ''
+  const itemCls = isMobile ? 'gap-3 py-3 text-base [&_svg]:size-5' : 'gap-3 rounded-xl px-3 py-2.5 text-[15px] [&_svg]:size-[18px]'
   const body = (
-    <Command shouldFilter={false} className={isMobile ? 'bg-transparent' : undefined}>
+    <Command
+      shouldFilter={false}
+      className={
+        isMobile
+          ? 'bg-transparent'
+          : 'p-2 [&_[data-slot=command-input-wrapper]]:p-2 [&_[data-slot=input-group]]:h-12! [&_[data-slot=command-input]]:text-lg [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:text-xs'
+      }
+    >
       <CommandInput
         value={q}
         onValueChange={setQ}
@@ -100,7 +107,7 @@ export function CommandSearch() {
         enterKeyHint="search"
         autoFocus
       />
-      <CommandList className={isMobile ? 'max-h-none flex-1 overscroll-contain' : 'max-h-[min(60vh,28rem)]'}>
+      <CommandList className={isMobile ? 'max-h-none flex-1 overscroll-contain' : 'max-h-[min(65vh,36rem)] px-1 pb-1'}>
         {dq.trim().length > 1 && !isFetching && data?.length === 0 && <CommandEmpty>{t('noResults')}</CommandEmpty>}
         {dq.trim().length > 1 && !!data?.length && (
           <CommandGroup>
@@ -164,7 +171,13 @@ export function CommandSearch() {
           </DrawerContent>
         </Drawer>
       ) : (
-        <CommandDialog open={open} onOpenChange={setSearchOpen} title={t('actions.search')} description={t('actions.searchPlaceholder')}>
+        <CommandDialog
+          open={open}
+          onOpenChange={setSearchOpen}
+          title={t('actions.search')}
+          description={t('actions.searchPlaceholder')}
+          className="top-[12vh] sm:max-w-2xl lg:max-w-3xl"
+        >
           {body}
         </CommandDialog>
       )}

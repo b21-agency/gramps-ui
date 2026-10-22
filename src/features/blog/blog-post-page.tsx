@@ -213,7 +213,7 @@ const dropCap =
 
 function PostSkeleton() {
   return (
-    <div className="mx-auto max-w-7xl space-y-5 px-4 py-14 sm:px-6 lg:px-10">
+    <div className="space-y-5 px-4 py-14 sm:px-6 lg:px-10 2xl:px-14">
       <Skeleton className="mx-auto h-4 w-40" />
       <Skeleton className="mx-auto h-16 w-3/5" />
       <Skeleton className="mt-10 aspect-[16/9] w-full rounded-3xl" />

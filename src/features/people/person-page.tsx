@@ -5,7 +5,6 @@ import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
 import { Image as ImageIcon, ChartGantt, Dna, Home, Map as MapIcon, Network, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { PersonChip } from '@/components/person-chip'
 import { ErrorState } from '@/components/states'
 import { ObjectToolbar } from '@/components/detail/object-header'
@@ -32,6 +31,7 @@ import { Panel } from '@/components/detail/panel'
 import { AlbumHero, FamilyPanel } from './album-hero'
 import { EmptyCard } from '@/components/detail/panel'
 import { AlbumFrame, AlbumGrid } from '@/features/objects/album'
+import { AlbumSkeleton } from '@/components/album-skeleton'
 import { LifeStory } from './life-story'
 import { ExternalSearch } from './external-search'
 import { AddRelativeMenu } from '@/features/editor/relationship-actions'
@@ -412,18 +412,5 @@ function Associations({ person }: { person: Person }) {
 }
 
 function PersonSkeleton() {
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <Skeleton className="mb-6 h-5 w-40" />
-      <div className="flex gap-6">
-        <Skeleton className="size-32 rounded-full" />
-        <div className="flex-1 space-y-3">
-          <Skeleton className="h-12 w-3/4" />
-          <Skeleton className="h-5 w-1/2" />
-        </div>
-      </div>
-      <Skeleton className="mt-8 h-6 w-full" />
-      <Skeleton className="mt-10 h-72 w-full" />
-    </div>
-  )
+  return <AlbumSkeleton />
 }

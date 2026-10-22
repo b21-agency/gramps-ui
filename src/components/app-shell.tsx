@@ -19,7 +19,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
-import { Skeleton } from '@/components/ui/skeleton'
+import { PageSkeletonFull as PageSkeleton } from './album-skeleton'
 import { useAuth } from '@/lib/auth'
 import { CommandSearch } from './command-search'
 import { UserMenu } from './user-menu'
@@ -116,15 +116,6 @@ export function AppShell() {
   )
 }
 
-export function PageSkeleton() {
-  return (
-    <div className="mx-auto max-w-6xl space-y-4 p-6">
-      <Skeleton className="h-9 w-72" />
-      <Skeleton className="h-4 w-96" />
-      <Skeleton className="h-64 w-full" />
-    </div>
-  )
-}
 
 /** Standard page frame: title row + content, consistent gutters. */
 export function Page({
@@ -141,7 +132,7 @@ export function Page({
   wide?: boolean
 }) {
   return (
-    <div className={wide ? 'px-4 py-6 sm:px-6' : 'mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-8'}>
+    <div className={wide ? 'px-4 py-6 sm:px-6' : 'px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14'}>
       {(title || actions) && (
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
@@ -155,3 +146,5 @@ export function Page({
     </div>
   )
 }
+
+export { PageSkeleton }

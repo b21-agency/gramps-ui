@@ -10,6 +10,7 @@ import { useAccessToken } from '@/lib/auth'
 import { isEmpty, profileName } from '@/lib/format'
 import type { Media, MediaRef, PersonProfile, Tag } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { ObjectHistory } from '@/components/detail/object-history'
 import { ShowMore, useLimited } from './shared'
 
 /*
@@ -32,6 +33,9 @@ function itemsOf(node: ReactNode) {
   return Children.toArray(isValidElement(node) && node.type === Fragment ? (node.props as { children?: ReactNode }).children : node)
 }
 
+/** The history renders as a docked handle + bottom sheet, not as a card in the grid. */
+const isDocked = (n: ReactNode) => isValidElement(n) && n.type === ObjectHistory
+
 /**
  * Content grid below the hero, using the full width, laid out as rows of equal-height cards:
  * row n holds the n-th card of each column (aside | main | extra). When a column has no card
@@ -41,14 +45,16 @@ function itemsOf(node: ReactNode) {
  * - 2xl: three columns (aside | main | extra)
  */
 export function AlbumGrid({ aside, main, extra }: { aside?: ReactNode; main: ReactNode; extra?: ReactNode }) {
-  let A = itemsOf(aside)
-  let E = extra === undefined ? [] : itemsOf(extra)
+  const all = [...itemsOf(aside), ...itemsOf(main), ...(extra === undefined ? [] : itemsOf(extra))]
+  const docked = all.filter(isDocked)
+  let A = itemsOf(aside).filter((n) => !isDocked(n))
+  let E = extra === undefined ? [] : itemsOf(extra).filter((n) => !isDocked(n))
   // no explicit third column: the first side card stays left, the others move right on 2xl
   if (extra === undefined && A.length > 1) {
     E = A.slice(1)
     A = A.slice(0, 1)
   }
-  const M = itemsOf(main)
+  const M = itemsOf(main).filter((n) => !isDocked(n))
   const three = E.length > 0
   const L = [...A, ...E] // left column below 2xl
 
@@ -76,6 +82,8 @@ export function AlbumGrid({ aside, main, extra }: { aside?: ReactNode; main: Rea
   // left-column cards that sit next to main rows beyond the 2xl rows are already covered by lg placement
 
   return (
+    <>
+    {docked}
     <div
       className={cn(
         'mt-10 grid gap-6',
@@ -100,6 +108,7 @@ export function AlbumGrid({ aside, main, extra }: { aside?: ReactNode; main: Rea
         </div>
       ))}
     </div>
+    </>
   )
 }
 

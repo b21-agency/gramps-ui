@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { mediaCroppedUrl, mediaThumbUrl } from '@/lib/api'
 import { useAccessToken } from '@/lib/auth'
 import { initials } from '@/lib/format'
@@ -43,34 +43,31 @@ export function Portrait({
   rounded?: 'full' | 'lg'
 }) {
   useAccessToken()
-  const [failed, setFailed] = useState(false)
   const px = Math.min(1000, Math.ceil((size * (window.devicePixelRatio || 1)) / 50) * 50)
-  const shape = rounded === 'full' ? 'rounded-full' : 'rounded-lg'
+  const shape = rounded === 'full' ? 'rounded-full after:rounded-full' : 'rounded-lg after:rounded-lg'
+  // shadcn Avatar: shows the initials until the photo has loaded, and keeps them if it fails
   return (
-    <span
-      className={cn(
-        'relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden bg-secondary text-secondary-foreground ring-2 ring-offset-0',
-        shape,
-        sexRing[sex ?? ''] ?? 'ring-border',
-        className,
-      )}
+    <Avatar
+      className={cn('ring-2 ring-offset-0 after:hidden', shape, sexRing[sex ?? ''] ?? 'ring-border', className)}
       style={{ width: size, height: size }}
     >
-      {mediaRef && !failed ? (
-        <img
+      {mediaRef && (
+        <AvatarImage
           src={refThumbUrl(mediaRef, px)}
           alt=""
           loading="lazy"
           decoding="async"
           draggable={false}
-          onError={() => setFailed(true)}
-          className="size-full object-cover"
+          className={rounded === 'full' ? 'rounded-full' : 'rounded-lg'}
         />
-      ) : (
-        <span className="font-serif font-medium" style={{ fontSize: Math.max(10, size * 0.36) }}>
-          {initials(name)}
-        </span>
       )}
-    </span>
+      <AvatarFallback
+        delayMs={mediaRef ? 300 : 0}
+        className={cn('bg-secondary font-serif font-medium text-secondary-foreground', rounded === 'full' ? 'rounded-full' : 'rounded-lg')}
+        style={{ fontSize: Math.max(10, size * 0.36) }}
+      >
+        {initials(name)}
+      </AvatarFallback>
+    </Avatar>
   )
 }
