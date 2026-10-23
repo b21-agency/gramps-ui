@@ -31,18 +31,33 @@ hourglass, fan, relationships); map with historic overlays; timeline; full-text 
 bookmarks; change history with undo; reports, export and import; DNA matches; user management and tree
 settings. See [docs/gramps-web-reference.md](docs/gramps-web-reference.md) for the full feature mapping.
 
-## Switch an existing Gramps Web installation
+## Get the new UI
 
-If you run Gramps Web with the [official docker-compose setup](https://www.grampsweb.org/install_setup/deployment/),
-you only change the image. The new image *is* the official Gramps Web image with this UI built in, so the API,
-the Celery worker, your volumes and your configuration stay exactly the same.
+There are two ways to run it next to your existing Gramps Web data. Both use the
+[official docker-compose setup](https://www.grampsweb.org/install_setup/deployment/) as a starting point and
+leave your data, users and configuration untouched.
 
-1. In your `docker-compose.yml`, replace the image of the `grampsweb` service (and of `grampsweb_celery`,
-   which usually shares it):
+| | Option 1: replace the classic UI | Option 2: additional service |
+|---|---|---|
+| Image | `ghcr.io/b21-agency/gramps-ui:latest` | `ghcr.io/b21-agency/gramps-ui:latest-proxy` |
+| What changes | the image of `grampsweb` and `grampsweb_celery` | one new service in the stack |
+| Classic UI | gone (back in one step) | keeps running on its own address |
+| Good for | switching for good | trying it out, or offering both |
+
+### Option 1: replace the classic UI
+
+The image *is* the official Gramps Web image with this UI built in, so the API, the Celery worker, your volumes,
+environment and ports stay exactly the same.
+
+1. In your `docker-compose.yml`, replace the image of **both** `grampsweb` and `grampsweb_celery`:
 
    ```diff
     services:
-      grampsweb: &grampsweb
+      grampsweb:
+   -    image: ghcr.io/gramps-project/grampsweb:latest
+   +    image: ghcr.io/b21-agency/gramps-ui:latest
+        ...
+      grampsweb_celery:
    -    image: ghcr.io/gramps-project/grampsweb:latest
    +    image: ghcr.io/b21-agency/gramps-ui:latest
    ```
@@ -54,17 +69,17 @@ the Celery worker, your volumes and your configuration stay exactly the same.
    docker compose up -d
    ```
 
-3. Open Gramps Web as before. Sign in with your existing account — that's it.
+3. Open Gramps Web at its usual address and sign in with your existing account.
 
-**Going back** is the same step in reverse: change the image back to `ghcr.io/gramps-project/grampsweb:latest`
-and run `docker compose up -d`. Nothing in your data is changed by switching.
+**Going back:** change both images back to `ghcr.io/gramps-project/grampsweb:latest` and run
+`docker compose up -d`. Switching never changes your data.
 
 > Tip: back up your volumes (or use Gramps Web's export) before any upgrade — good practice, not a requirement.
 
-### Keep the classic UI running side by side (optional)
+### Option 2: additional service (classic UI stays)
 
-If you prefer to try the new interface next to the classic one, use the small proxy variant instead. It
-serves the new UI and forwards `/api/` to your existing Gramps Web container:
+A small nginx image that serves the new UI and forwards `/api/` to your existing `grampsweb` container. Add it
+to the same compose stack, next to your existing services:
 
 ```yaml
 services:
@@ -73,19 +88,34 @@ services:
     image: ghcr.io/b21-agency/gramps-ui:latest-proxy
     restart: always
     ports:
-      - "8080:80"            # new UI on :8080, classic UI stays on its usual port
-    environment:
-      GRAMPSWEB_UPSTREAM: http://grampsweb:5000
-    depends_on: [grampsweb]
+      - "8080:80"            # new UI on :8080, the classic UI stays on its usual port
+    depends_on:
+      - grampsweb
 ```
+
+Then `docker compose up -d` and open port 8080 (or route a domain of its own to the `ui` service on port 80,
+e.g. in your reverse proxy, Traefik, Caddy or Coolify). Both UIs share the same data and accounts.
+
+Settings (all optional):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GRAMPSWEB_UPSTREAM` | `http://grampsweb:5000` | where the Gramps Web API is reachable from the `ui` container |
+| `CLIENT_MAX_BODY_SIZE` | `1g` | largest upload (photos, imports) |
+
+Health check: `GET /healthz` answers `ok`. To remove it again, delete the `ui` service and run
+`docker compose up -d --remove-orphans`.
+
+E-mail links (password reset, confirmation) point to pages the API serves itself, so they work with both options.
 
 ### Image tags
 
 | Tag | What it is |
 |---|---|
-| `latest` | Official Gramps Web (latest) with the new UI — drop-in replacement |
+| `latest` | Option 1: official Gramps Web (latest) with the new UI |
 | `<commit sha>` | The same, pinned to a specific build |
-| `latest-proxy` | nginx serving only the new UI, proxying `/api/` to an existing Gramps Web |
+| `latest-proxy` | Option 2: nginx serving only the new UI, proxying `/api/` to an existing Gramps Web |
+| `<commit sha>-proxy` | The same, pinned to a specific build |
 
 ## Development
 
