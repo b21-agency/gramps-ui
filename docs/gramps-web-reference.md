@@ -7,7 +7,7 @@ Sources read (shallow clones, HEAD, 2026-10-21):
 - Frontend `gramps-project/gramps-web` @ `81176f7` (package version 26.10.2, Lit, `src/`)
 - Backend `gramps-project/gramps-web-api` @ `fbb47c1` (`_version.py` = 3.24.0)
 
-Our production backend is 3.24. HEAD may be marginally ahead; anything marked
+Written against 3.24. HEAD may be marginally ahead; anything marked
 "(3.2x+)" is version-gated in the frontend via `dbInfo.gramps_webapi.version`.
 The frontend refuses backends older than 3.17.0.
 
