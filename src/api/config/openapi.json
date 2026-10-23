@@ -1647,7 +1647,7 @@
               "Media",
               "Note"
             ],
-            "description": "If set on a nested sub-filter, evaluate it in this namespace and bridge results back to the parent namespace. Supported bridges: Event\u2192Place, Person\u2192Event, Person\u2192Family, Family\u2192Event, Family\u2192Person, Citation\u2192Source, Source\u2192Repository."
+            "description": "If set on a nested sub-filter, evaluate it in this namespace and bridge results back to the parent namespace. Supported bridges: Event→Place, Person→Event, Person→Family, Family→Event, Family→Person, Citation→Source, Source→Repository."
           },
           "rules": {
             "type": "array",
@@ -3899,7 +3899,7 @@
           },
           "confidence": {
             "type": "integer",
-            "description": "Confidence level of the information cited (0\u20134)."
+            "description": "Confidence level of the information cited (0–4)."
           },
           "date": {
             "description": "Date of the citation.",
@@ -4985,7 +4985,22 @@
         "tags": [
           "Transactions"
         ],
-        "operationId": "post_objects"
+        "operationId": "post_objects",
+        "requestBody": {
+          "required": true,
+          "description": "Gramps objects to add in one transaction.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/objects/delete/": {
@@ -5020,9 +5035,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -5032,6 +5044,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -5047,9 +5062,6 @@
     "/api/objects/delete-by-handle/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -5062,6 +5074,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -5129,9 +5144,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -5145,6 +5157,9 @@
               }
             }
           },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
+          },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
           }
@@ -5154,7 +5169,22 @@
         "tags": [
           "Transactions"
         ],
-        "operationId": "post_transactions"
+        "operationId": "post_transactions",
+        "requestBody": {
+          "required": true,
+          "description": "Transaction entries (as returned by a write).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/transactions/history/": {
@@ -5260,9 +5290,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -5275,6 +5302,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -5312,9 +5342,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -5324,6 +5351,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -5489,9 +5519,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -5504,6 +5531,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -5539,9 +5569,6 @@
     "/api/token/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -5551,6 +5578,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -5600,9 +5630,6 @@
     "/api/token/sync/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -5612,6 +5639,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -5660,9 +5690,6 @@
       },
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "201": {
             "description": "Created",
             "content": {
@@ -5672,6 +5699,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -5944,9 +5974,6 @@
     "/api/oidc/tokens/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -5956,6 +5983,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -6010,9 +6040,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -6022,6 +6049,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -6038,9 +6068,6 @@
     "/api/oidc/link/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -6050,6 +6077,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -6076,9 +6106,6 @@
     "/api/oidc/link/complete/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -6088,6 +6115,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -6406,9 +6436,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -6421,6 +6448,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -6640,9 +6670,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -6652,6 +6679,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -6738,9 +6768,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -6753,6 +6780,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -6804,9 +6834,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -6816,6 +6843,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -7150,9 +7180,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -7165,6 +7192,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -7216,9 +7246,6 @@
     "/api/people/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -7228,6 +7255,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -7253,9 +7283,6 @@
     "/api/people/{phoenix_handle}/merge/{titanic_handle}": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -7265,6 +7292,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -7469,9 +7499,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -7484,6 +7511,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -7703,9 +7733,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -7715,6 +7742,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -8083,9 +8113,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -8098,6 +8125,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -8137,9 +8167,6 @@
     "/api/families/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -8149,6 +8176,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -8174,9 +8204,6 @@
     "/api/families/{phoenix_handle}/merge/{titanic_handle}": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -8186,6 +8213,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -8268,9 +8298,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -8280,6 +8307,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -8508,9 +8538,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -8520,6 +8547,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -8888,9 +8918,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -8903,6 +8930,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -8954,9 +8984,6 @@
     "/api/events/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -8966,6 +8993,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -9273,9 +9303,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -9288,6 +9315,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -9489,9 +9519,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -9504,6 +9531,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -9712,9 +9742,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -9724,6 +9751,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -10092,9 +10122,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -10107,6 +10134,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -10158,9 +10188,6 @@
     "/api/places/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -10170,6 +10197,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -10459,9 +10489,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -10471,6 +10498,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -10839,9 +10869,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -10854,6 +10881,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -10905,9 +10935,6 @@
     "/api/citations/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -10917,6 +10944,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -11179,9 +11209,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -11191,6 +11218,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -11559,9 +11589,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -11574,6 +11601,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -11625,9 +11655,6 @@
     "/api/sources/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -11637,6 +11664,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -11899,9 +11929,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -11911,6 +11938,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -12279,9 +12309,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -12294,6 +12321,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -12345,9 +12375,6 @@
     "/api/repositories/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -12357,6 +12384,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -12619,9 +12649,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -12631,6 +12658,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -12999,9 +13029,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -13014,6 +13041,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -13041,9 +13071,6 @@
     "/api/media/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -13053,6 +13080,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -13315,9 +13345,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -13327,6 +13354,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -13695,9 +13725,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -13710,6 +13737,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -13761,9 +13791,6 @@
     "/api/notes/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -13773,6 +13800,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -14035,9 +14065,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -14047,6 +14074,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -14415,9 +14445,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -14430,6 +14457,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -14481,9 +14511,6 @@
     "/api/tags/query/": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -14493,6 +14520,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -14603,9 +14633,6 @@
       },
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "201": {
             "description": "Created",
             "content": {
@@ -14615,6 +14642,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -14762,9 +14792,6 @@
       },
       "put": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -14774,6 +14801,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -14840,9 +14870,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -14852,6 +14879,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -14868,9 +14898,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -14880,6 +14907,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -14958,9 +14988,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -14970,6 +14997,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -14997,9 +15027,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15009,6 +15036,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15230,9 +15260,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15245,6 +15272,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15272,9 +15302,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15284,6 +15311,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15461,9 +15491,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15473,6 +15500,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15564,9 +15594,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15576,6 +15603,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15602,9 +15632,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15617,6 +15644,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15630,9 +15660,6 @@
       },
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15645,6 +15672,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15711,9 +15741,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15726,6 +15753,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15741,9 +15771,6 @@
     "/api/parsers/dna-match": {
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15756,6 +15783,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15807,9 +15837,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15819,6 +15846,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15880,9 +15910,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15895,6 +15922,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -15981,9 +16011,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -15993,6 +16020,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -16057,9 +16087,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -16069,6 +16096,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -16218,9 +16248,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -16230,6 +16257,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -16268,9 +16298,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -16283,6 +16310,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -16421,9 +16451,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -16436,6 +16463,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -16916,9 +16946,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "201": {
             "description": "Created",
             "content": {
@@ -16928,6 +16955,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -16989,9 +17019,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17001,6 +17028,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17028,9 +17058,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17043,6 +17070,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17079,9 +17109,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "Dry run result.",
             "content": {
@@ -17101,6 +17128,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17148,9 +17178,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17160,6 +17187,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17187,9 +17217,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17199,6 +17226,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17226,9 +17256,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17241,6 +17268,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17257,9 +17287,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17272,6 +17299,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17286,9 +17316,6 @@
       "post": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "201": {
             "description": "Created",
             "content": {
@@ -17298,6 +17325,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17365,9 +17395,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17377,6 +17404,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17480,9 +17510,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17492,6 +17519,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17519,9 +17549,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17534,6 +17561,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17588,9 +17618,6 @@
       "get": {
         "parameters": [],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17603,6 +17630,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17630,9 +17660,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17642,6 +17669,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17679,9 +17709,6 @@
       },
       "put": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17691,6 +17718,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17865,12 +17895,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
-          "304": {
-            "description": "Calendar unchanged"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17880,6 +17904,12 @@
                 }
               }
             }
+          },
+          "304": {
+            "description": "Calendar unchanged"
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17955,9 +17985,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -17970,6 +17997,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -17991,7 +18021,22 @@
         "tags": [
           "Users"
         ],
-        "operationId": "post_users"
+        "operationId": "post_users",
+        "requestBody": {
+          "required": true,
+          "description": "Users to create.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/users/{user_name}/": {
@@ -18115,11 +18160,11 @@
       },
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "201": {
             "description": "Created"
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -18143,11 +18188,11 @@
       },
       "delete": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "204": {
             "description": "No Content"
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -18277,9 +18322,6 @@
       },
       "post": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "201": {
             "description": "Created",
             "content": {
@@ -18289,6 +18331,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -18581,11 +18626,11 @@
     "/api/users/-/oidc-accounts/{account_id}/": {
       "delete": {
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "204": {
             "description": "No Content"
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -18777,9 +18822,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -18792,6 +18834,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -19081,9 +19126,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -19093,6 +19135,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -19216,9 +19261,6 @@
           }
         ],
         "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
-          },
           "200": {
             "description": "OK",
             "content": {
@@ -19231,6 +19273,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_CONTENT"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"

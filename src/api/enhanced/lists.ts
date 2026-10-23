@@ -1,87 +1,32 @@
-import type { FetchArgs, FetchBaseQueryError, FetchBaseQueryMeta, QueryReturnValue } from '@reduxjs/toolkit/query'
 import { api } from '../index'
-import { endpointOf, type MediaRef, type ObjectKind, type SearchHit } from '@/lib/types'
-import type { Query } from '@/lib/api'
-import { cleanParams, type Page } from './objects'
+import type { MediaRef, ObjectKind, SearchHit } from '@/lib/types'
+import type { GetSearchApiArg } from './search-slice-enhanced'
+import { handleBatcher, run } from './compose'
+import { listEndpoint, type AnyObject, type ObjectListArg } from './objects'
+import type { Page } from './page'
+import { peopleApi } from './people-slice-enhanced'
+import { searchApi } from './search-slice-enhanced'
 import { tagOf } from './tags'
 
-// Data for the virtualized object lists (src/features/lists): one cache entry per page of
-// rows, so only the pages on screen are fetched and each page refreshes on its own after a
+// Composites for the virtualized object lists (src/features/lists): one cache entry per page
+// of rows, so only the pages on screen are fetched and each page refreshes on its own after a
 // write (every page provides `{type, id: 'LIST'}` plus its rows' handles).
-
-type Row = { handle: string } & Record<string, unknown>
 
 export interface ListPageArg {
   kind: ObjectKind
-  /** GET /{endpoint}/ params (rules, sort, pagesize, keys …), without `page` */
-  query: Query
-  /** full-text search params for /search/ (without `page`); falls back to `query` without an index */
-  search?: Query | null
+  /** list params (rules, sort, pagesize, keys …), without `page` */
+  list: ObjectListArg
+  /** full-text search (without `page`); falls back to `list` when the tree has no search index */
+  search?: GetSearchApiArg | null
   /** 1-based */
   page: number
 }
 
-const totalOf = (meta: FetchBaseQueryMeta | undefined, fallback: number) => {
-  const h = meta?.response?.headers.get('X-Total-Count')
-  return h ? Number(h) : fallback
-}
-
-/** The `baseQuery` handed to a `queryFn` (auth + refresh included). */
-type Result = QueryReturnValue<unknown, FetchBaseQueryError, FetchBaseQueryMeta>
-export type BaseQueryFn = (args: string | FetchArgs) => Result | PromiseLike<Result>
-
-async function fetchRules(baseQuery: BaseQueryFn, arg: ListPageArg) {
-  const r = await baseQuery({ url: `/api/${endpointOf[arg.kind]}/`, params: cleanParams({ ...arg.query, page: arg.page }) })
-  if (r.error) return { error: r.error }
-  const data = r.data as Row[]
-  return { data: { items: data, total: totalOf(r.meta, data.length) } }
-}
-
-/* ---------------- per-handle queries, merged into one request per tick ---------------- */
-
-type BatchResult<R> = { data: R } | { error: FetchBaseQueryError }
-
-/**
- * Batches per-handle `queryFn` calls made in the same tick into `GET url?handles=…` requests
- * (chunks of `size`), so a screen of rows costs one request while each row keeps its own
- * cache entry (and tag). `pick` maps a fetched row (or undefined when missing) to the result.
- */
-export function handleBatcher<Raw extends { handle: string }, R>(
-  url: string,
-  params: Record<string, string | number | boolean>,
-  pick: (row: Raw | undefined) => R,
-  size = 80,
-) {
-  let pending = new Map<string, Array<(r: BatchResult<R>) => void>>()
-  let timer: ReturnType<typeof setTimeout> | null = null
-  let bq: BaseQueryFn | null = null
-  const flush = () => {
-    const batch = pending
-    const baseQuery = bq!
-    pending = new Map()
-    timer = null
-    const handles = [...batch.keys()]
-    for (let i = 0; i < handles.length; i += size) {
-      const chunk = handles.slice(i, i + size)
-      void Promise.resolve(baseQuery({ url, params: { ...params, handles: chunk.join(',') } })).then((r) => {
-        const map = new Map(((r.data ?? []) as Raw[]).map((row) => [row.handle, row]))
-        chunk.forEach((h) => batch.get(h)?.forEach((done) => done(r.error ? { error: r.error } : { data: pick(map.get(h)) })))
-      })
-    }
-  }
-  return (baseQuery: BaseQueryFn, handle: string) =>
-    new Promise<BatchResult<R>>((resolve) => {
-      bq = baseQuery
-      const list = pending.get(handle) ?? []
-      list.push(resolve)
-      pending.set(handle, list)
-      timer ??= setTimeout(flush, 15)
-    })
-}
-
 const loadPortrait = handleBatcher<{ handle: string; media_list?: MediaRef[] }, MediaRef | null>(
-  '/api/people/',
-  { keys: 'handle,media_list' },
+  (queryApi, handles) =>
+    run(queryApi, peopleApi.endpoints.getPeople.initiate({ handles, keys: ['handle', 'media_list'] }, { subscribe: false, forceRefetch: true })).then((r) =>
+      'data' in r ? { data: (r.data as Page<{ handle: string; media_list?: MediaRef[] }>).items } : r,
+    ),
   (p) => p?.media_list?.[0] ?? null,
 )
 
@@ -90,15 +35,16 @@ export const listsApi = api.injectEndpoints({
   overrideExisting: 'throw',
   endpoints: (build) => ({
     /** One page of a list, with the X-Total-Count total. */
-    listPage: build.query<Page<Row>, ListPageArg>({
-      async queryFn(arg, _api, _extra, baseQuery) {
-        if (!arg.search) return fetchRules(baseQuery, arg)
-        const r = await baseQuery({ url: '/api/search/', params: cleanParams({ ...arg.search, page: arg.page }) })
+    listPage: build.query<Page<AnyObject>, ListPageArg>({
+      async queryFn(arg, queryApi) {
+        const byRules = () =>
+          run<Page<AnyObject>>(queryApi, listEndpoint(arg.kind).initiate({ ...arg.list, page: arg.page }, { subscribe: false, forceRefetch: true }))
+        if (!arg.search) return byRules()
+        const r = await run<Page<SearchHit>>(queryApi, searchApi.endpoints.getSearch.initiate({ ...arg.search, page: arg.page }, { subscribe: false, forceRefetch: true }))
         // no search index for this tree -> answer with the filter rules instead
-        if (r.error && typeof r.error.status === 'number' && r.error.status >= 500) return fetchRules(baseQuery, arg)
-        if (r.error) return { error: r.error }
-        const hits = r.data as SearchHit[]
-        return { data: { items: hits.map((h) => h.object as unknown as Row), total: totalOf(r.meta, hits.length) } }
+        if ('error' in r && typeof r.error.status === 'number' && r.error.status >= 500) return byRules()
+        if ('error' in r) return r
+        return { data: { items: r.data.items.map((h) => h.object as unknown as AnyObject), total: r.data.total } }
       },
       providesTags: (res, _e, { kind, search }) => {
         const type = tagOf[kind]
@@ -111,19 +57,13 @@ export const listsApi = api.injectEndpoints({
       keepUnusedDataFor: 120,
     }),
 
-    /** First media reference of a person (list rows that only know a handle). */
+    /** First media reference of a person (list rows that only know a handle); batched per tick. */
     personPortrait: build.query<MediaRef | null, string>({
-      queryFn: (handle, _api, _extra, baseQuery) => loadPortrait(baseQuery, handle),
+      queryFn: (handle, queryApi) => loadPortrait(queryApi, handle),
       providesTags: (_r, _e, handle) => [{ type: 'People', id: handle }],
       keepUnusedDataFor: 600,
-    }),
-
-    /** Gramps core strings (type names …) in the given language: POST /translations/{lang}. */
-    grampsTypeTranslations: build.query<Array<{ original: string; translation: string }>, { lang: string; strings: string[] }>({
-      query: ({ lang, strings }) => ({ url: `/api/translations/${lang}`, method: 'POST', body: { strings } }),
-      keepUnusedDataFor: 3600,
     }),
   }),
 })
 
-export const { useListPageQuery, usePersonPortraitQuery, useGrampsTypeTranslationsQuery } = listsApi
+export const { useListPageQuery, usePersonPortraitQuery } = listsApi

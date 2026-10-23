@@ -14,7 +14,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { objectsApi, useDeleteObjectsByHandleMutation, useMergeObjectsMutation, useUndoTransactionMutation } from '@/api/enhanced/objects'
+import { fetchObject, mergeObjects } from '@/api/enhanced/objects'
+import { usePostDeleteObjectsByHandleMutation, usePostTransactionsMutation } from '@/api/enhanced/transactions-slice-enhanced'
+import { endpointOf } from '@/lib/types'
+import type { DeleteObjectsByHandleArgs } from '@/api/enhanced/transactions-slice-enhanced'
 import { toApiError } from '@/api/enhanced/editor'
 import { useAppDispatch } from '@/store'
 import { useAuth } from '@/lib/auth'
@@ -112,9 +115,8 @@ export function SelectionBar<T extends Selectable>({
   const { t } = useTranslation(['lists', 'common', 'editor'])
   const { can } = useAuth()
   const dispatch = useAppDispatch()
-  const [deleteByHandle] = useDeleteObjectsByHandleMutation()
-  const [mergeObjects] = useMergeObjectsMutation()
-  const [undo] = useUndoTransactionMutation()
+  const [deleteByHandle] = usePostDeleteObjectsByHandleMutation()
+  const [postTransactions] = usePostTransactionsMutation()
   const [confirm, setConfirm] = useState<'delete' | 'merge' | null>(null)
   const [busy, setBusy] = useState(false)
   const n = selection.items.size
@@ -135,12 +137,7 @@ export function SelectionBar<T extends Selectable>({
         const handles = new Set(list.map((o) => o.handle))
         const backs = (await Promise.all(
           list.map((o) =>
-            dispatch(
-              objectsApi.endpoints.getObject.initiate(
-                { kind: 'place', handle: o.handle, query: { backlinks: true, keys: 'backlinks' } },
-                { subscribe: false, forceRefetch: true },
-              ),
-            ).unwrap(),
+            dispatch(fetchObject('place', { handle: o.handle, backlinks: true, keys: ['backlinks'] })).unwrap(),
           ),
         )) as Array<{ backlinks?: { place?: string[] } }>
         if (backs.some((b) => (b.backlinks?.place ?? []).some((h) => !handles.has(h)))) {
@@ -150,7 +147,9 @@ export function SelectionBar<T extends Selectable>({
         }
       }
       // lists, the objects and derived views refresh through the transaction's cache tags
-      const tx = await deleteByHandle({ kind, handles: list.map((o) => o.handle) }).unwrap()
+      const tx = await deleteByHandle({
+        deleteObjectsByHandleArgs: { namespace: endpointOf[kind] as DeleteObjectsByHandleArgs['namespace'], handles: list.map((o) => o.handle) },
+      }).unwrap()
       setConfirm(null)
       selection.setActive(false)
       onDone?.()
@@ -161,7 +160,7 @@ export function SelectionBar<T extends Selectable>({
               label: t('editor:undo'),
               onClick: async () => {
                 try {
-                  await undo(tx).unwrap()
+                  await postTransactions({ undo: true, body: tx }).unwrap()
                   toast.success(t('editor:delete.restored'))
                 } catch (e) {
                   toast.error(t('editor:delete.undoFailed'), { description: errorMessage(toApiError(e)) })
@@ -180,7 +179,7 @@ export function SelectionBar<T extends Selectable>({
   const runMerge = async (keep: T, other: T) => {
     setBusy(true)
     try {
-      await mergeObjects({ kind, keep: keep.handle, other: other.handle }).unwrap()
+      await dispatch(mergeObjects(kind, keep.handle, other.handle)).unwrap()
       setConfirm(null)
       selection.setActive(false)
       onDone?.()

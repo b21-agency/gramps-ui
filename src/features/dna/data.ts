@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useDnaMatchesQuery, useDnaPeopleQuery, useYdnaQuery } from '@/api/enhanced/dna'
-import { useGetObjectsByHandlesQuery } from '@/api/enhanced/objects'
+import { useObjectsByHandlesQuery } from '@/api/enhanced/objects'
+import { useGetPeopleQuery, useGetPersonDnaMatchesQuery, useGetPersonYdnaQuery } from '@/api/enhanced/people-slice-enhanced'
 import { apiLocale } from '@/i18n'
 import type { Person, PersonProfile } from '@/lib/types'
 import { createObjects, emptyObject, patchObject, type AnyObj } from '@/features/editor/lib'
@@ -73,14 +73,28 @@ export function matchStats(m: DnaMatch) {
 
 export type DnaPerson = Pick<Person, 'handle' | 'gramps_id' | 'profile' | 'person_ref_list' | 'media_list'>
 
+const DNA_RULES = JSON.stringify({ rules: [{ name: 'HasAssociationType', values: ['DNA'] }] })
+const YDNA_RULES = JSON.stringify({ rules: [{ name: 'HasAttribute', values: ['Y-DNA', '*'], regex: true }] })
+
+/** People with a "DNA" association (`dna`) or a "Y-DNA" attribute (`ydna`), sorted by name. */
+function useDnaPeopleOf(kind: 'dna' | 'ydna') {
+  const q = useGetPeopleQuery({
+    rules: kind === 'dna' ? DNA_RULES : YDNA_RULES,
+    keys: ['handle', 'gramps_id', 'profile', 'media_list', ...(kind === 'dna' ? ['person_ref_list'] : [])],
+    profile: ['self'],
+    sort: ['name'],
+    locale: apiLocale(),
+  })
+  return { ...q, data: q.data?.items as unknown as DnaPerson[] | undefined }
+}
+
 /** People that have at least one association of type "DNA". */
 export function useDnaPeople() {
-  const q = useDnaPeopleQuery({ kind: 'dna', locale: apiLocale() })
-  return { ...q, data: q.data as unknown as DnaPerson[] | undefined }
+  return useDnaPeopleOf('dna')
 }
 
 export function useDnaMatches(handle: string | undefined) {
-  const q = useDnaMatchesQuery(handle ? { handle, locale: apiLocale() } : skipToken)
+  const q = useGetPersonDnaMatchesQuery(handle ? { handle, locale: apiLocale(), raw: true } : skipToken)
   const data = useMemo(
     () =>
       (q.data as unknown as DnaMatch[] | undefined)?.map((m) => ({
@@ -146,8 +160,7 @@ function refOfMatch(person: AnyObj, match: DnaMatch): AnyObj | undefined {
 
 /** People that have a "Y-DNA" attribute (raw SNP data). */
 export function useYDnaPeople() {
-  const q = useDnaPeopleQuery({ kind: 'ydna', locale: apiLocale() })
-  return { ...q, data: q.data as unknown as DnaPerson[] | undefined }
+  return useDnaPeopleOf('ydna')
 }
 
 export interface Clade {
@@ -158,7 +171,7 @@ export interface Clade {
 
 /** GET /people/{h}/ydna: haplogroup lineage computed by yclade. */
 export function useYDna(handle: string | undefined) {
-  const q = useYdnaQuery(handle ? { handle, locale: apiLocale() } : skipToken)
+  const q = useGetPersonYdnaQuery(handle ? { handle, locale: apiLocale(), raw: true } : skipToken)
   return { ...q, data: q.data as { clade_lineage?: Clade[]; raw_data?: string; tree_version?: string } | undefined }
 }
 
@@ -176,12 +189,12 @@ export function saveYDna(personHandle: string, raw: string) {
 /** Profiles (+ portrait) for a set of people. */
 export function usePeopleByHandle(handles: string[]) {
   const key = useMemo(() => [...new Set(handles)].sort(), [handles])
-  const q = useGetObjectsByHandlesQuery(
-    key.length
-      ? { kind: 'person', handles: key, query: { keys: 'handle,gramps_id,profile,media_list', profile: 'self', locale: apiLocale() } }
-      : skipToken,
-  )
-  const data = useMemo(() => (q.data ? new Map((q.data as unknown as DnaPerson[]).map((p) => [p.handle, p])) : undefined), [q.data])
+  const q = useObjectsByHandlesQuery<DnaPerson>('person', key, {
+    keys: ['handle', 'gramps_id', 'profile', 'media_list'],
+    profile: ['self'],
+    locale: apiLocale(),
+  })
+  const data = useMemo(() => (q.data ? new Map(q.data.map((p) => [p.handle, p])) : undefined), [q.data])
   return { ...q, data }
 }
 

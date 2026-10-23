@@ -246,7 +246,7 @@ const injectedRtkApi = api
         }),
         providesTags: ["Timeline"],
       }),
-      postDnaMatchParser: build.mutation<
+      postDnaMatchParser: build.query<
         PostDnaMatchParserApiResponse,
         PostDnaMatchParserApiArg
       >({
@@ -255,7 +255,7 @@ const injectedRtkApi = api
           method: "POST",
           body: queryArg.dnaMatchParserBodyArgs,
         }),
-        invalidatesTags: ["DNA"],
+        providesTags: ["DNA"],
       }),
       getRelation: build.query<GetRelationApiResponse, GetRelationApiArg>({
         query: (queryArg) => ({
@@ -1300,7 +1300,8 @@ export const {
   useLazyGetTimelinePeopleQuery,
   useGetTimelineFamiliesQuery,
   useLazyGetTimelineFamiliesQuery,
-  usePostDnaMatchParserMutation,
+  usePostDnaMatchParserQuery,
+  useLazyPostDnaMatchParserQuery,
   useGetRelationQuery,
   useLazyGetRelationQuery,
   useGetRelationsQuery,

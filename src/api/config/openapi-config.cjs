@@ -34,5 +34,11 @@ module.exports = {
   exportName: 'api',
   hooks: { queries: true, lazyQueries: true, mutations: true },
   tag: true,
+  endpointOverrides: [
+    // POST because the strings go in the body, but it only reads: as a query it is cached
+    { pattern: 'postTranslation', type: 'query' },
+    // POST because the pasted match data goes in the body, but it only parses
+    { pattern: 'postDnaMatchParser', type: 'query' },
+  ],
   outputFiles,
 }

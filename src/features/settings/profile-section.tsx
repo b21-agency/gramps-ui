@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrentUser } from '@/components/user-menu'
-import { useChangePasswordMutation, useUpdateUserMutation } from '@/api/enhanced/settings'
+import { usePostChangePasswordMutation, usePutUserMutation } from '@/api/enhanced/users-slice-enhanced'
 import { rtkErrorMessage } from '@/features/tools/use-task'
 import type { UserInfo } from '@/lib/types'
 import { Field, SettingsBlock } from './parts'
@@ -45,7 +45,7 @@ function AccountFields({ me }: { me: UserInfo }) {
   const { t } = useTranslation('settings')
   const [fullName, setFullName] = useState(me.full_name ?? '')
   const [email, setEmail] = useState(me.email ?? '')
-  const [updateUser, { isLoading: saving }] = useUpdateUserMutation()
+  const [updateUser, { isLoading: saving }] = usePutUserMutation()
   const dirty = fullName !== (me.full_name ?? '') || email !== (me.email ?? '')
 
   const onSubmit = async (e: FormEvent) => {
@@ -55,7 +55,7 @@ function AccountFields({ me }: { me: UserInfo }) {
       const body: { full_name?: string; email?: string } = {}
       if (fullName !== (me.full_name ?? '')) body.full_name = fullName.trim()
       if (email !== (me.email ?? '')) body.email = email.trim()
-      await updateUser({ name: '-', body }).unwrap()
+      await updateUser({ userName: '-', userPutBodyArgs: body }).unwrap()
       toast.success(t('profile.saved'))
     } catch (err) {
       toast.error(t('profile.saveFailed'), { description: rtkErrorMessage(err) })
@@ -90,7 +90,7 @@ function PasswordForm() {
   const [oldPw, setOldPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [changePassword, { isLoading: saving }] = useChangePasswordMutation()
+  const [changePassword, { isLoading: saving }] = usePostChangePasswordMutation()
   const [error, setError] = useState<string | null>(null)
 
   const mismatch = confirm.length > 0 && newPw !== confirm
@@ -102,7 +102,7 @@ function PasswordForm() {
     if (!canSubmit) return
     setError(null)
     try {
-      await changePassword({ old_password: oldPw, new_password: newPw }).unwrap()
+      await changePassword({ userName: '-', userChangePasswordBodyArgs: { old_password: oldPw, new_password: newPw } }).unwrap()
       setOldPw('')
       setNewPw('')
       setConfirm('')

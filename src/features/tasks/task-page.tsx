@@ -44,7 +44,7 @@ export function TaskPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const q = useObjectById<Task>('source', id, { extend: 'all' })
+  const q = useObjectById<Task>('source', id, { extend: ['all'] })
   const task = q.data
   useTitle(task?.title || id)
   useRecordVisit(task ? { kind: 'source', handle: task.handle, gramps_id: task.gramps_id, title: task.title } : null)

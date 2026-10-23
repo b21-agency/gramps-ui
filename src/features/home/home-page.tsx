@@ -12,7 +12,7 @@ import { NoteHtml } from '@/components/note-html'
 import { FaceStack, Panel } from '@/components/detail/panel'
 import { useCurrentUser } from '@/components/user-menu'
 import { mediaThumbUrl } from '@/lib/api'
-import { useSearchQuery } from '@/api/enhanced/objects'
+import { useGetSearchQuery } from '@/api/enhanced/search-slice-enhanced'
 import { useAccessToken, useAuth } from '@/lib/auth'
 import { TREE_CONFIG, configString, useTreeConfig } from '@/lib/tree-config'
 import { apiLocale } from '@/i18n'
@@ -88,8 +88,8 @@ function TreeHomeNote() {
   const noteHandle = configString(config, TREE_CONFIG.homePageNote)
   const imageHandle = configString(config, TREE_CONFIG.homePageImage)
   const { data: note } = useObjectByHandle<{ formatted?: { html?: string }; text: { string: string } }>('note', noteHandle || null, {
-    formats: 'html',
-    format_options: JSON.stringify({ link_format: '/{obj_class}/{gramps_id}' }),
+    formats: ['html'],
+    formatOptions: JSON.stringify({ link_format: '/{obj_class}/{gramps_id}' }),
   })
   if (!imageHandle && !note) return null
   return (
@@ -162,8 +162,8 @@ function HomeHero() {
   useAccessToken()
   const [homeId, setHomeId] = useHomePerson()
   const { data: person, isLoading, isError } = useObjectById<HomePerson>('person', homeId ?? undefined, {
-    profile: 'all',
-    keys: 'handle,gramps_id,profile,media_list',
+    profile: ['all'],
+    keys: ['handle', 'gramps_id', 'profile', 'media_list'],
   })
 
   const picker = (label: string, variant: 'default' | 'ghost' = 'default') => (
@@ -333,8 +333,8 @@ function OnThisDay() {
   const now = new Date()
   const { data: page, isLoading } = useObjectList<DayEvent>('event', {
     dates: `*/${now.getMonth() + 1}/${now.getDate()}`,
-    profile: 'all',
-    sort: '-date',
+    profile: ['all'],
+    sort: ['-date'],
     pagesize: 8,
     page: 1,
   })
@@ -406,7 +406,7 @@ function OnThisDay() {
 
 function RecentlyChanged() {
   const { t, i18n } = useTranslation('home')
-  const { data: page, isLoading } = useSearchQuery({ query: '*', sort: '-change', locale: apiLocale(), profile: 'self', page: 1, pagesize: 8 })
+  const { data: page, isLoading } = useGetSearchQuery({ query: '*', sort: ['-change'], locale: apiLocale(), profile: ['self'], page: 1, pagesize: 8 })
   const data = page?.items.filter((hit) => hit.object_type in kindIcon)
   return (
     <Panel title={t('recentlyChanged')}>
@@ -453,7 +453,7 @@ function LatestPost() {
   useAccessToken()
   const { data } = useObjectList<Source>('source', {
     rules: JSON.stringify({ rules: [{ name: 'HasTag', values: ['Blog'] }] }),
-    sort: '-change',
+    sort: ['-change'],
     page: 1,
     pagesize: 1,
   })

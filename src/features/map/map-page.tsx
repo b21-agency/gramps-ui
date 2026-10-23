@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useGetPersonTimelineQuery } from '@/api/people-api-slice.gen'
+import { useGetPersonTimelineQuery } from '@/api/enhanced/people-slice-enhanced'
 import { toast } from 'sonner'
 import { ArrowLeft, CalendarRange, List, Loader2, MapPinOff, Route, Search, X } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
@@ -135,7 +135,7 @@ export function MapPage() {
   }, [selected, byHandle, vectorOverlays])
 
   /* ---------- ?place= ---------- */
-  const placeQ = useObjectById<Place>('place', placeId ?? undefined, { keys: 'handle,gramps_id,lat,long', profile: '' })
+  const placeQ = useObjectById<Place>('place', placeId ?? undefined, { keys: ['handle', 'gramps_id', 'lat', 'long'], profile: [] })
   const placeHandle = placeQ.data?.handle
   useEffect(() => {
     if (!placeHandle) return
@@ -518,8 +518,8 @@ interface Life {
 
 function usePersonLife(personId: string | null, byHandle: Map<string, PlacePoint>): Life {
   const personQ = useObjectById<Person>('person', personId ?? undefined, {
-    keys: 'handle,gramps_id,profile,media_list',
-    profile: 'self',
+    keys: ['handle', 'gramps_id', 'profile', 'media_list'],
+    profile: ['self'],
   })
   const handle = personQ.data?.handle
   const tlQ = useGetPersonTimelineQuery(handle ? { handle, locale: apiLocale(), discardEmpty: false, precision: 1 } : skipToken)

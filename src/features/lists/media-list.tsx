@@ -106,8 +106,8 @@ export function MediaListPage() {
     ]
     return {
       kind: 'media',
-      query: { profile: 'self', keys: 'handle,gramps_id,change,desc,mime,path,checksum,profile' },
-      searchProfile: 'self',
+      query: { profile: ['self'], keys: ['handle', 'gramps_id', 'change', 'desc', 'mime', 'path', 'checksum', 'profile'] },
+      searchProfile: ['self'],
       defaultSort: '-change',
       sorts: [
         { key: 'title', label: t('media.sort.title') },

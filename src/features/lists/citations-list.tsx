@@ -52,8 +52,8 @@ export function CitationsListPage() {
     const title = (c: CitationRow) => c.profile?.source?.title
     return {
       kind: 'citation',
-      query: { profile: 'self', keys: 'handle,gramps_id,change,page,confidence,profile' },
-      searchProfile: 'self',
+      query: { profile: ['self'], keys: ['handle', 'gramps_id', 'change', 'page', 'confidence', 'profile'] },
+      searchProfile: ['self'],
       defaultSort: '-change',
       sorts: [
         { key: 'date', label: t('citations.sort.date') },

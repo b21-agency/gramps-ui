@@ -1,26 +1,21 @@
-import type { FetchBaseQueryMeta } from '@reduxjs/toolkit/query'
 import { api } from '../index'
 import type { Note, Source } from '@/lib/types'
 import { BLOG_TAG } from '@/features/blog/prose'
+import { run } from './compose'
+import type { Page } from './page'
+import { sourcesApi } from './sources-slice-enhanced'
 
 // Blog posts are Sources tagged "Blog" whose first note is the text. The list is paged
-// ("older posts") and newest-changed first; it refreshes when any source or one of the
-// shown notes changes.
+// ("older posts", an infinite query codegen can't produce) on top of the generated
+// `getSources`, newest-changed first; it refreshes when any source or a shown note changes.
 
 export type BlogPost = Source & { extended?: { notes?: Note[] } }
 
-export interface BlogPage {
-  items: BlogPost[]
-  total: number
+export interface BlogPage extends Page<BlogPost> {
   page: number
 }
 
 export const BLOG_PAGE_SIZE = 12
-
-const totalOf = (meta: FetchBaseQueryMeta | undefined, fallback: number) => {
-  const h = meta?.response?.headers.get('X-Total-Count')
-  return h ? Number(h) : fallback
-}
 
 export const blogApi = api.injectEndpoints({
   // fail loudly instead of silently keeping an endpoint of the same name
@@ -31,22 +26,23 @@ export const blogApi = api.injectEndpoints({
         initialPageParam: 1,
         getNextPageParam: (last) => (last.page * BLOG_PAGE_SIZE < last.total ? last.page + 1 : undefined),
       },
-      query: ({ queryArg: { locale }, pageParam }) => ({
-        url: '/api/sources/',
-        params: {
-          rules: JSON.stringify({ rules: [{ name: 'HasTag', values: [BLOG_TAG] }] }),
-          sort: '-change',
-          extend: 'note_list',
-          page: pageParam,
-          pagesize: BLOG_PAGE_SIZE,
-          locale,
-        },
-      }),
-      transformResponse: (data: BlogPost[], meta, arg) => ({
-        items: data,
-        total: totalOf(meta, data.length),
-        page: (arg as unknown as { pageParam: number }).pageParam,
-      }),
+      async queryFn({ queryArg: { locale }, pageParam }, queryApi) {
+        const r = await run<Page<BlogPost>>(
+          queryApi,
+          sourcesApi.endpoints.getSources.initiate(
+            {
+              rules: JSON.stringify({ rules: [{ name: 'HasTag', values: [BLOG_TAG] }] }),
+              sort: ['-change'],
+              extend: ['note_list'],
+              page: pageParam,
+              pagesize: BLOG_PAGE_SIZE,
+              locale,
+            },
+            { subscribe: false, forceRefetch: true },
+          ),
+        )
+        return 'error' in r ? r : { data: { ...r.data, page: pageParam } }
+      },
       providesTags: (res) => [
         { type: 'Sources', id: 'LIST' },
         ...(res?.pages ?? []).flatMap((p) => [

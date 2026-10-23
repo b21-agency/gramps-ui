@@ -1,30 +1,17 @@
-import type { FetchBaseQueryMeta } from '@reduxjs/toolkit/query'
 import { api } from '../index'
-import type { Transaction, TransType, TypeMaps } from '@/features/revisions/history'
+import type { TypeMaps } from '@/features/revisions/history'
+import { run } from './compose'
+import { metadataApi } from './metadata-slice-enhanced'
+import type { Page } from './page'
+import { transactionsApi, type ObjectChange } from './transactions-slice-enhanced'
 
-// Change history (undo log). The generated transactions slice covers detail, undo check
-// and undo; these add the X-Total-Count totals the paged views need and the type maps.
-// Every write invalidates 'Transactions' (it is one of the derived tags).
+// Composites for the change history (codegen has no infinite queries and no fan-out):
+// the paged history of one object ("show more") and the type maps of all default types.
+// Both run the generated endpoints; the plain history pages use them directly.
 
-export interface ObjectChange {
-  obj_class: string
-  trans_type: TransType
-  obj_handle: string
-  timestamp: number
-  transaction_id?: number | null
-  connection?: { user?: { name: string; full_name: string } | null } | null
-}
-
-export interface HistoryPage<T> {
-  items: T[]
-  total: number
-  page: number
-}
-
-const totalOf = (meta: FetchBaseQueryMeta | undefined, fallback: number) => {
-  const h = meta?.response?.headers.get('X-Total-Count')
-  return h ? Number(h) : fallback
-}
+/** Like the classic UI, only the most recent revisions of an object are listed. */
+export const OBJECT_HISTORY_PAGE = 10
+export const OBJECT_HISTORY_MAX = 50
 
 /** Gramps type class → datatype of /types/default/{datatype}/map. */
 export const TYPE_DATATYPES = [
@@ -43,52 +30,61 @@ export const TYPE_DATATYPES = [
   'url_types',
 ]
 
-/** Like the classic UI, only the most recent revisions of an object are listed. */
-export const OBJECT_HISTORY_PAGE_SIZE = 10
-export const OBJECT_HISTORY_MAX_ITEMS = 50
+const tagOfClass: Record<string, 'People' | 'Families' | 'Events' | 'Places' | 'Sources' | 'Citations' | 'Repositories' | 'Notes' | 'Media'> = {
+  Person: 'People',
+  Family: 'Families',
+  Event: 'Events',
+  Place: 'Places',
+  Source: 'Sources',
+  Citation: 'Citations',
+  Repository: 'Repositories',
+  Note: 'Notes',
+  Media: 'Media',
+}
 
 export const revisionsApi = api.injectEndpoints({
   // fail loudly instead of silently keeping an endpoint of the same name
   overrideExisting: 'throw',
   endpoints: (build) => ({
-    /** One page of the whole tree's history, newest first, with old/new object data. */
-    transactionHistoryPage: build.query<HistoryPage<Transaction>, { page: number; pagesize: number }>({
-      query: ({ page, pagesize }) => ({
-        url: '/api/transactions/history/',
-        params: { sort: '-id', page, pagesize, old: 1, new: 1 },
-      }),
-      transformResponse: (data: Transaction[], meta, { page }) => ({ items: data, total: totalOf(meta, data.length), page }),
-      providesTags: ['Transactions'],
-    }),
-
-    /** History of one object, 10 per page ("show more"), at most 50 entries. */
-    revisionsObjectHistory: build.infiniteQuery<HistoryPage<ObjectChange>, { objClass: string; handle: string }, number>({
+    /** Changes of one object, newest first, OBJECT_HISTORY_PAGE per page, at most OBJECT_HISTORY_MAX. */
+    objectHistory: build.infiniteQuery<
+      Page<ObjectChange>,
+      // lastChange only keys the cache: a newer change of the object starts a fresh list
+      { objClass: string; handle: string; lastChange?: number },
+      number
+    >({
       infiniteQueryOptions: {
         initialPageParam: 1,
-        getNextPageParam: (last, all) => {
+        getNextPageParam: (last, all, lastParam) => {
           const n = all.reduce((s, p) => s + p.items.length, 0)
-          return n < last.total && n < OBJECT_HISTORY_MAX_ITEMS && last.items.length ? last.page + 1 : undefined
+          return n < last.total && n < OBJECT_HISTORY_MAX && last.items.length === OBJECT_HISTORY_PAGE ? lastParam + 1 : undefined
         },
       },
-      query: ({ queryArg: { objClass, handle }, pageParam }) => ({
-        url: `/api/transactions/history/objects/${objClass}/${handle}`,
-        params: { sort: '-id', page: pageParam, pagesize: OBJECT_HISTORY_PAGE_SIZE },
-      }),
-      transformResponse: (data: ObjectChange[], meta, arg) => ({
-        items: data,
-        total: totalOf(meta, data.length),
-        page: (arg as unknown as { pageParam: number }).pageParam,
-      }),
-      providesTags: ['Transactions'],
+      async queryFn({ queryArg: { objClass, handle }, pageParam }, queryApi) {
+        return run<Page<ObjectChange>>(
+          queryApi,
+          transactionsApi.endpoints.getObjectHistory.initiate(
+            { objClass, objHandle: handle, sort: '-id', page: pageParam, pagesize: OBJECT_HISTORY_PAGE },
+            { subscribe: false, forceRefetch: true },
+          ),
+        )
+      },
+      providesTags: (_r, _e, { objClass, handle }) => [
+        'Transactions',
+        ...(tagOfClass[objClass] ? [{ type: tagOfClass[objClass], id: handle }] : []),
+      ],
     }),
 
     /** Value → English name maps for all Gramps default types (fetched once per session). */
     typeMaps: build.query<TypeMaps, void>({
-      async queryFn(_arg, _api, _extra, baseQuery) {
+      async queryFn(_arg, queryApi) {
         const entries = await Promise.all(
-          TYPE_DATATYPES.map(async (dt) => {
-            const r = await baseQuery({ url: `/api/types/default/${dt}/map` })
-            return [dt, r.error ? {} : (r.data as Record<string, string>)] as const
+          TYPE_DATATYPES.map(async (datatype) => {
+            const r = await run<Record<string, string>>(
+              queryApi,
+              metadataApi.endpoints.getDefaultTypeMap.initiate({ datatype }, { subscribe: false, forceRefetch: true }),
+            )
+            return [datatype, 'data' in r ? r.data : {}] as const
           }),
         )
         return { data: Object.fromEntries(entries) as TypeMaps }
@@ -98,4 +94,5 @@ export const revisionsApi = api.injectEndpoints({
   }),
 })
 
-export const { useTransactionHistoryPageQuery, useRevisionsObjectHistoryInfiniteQuery, useTypeMapsQuery } = revisionsApi
+export type { ObjectChange }
+export const { useObjectHistoryInfiniteQuery, useTypeMapsQuery } = revisionsApi

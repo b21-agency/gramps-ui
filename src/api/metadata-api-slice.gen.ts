@@ -206,7 +206,7 @@ const injectedRtkApi = api
         }),
         providesTags: ["Translations"],
       }),
-      postTranslation: build.mutation<
+      postTranslation: build.query<
         PostTranslationApiResponse,
         PostTranslationApiArg
       >({
@@ -215,7 +215,7 @@ const injectedRtkApi = api
           method: "POST",
           body: queryArg.translationPostArgs,
         }),
-        invalidatesTags: ["Translations"],
+        providesTags: ["Translations"],
       }),
       getTranslations: build.query<
         GetTranslationsApiResponse,
@@ -1040,7 +1040,8 @@ export const {
   useLazyGetFiltersQuery,
   useGetTranslationQuery,
   useLazyGetTranslationQuery,
-  usePostTranslationMutation,
+  usePostTranslationQuery,
+  useLazyPostTranslationQuery,
   useGetTranslationsQuery,
   useLazyGetTranslationsQuery,
   useGetFactsQuery,

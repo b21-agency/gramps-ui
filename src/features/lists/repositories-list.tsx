@@ -40,7 +40,7 @@ export function RepositoriesListPage() {
     ]
     return {
       kind: 'repository',
-      query: { keys: 'handle,gramps_id,change,name,type,address_list,urls' },
+      query: { keys: ['handle', 'gramps_id', 'change', 'name', 'type', 'address_list', 'urls'] },
       defaultSort: 'name',
       sorts: [
         { key: 'name', label: t('repositories.sort.name') },

@@ -47,7 +47,7 @@ export function BlogPostPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const q = useObjectById<Post>('source', id, { extend: 'all' })
+  const q = useObjectById<Post>('source', id, { extend: ['all'] })
   const post = q.data
   const firstNote = post?.note_list?.[0]
   const notes = useNotesHtml(firstNote ? [firstNote] : undefined)

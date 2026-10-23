@@ -168,7 +168,11 @@ const injectedRtkApi = api
         providesTags: ["Users"],
       }),
       postUsers: build.mutation<PostUsersApiResponse, PostUsersApiArg>({
-        query: () => ({ url: `/api/users/`, method: "POST" }),
+        query: (queryArg) => ({
+          url: `/api/users/`,
+          method: "POST",
+          body: queryArg.body,
+        }),
         invalidatesTags: ["Users"],
       }),
       getUser: build.query<GetUserApiResponse, GetUserApiArg>({
@@ -475,7 +479,12 @@ export type GetUsersApiArg = {
   pagesize?: number;
 };
 export type PostUsersApiResponse = unknown;
-export type PostUsersApiArg = void;
+export type PostUsersApiArg = {
+  /** Users to create. */
+  body: {
+    [key: string]: any;
+  }[];
+};
 export type GetUserApiResponse = /** status 200 OK */ User;
 export type GetUserApiArg = {
   userName: string;

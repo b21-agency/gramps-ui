@@ -4,8 +4,8 @@ import { toast } from 'sonner'
 import { Loader2, NotebookPen, ScanText, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useCreateObjectMutation } from '@/api/enhanced/objects'
-import { useRunOcrMutation } from '@/api/enhanced/shared'
+import { usePostMediaOcrMutation } from '@/api/enhanced/media-slice-enhanced'
+import { usePostNotesMutation, type NoteBody } from '@/api/enhanced/notes-slice-enhanced'
 import { toApiError } from '@/api/enhanced/editor'
 import { useAuth } from '@/lib/auth'
 import { useMetadata } from '@/lib/queries'
@@ -30,8 +30,8 @@ export function useOcrAvailable(mime?: string) {
 export function OcrPanel({ handle, onClose, onSaved }: { handle: string; onClose: () => void; onSaved: () => void }) {
   const { t, i18n } = useTranslation(['objects', 'common'])
   const { can } = useAuth()
-  const [runOcr] = useRunOcrMutation()
-  const [createObject] = useCreateObjectMutation()
+  const [runOcr] = usePostMediaOcrMutation()
+  const [postNote] = usePostNotesMutation()
   const { data: meta } = useMetadata()
   const langs = (meta?.server?.ocr_languages as string[] | undefined) ?? []
   const preferred = tesseractOf[i18n.language.slice(0, 2)]
@@ -70,9 +70,8 @@ export function OcrPanel({ handle, onClose, onSaved }: { handle: string; onClose
     setSaving(true)
     try {
       // both writes go through RTK mutations, which invalidate what their transactions touched
-      const tx = await createObject({
-        kind: 'note',
-        body: { _class: 'Note', type: 'Transcript', text: { _class: 'StyledText', string: text, tags: [] } },
+      const tx = await postNote({
+        note: { _class: 'Note', type: 'Transcript', text: { _class: 'StyledText', string: text, tags: [] } } as NoteBody,
       })
         .unwrap()
         .catch((e) => Promise.reject(toApiError(e)))

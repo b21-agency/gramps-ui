@@ -46,7 +46,7 @@ export function NotesListPage() {
     ]
     return {
       kind: 'note',
-      query: { keys: 'handle,gramps_id,change,type,text' },
+      query: { keys: ['handle', 'gramps_id', 'change', 'type', 'text'] },
       defaultSort: '-change',
       sorts: [
         { key: 'text', label: t('notes.sort.text') },

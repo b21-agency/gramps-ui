@@ -13,7 +13,7 @@ import { ResponsiveMenu } from '@/components/responsive-menu'
 import { AlbumPage, pill } from '@/components/album-page'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { useDebounced } from '@/components/command-search'
-import { useGetObjectsQuery } from '@/api/enhanced/objects'
+import { useGetSourcesQuery } from '@/api/enhanced/sources-slice-enhanced'
 import { apiLocale } from '@/i18n'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
@@ -36,16 +36,13 @@ import {
 
 function useTasks() {
   // provides the Sources list tag: any task write refreshes it
-  const r = useGetObjectsQuery({
-    kind: 'source',
-    query: {
-      rules: JSON.stringify({ rules: [{ name: 'HasTag', values: [TODO_TAG] }] }),
-      extend: 'note_list,tag_list',
-      sort: '-gramps_id',
-      page: 1,
-      pagesize: 1000,
-      locale: apiLocale(),
-    },
+  const r = useGetSourcesQuery({
+    rules: JSON.stringify({ rules: [{ name: 'HasTag', values: [TODO_TAG] }] }),
+    extend: ['note_list', 'tag_list'],
+    sort: ['-gramps_id'],
+    page: 1,
+    pagesize: 1000,
+    locale: apiLocale(),
   })
   return { ...r, data: r.data?.items as Task[] | undefined }
 }

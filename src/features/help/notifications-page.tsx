@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Panel } from '@/components/detail/panel'
 import { cn } from '@/lib/utils'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
-import { api as tasksApi, useGetTaskQuery, useGetTasksQuery } from '@/api/tasks-api-slice.gen'
+import { tasksApi, useGetTaskQuery, useGetTasksQuery } from '@/api/enhanced/tasks-slice-enhanced'
 import { timeAgo } from '@/lib/format'
 import { useTitle } from '@/hooks/use-title'
 import { toast } from 'sonner'

@@ -11,7 +11,7 @@ import { useDebounced } from '@/components/command-search'
 import { mediaThumbUrl } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { emptyObject, errorMessage, toWritable, txGrampsId, type Transaction } from '@/features/editor/lib'
-import { useCreateObjectsMutation } from '@/api/enhanced/objects'
+import { usePostObjectsMutation } from '@/api/enhanced/transactions-slice-enhanced'
 import { toApiError } from '@/api/enhanced/editor'
 import { cn } from '@/lib/utils'
 import { useTypeLabels } from '@/features/timeline/data'
@@ -294,7 +294,7 @@ export function BuildingPanel({
 }) {
   const { t } = useTranslation(['map', 'common'])
   const { can } = useAuth()
-  const [postObjects] = useCreateObjectsMutation()
+  const [postObjects] = usePostObjectsMutation()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const years = [
@@ -314,7 +314,7 @@ export function BuildingPanel({
         urls: [{ _class: 'Url', path: `https://www.wikidata.org/wiki/${building.qid}`, desc: 'Wikidata', type: 'Web Home', private: false }],
       }
       // the map's places refresh through the transaction's cache tags
-      const tx = await postObjects([toWritable('place', place)]).unwrap()
+      const tx = await postObjects({ body: [toWritable('place', place)] }).unwrap()
       const id = txGrampsId(tx as Transaction, place.handle)
       toast.success(t('building.added'))
       if (id) navigate(`/place/${id}`)

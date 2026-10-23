@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useGetPersonTimelineQuery } from '@/api/people-api-slice.gen'
+import { useGetPersonTimelineQuery } from '@/api/enhanced/people-slice-enhanced'
 import { CalendarX2, Loader2, MapPin } from 'lucide-react'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { Portrait } from '@/components/portrait'

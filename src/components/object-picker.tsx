@@ -4,7 +4,7 @@ import { skipToken } from '@reduxjs/toolkit/query'
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { useSearchQuery } from '@/api/enhanced/objects'
+import { useGetSearchQuery } from '@/api/enhanced/search-slice-enhanced'
 import { apiLocale } from '@/i18n'
 import { describeObject, kindIcon } from '@/lib/objects'
 import type { ObjectKind } from '@/lib/types'
@@ -40,9 +40,9 @@ export function ObjectSearchList({
   const [q, setQ] = useState('')
   const dq = useDebounced(q, 180)
   // `data` keeps the previous hits while the next query loads
-  const { data: page, isFetching } = useSearchQuery(
+  const { data: page, isFetching } = useGetSearchQuery(
     dq.trim().length > 0
-      ? { query: searchQuery(dq), type: kinds.join(','), locale: apiLocale(), profile: 'self', page: 1, pagesize: 20 }
+      ? { query: searchQuery(dq), type: kinds, locale: apiLocale(), profile: ['self'], page: 1, pagesize: 20 }
       : skipToken,
   )
   const data = page?.items

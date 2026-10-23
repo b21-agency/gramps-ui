@@ -1,6 +1,5 @@
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { skipToken } from '@reduxjs/toolkit/query'
 import { BookOpen, Landmark } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/states'
@@ -8,7 +7,7 @@ import { ObjectToolbar } from '@/components/detail/object-header'
 import { Panel } from '@/components/detail/panel'
 import { ObjectHistory } from '@/components/detail/object-history'
 import { FactsTable, Gallery, NotesList } from '@/components/detail/sections'
-import { useGetObjectsByHandlesQuery } from '@/api/enhanced/objects'
+import { useObjectsByHandlesQuery } from '@/api/enhanced/objects'
 import { apiLocale } from '@/i18n'
 import { typeStr } from '@/lib/format'
 import { kindIcon, objectPath } from '@/lib/objects'
@@ -160,16 +159,12 @@ const PAGE = 20
 function SourceCitations({ citations, dates }: { citations: AnyObj[]; dates: Map<string, string> }) {
   const { shown, hidden, all, setAll } = useLimited(citations, PAGE)
   const handles = shown.map((c) => c.handle)
-  const r = useGetObjectsByHandlesQuery(
-    handles.length
-      ? {
-          kind: 'citation',
-          handles,
-          query: { profile: 'references', backlinks: true, extend: 'backlinks', keys: 'handle,profile,extended', locale: apiLocale() },
-        }
-      : skipToken,
+  const r = useObjectsByHandlesQuery<{ handle: string; profile?: AnyObj; extended?: { backlinks?: Record<string, AnyObj[]> } }>(
+    'citation',
+    handles,
+    { profile: ['references'], backlinks: true, extend: ['backlinks'], keys: ['handle', 'profile', 'extended'], locale: apiLocale() },
   )
-  const data = r.data as Array<{ handle: string; profile?: AnyObj; extended?: { backlinks?: Record<string, AnyObj[]> } }> | undefined
+  const data = r.data
   const citedBy = new Map((data ?? []).map((c) => [c.handle, referenceItems(c.extended?.backlinks, c.profile?.references)]))
   // rows revealed by "show all" are loading until their answer arrives (data keeps the previous rows meanwhile)
   const isLoading = (h: string) => r.isLoading || (r.isFetching && !citedBy.has(h))

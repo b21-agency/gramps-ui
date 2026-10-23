@@ -724,7 +724,7 @@ function CentrePanel({
   const { t } = useTranslation('charts')
   const years = datesText(person) || yearsText(person, t)
   // full person (families, gender) for the "add relative" menu, as in the classic chart edit mode
-  const full = useObjectById<Person>('person', person.id, { profile: 'self,families', keys: 'handle,gramps_id,gender,family_list,profile' })
+  const full = useObjectById<Person>('person', person.id, { profile: ['self', 'families'], keys: ['handle', 'gramps_id', 'gender', 'family_list', 'profile'] })
   const children = (chart === 'ancestor' || chart === 'fan' ? childrenOf(graph, person.handle) : [])
     .map((h) => graph.people.get(h))
     .filter((p): p is GPerson => !!p)

@@ -86,8 +86,8 @@ export function FamiliesListPage() {
     const children = (f: FamilyRow) => f.profile.children?.length ?? 0
     return {
       kind: 'family',
-      query: { profile: 'self', keys: 'handle,gramps_id,change,profile' },
-      searchProfile: 'self',
+      query: { profile: ['self'], keys: ['handle', 'gramps_id', 'change', 'profile'] },
+      searchProfile: ['self'],
       defaultSort: 'surname',
       sorts: [
         { key: 'surname', label: t('families.sort.surname') },

@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { logout } from '@/lib/api'
-import { useGetUserQuery } from '@/api/users-api-slice.gen'
+import { useGetUserQuery } from '@/api/enhanced/users-slice-enhanced'
 import type { UserInfo } from '@/lib/types'
 import { initials } from '@/lib/format'
 import { languages } from '@/i18n'

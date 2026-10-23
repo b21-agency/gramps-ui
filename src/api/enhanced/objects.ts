@@ -1,179 +1,120 @@
-import type { FetchBaseQueryMeta } from '@reduxjs/toolkit/query'
-import { api } from '../index'
-import { endpointOf, type Metadata, type ObjectKind, type SearchHit, type Tag } from '@/lib/types'
-import type { Query } from '@/lib/api'
-import { tagOf, tagsForKind, tagsForTransaction, type TagType, type TxEntry } from './tags'
+import { skipToken, type SkipToken } from '@reduxjs/toolkit/query'
+import type { ObjectKind } from '@/lib/types'
+import type { GetPeopleApiArg, GetPersonApiArg } from '../people-api-slice.gen'
+import { citationsApi } from './citations-slice-enhanced'
+import { eventsApi } from './events-slice-enhanced'
+import { familiesApi } from './families-slice-enhanced'
+import { mediaApi } from './media-slice-enhanced'
+import { notesApi } from './notes-slice-enhanced'
+import type { Page } from './page'
+import { peopleApi } from './people-slice-enhanced'
+import { placesApi } from './places-slice-enhanced'
+import { repositoriesApi } from './repositories-slice-enhanced'
+import { sourcesApi } from './sources-slice-enhanced'
+import { tagsApi } from './tags-slice-enhanced'
+import type { TxEntry } from './tags'
 
-// Typed, tag-aware endpoints for the nine Gramps object kinds. The generated slices
-// (../*-api-slice.gen.ts) cover the rest of the API; these are what pages use for
-// reading and writing objects, so cache invalidation stays in one place.
+// Pages that work with any object kind (lists, object pages, the editor) reach the
+// generated endpoints of that kind through this registry. It defines no endpoints:
+// tags, result types and invalidation live in the *-slice-enhanced files.
 
-export interface Page<T> {
-  items: T[]
-  total: number
+export type { Page }
+export type AnyKind = ObjectKind | 'tag'
+export type AnyObject = { handle: string } & Record<string, unknown>
+
+/** Query params of every object list endpoint (identical for all kinds). */
+export type ObjectListArg = GetPeopleApiArg
+/** Query params of every single-object endpoint, without the handle. */
+export type ObjectArg = Omit<GetPersonApiArg, 'handle'>
+
+const registry = {
+  person: { api: peopleApi, list: 'getPeople', one: 'getPerson', create: 'postPeople', update: 'putPerson', remove: 'deletePerson', merge: 'postMergePerson', body: 'person' },
+  family: { api: familiesApi, list: 'getFamilies', one: 'getFamily', create: 'postFamilies', update: 'putFamily', remove: 'deleteFamily', merge: 'postMergeFamily', body: 'family' },
+  event: { api: eventsApi, list: 'getEvents', one: 'getEvent', create: 'postEvents', update: 'putEvent', remove: 'deleteEvent', merge: 'postMergeEvent', body: 'event' },
+  place: { api: placesApi, list: 'getPlaces', one: 'getPlace', create: 'postPlaces', update: 'putPlace', remove: 'deletePlace', merge: 'postMergePlace', body: 'place' },
+  source: { api: sourcesApi, list: 'getSources', one: 'getSource', create: 'postSources', update: 'putSource', remove: 'deleteSource', merge: 'postMergeSource', body: 'source' },
+  citation: { api: citationsApi, list: 'getCitations', one: 'getCitation', create: 'postCitations', update: 'putCitation', remove: 'deleteCitation', merge: 'postMergeCitation', body: 'citation' },
+  repository: { api: repositoriesApi, list: 'getRepositories', one: 'getRepository', create: 'postRepositories', update: 'putRepository', remove: 'deleteRepository', merge: 'postMergeRepository', body: 'repository' },
+  note: { api: notesApi, list: 'getNotes', one: 'getNote', create: 'postNotes', update: 'putNote', remove: 'deleteNote', merge: 'postMergeNote', body: 'note' },
+  media: { api: mediaApi, list: 'getMediaObjects', one: 'getMediaObject', create: 'postMediaObjects', update: 'putMediaObject', remove: 'deleteMediaObject', merge: 'postMergeMedia', body: 'media' },
+  tag: { api: tagsApi, list: 'getTags', one: 'getTag', create: 'postTags', update: 'putTag', remove: 'deleteTag', merge: null, body: 'tag' },
+} as const
+
+// All kinds share the same argument shapes, so one kind's endpoint types describe them all;
+// the result type is the caller's (`T`).
+const people = peopleApi.endpoints
+type ListEndpoint = typeof people.getPeople
+type OneEndpoint = typeof people.getPerson
+type WriteEndpoint = typeof people.postPeople
+/** Subscription options of the generated hooks (no `selectFromResult`: results keep their type). */
+type QueryOptions = {
+  skip?: boolean
+  pollingInterval?: number
+  refetchOnMountOrArgChange?: boolean | number
+  refetchOnReconnect?: boolean
+  refetchOnFocus?: boolean
 }
 
-/** Drop empty params; arrays become comma lists (the API's convention). */
-export function cleanParams(q: Query | undefined) {
-  const out: Record<string, string | number | boolean> = {}
-  for (const [k, v] of Object.entries(q ?? {})) {
-    if (v === undefined || v === null || v === '') continue
-    out[k] = Array.isArray(v) ? v.join(',') : v
-  }
-  return out
+const endpointsOf = (kind: AnyKind) => registry[kind].api.endpoints as unknown as Record<string, unknown>
+
+/** The generated list endpoint of a kind (`getPeople`, `getFamilies`, …). */
+export const listEndpoint = (kind: AnyKind) => endpointsOf(kind)[registry[kind].list] as ListEndpoint
+/** The generated single-object endpoint of a kind (`getPerson`, …). */
+export const oneEndpoint = (kind: AnyKind) => endpointsOf(kind)[registry[kind].one] as OneEndpoint
+
+/* ---------------- hooks ---------------- */
+// A page keeps one kind for its lifetime (routes are keyed by kind), so choosing the
+// endpoint's hook by kind keeps the hook order stable.
+
+/** A page of objects of one kind (`X-Total-Count` total). */
+export function useObjectsQuery<T = AnyObject>(kind: AnyKind, arg: ObjectListArg | SkipToken, opts?: QueryOptions) {
+  const r = listEndpoint(kind).useQuery(arg, opts)
+  return { ...r, data: r.data as Page<T> | undefined }
 }
 
-const totalOf = (meta: FetchBaseQueryMeta | undefined, fallback: number) => {
-  const h = meta?.response?.headers.get('X-Total-Count')
-  return h ? Number(h) : fallback
+/** One object by handle. */
+export function useObjectQuery<T = AnyObject>(kind: AnyKind, arg: GetPersonApiArg | SkipToken, opts?: QueryOptions) {
+  const r = oneEndpoint(kind).useQuery(arg, opts)
+  return { ...r, data: r.data as T | undefined }
 }
 
-type AnyObj = { handle: string } & Record<string, unknown>
-
-export const objectsApi = api.injectEndpoints({
-  // fail loudly instead of silently keeping an endpoint of the same name
-  overrideExisting: 'throw',
-  endpoints: (build) => ({
-    /** Paged/filtered list: GET /api/{kind}/ with X-Total-Count. */
-    getObjects: build.query<Page<AnyObj>, { kind: ObjectKind | 'tag'; query?: Query }>({
-      query: ({ kind, query }) => ({
-        url: `/api/${kind === 'tag' ? 'tags' : endpointOf[kind]}/`,
-        params: cleanParams(query),
-      }),
-      transformResponse: (data: AnyObj[], meta) => ({ items: data, total: totalOf(meta, data.length) }),
-      providesTags: (res, _e, { kind }) => {
-        const type = tagOf[kind]
-        return [{ type, id: 'LIST' }, ...(res?.items ?? []).filter((o) => o?.handle).map((o) => ({ type, id: o.handle }))]
-      },
-    }),
-    /** One object by Gramps ID (I0044 …); 404 when missing. */
-    getObjectById: build.query<AnyObj, { kind: ObjectKind; grampsId: string; query?: Query }>({
-      query: ({ kind, grampsId, query }) => ({
-        url: `/api/${endpointOf[kind]}/`,
-        params: cleanParams({ ...query, gramps_id: grampsId }),
-      }),
-      transformResponse: (data: AnyObj[]) => data[0],
-      transformErrorResponse: (e) => e,
-      providesTags: (res, _e, { kind, grampsId }) => {
-        const type = tagOf[kind]
-        // objects pulled in via extend=… are part of this response too
-        const extended = Object.entries((res?.extended as Record<string, unknown>) ?? {}).flatMap(([, v]) =>
-          (Array.isArray(v) ? v : v && typeof v === 'object' ? [v] : [])
-            .filter((o): o is AnyObj => !!(o as AnyObj)?.handle)
-            .map((o) => ({ type: classTag(o) ?? type, id: o.handle })),
-        )
-        return res ? [{ type, id: res.handle }, ...extended] : [{ type, id: `gid:${grampsId}` }]
-      },
-    }),
-    /** One object by handle. */
-    getObject: build.query<AnyObj, { kind: ObjectKind | 'tag'; handle: string; query?: Query }>({
-      query: ({ kind, handle, query }) => ({
-        url: `/api/${kind === 'tag' ? 'tags' : endpointOf[kind]}/${handle}`,
-        params: cleanParams(query),
-      }),
-      providesTags: (_r, _e, { kind, handle }) => [{ type: tagOf[kind], id: handle }],
-    }),
-    /** Several objects by handle (portraits, participants …). */
-    getObjectsByHandles: build.query<AnyObj[], { kind: ObjectKind; handles: string[]; query?: Query }>({
-      query: ({ kind, handles, query }) => ({
-        url: `/api/${endpointOf[kind]}/`,
-        params: cleanParams({ ...query, handles }),
-      }),
-      providesTags: (_r, _e, { kind, handles }) => handles.map((h) => ({ type: tagOf[kind], id: h })),
-    }),
-
-    createObject: build.mutation<TxEntry[], { kind: ObjectKind | 'tag'; body: Record<string, unknown> }>({
-      query: ({ kind, body }) => ({ url: `/api/${kind === 'tag' ? 'tags' : endpointOf[kind]}/`, method: 'POST', body }),
-      invalidatesTags: (tx, _e, { kind }) => (tx ? tagsForTransaction(tx) : tagsForKind(kind)),
-    }),
-    updateObject: build.mutation<TxEntry[], { kind: ObjectKind | 'tag'; handle: string; body: Record<string, unknown> }>({
-      query: ({ kind, handle, body }) => ({
-        url: `/api/${kind === 'tag' ? 'tags' : endpointOf[kind]}/${handle}`,
-        method: 'PUT',
-        body,
-      }),
-      invalidatesTags: (tx, _e, { kind, handle }) => (Array.isArray(tx) && tx.length ? tagsForTransaction(tx) : tagsForKind(kind, handle)),
-    }),
-    deleteObject: build.mutation<TxEntry[], { kind: ObjectKind | 'tag'; handle: string }>({
-      query: ({ kind, handle }) => ({ url: `/api/${kind === 'tag' ? 'tags' : endpointOf[kind]}/${handle}`, method: 'DELETE' }),
-      invalidatesTags: (tx, _e, { kind, handle }) => (Array.isArray(tx) && tx.length ? tagsForTransaction(tx) : tagsForKind(kind, handle)),
-    }),
-    /** Several linked objects in one atomic transaction. */
-    createObjects: build.mutation<TxEntry[], Array<Record<string, unknown>>>({
-      query: (body) => ({ url: '/api/objects/', method: 'POST', body }),
-      invalidatesTags: (tx) => tagsForTransaction(tx),
-    }),
-    deleteObjectsByHandle: build.mutation<TxEntry[], { kind: ObjectKind; handles: string[] }>({
-      query: ({ kind, handles }) => ({
-        url: '/api/objects/delete-by-handle/',
-        method: 'POST',
-        body: { namespace: endpointOf[kind], handles },
-      }),
-      invalidatesTags: (tx, _e, { kind }) => (Array.isArray(tx) && tx.length ? tagsForTransaction(tx) : tagsForKind(kind)),
-    }),
-    mergeObjects: build.mutation<TxEntry[], { kind: ObjectKind; keep: string; other: string }>({
-      query: ({ kind, keep, other }) => ({ url: `/api/${endpointOf[kind]}/${keep}/merge/${other}`, method: 'POST' }),
-      invalidatesTags: (tx, _e, { kind }) => (Array.isArray(tx) && tx.length ? tagsForTransaction(tx) : tagsForKind(kind)),
-    }),
-    /** Undo a write by replaying its transaction backwards. */
-    undoTransaction: build.mutation<TxEntry[], TxEntry[]>({
-      query: (tx) => ({ url: '/api/transactions/', method: 'POST', params: { undo: 1 }, body: tx }),
-      invalidatesTags: (back, _e, tx) => tagsForTransaction([...(back ?? []), ...tx]),
-    }),
-
-    search: build.query<Page<SearchHit>, Query>({
-      query: (q) => ({ url: '/api/search/', params: cleanParams(q) }),
-      transformResponse: (data: SearchHit[], meta) => ({ items: data, total: totalOf(meta, data.length) }),
-      providesTags: ['Search'],
-    }),
-    metadata: build.query<Metadata, void>({
-      query: () => ({ url: '/api/metadata/' }),
-      providesTags: ['Metadata'],
-      keepUnusedDataFor: 600,
-    }),
-    allTags: build.query<Tag[], void>({
-      query: () => ({ url: '/api/tags/' }),
-      providesTags: (res) => [{ type: 'Tags', id: 'LIST' }, ...(res ?? []).map((t) => ({ type: 'Tags' as const, id: t.handle }))],
-    }),
-  }),
-})
-
-const classTags: Record<string, TagType> = {
-  Person: 'People',
-  Family: 'Families',
-  Event: 'Events',
-  Place: 'Places',
-  Source: 'Sources',
-  Citation: 'Citations',
-  Repository: 'Repositories',
-  Note: 'Notes',
-  Media: 'Media',
-}
-function classTag(o: AnyObj): TagType | undefined {
-  if (typeof o._class === 'string') return classTags[o._class]
-  if ('primary_name' in o) return 'People'
-  if ('child_ref_list' in o) return 'Families'
-  if ('placeref_list' in o) return 'Places'
-  if ('mime' in o) return 'Media'
-  if ('source_handle' in o) return 'Citations'
-  if ('text' in o && 'format' in o) return 'Notes'
-  return undefined
+/** Several objects of one kind by handle (portraits, participants …). */
+export function useObjectsByHandlesQuery<T = AnyObject>(kind: AnyKind, handles: string[] | null | undefined, arg: ObjectListArg = {}) {
+  const r = listEndpoint(kind).useQuery(handles?.length ? { ...arg, handles } : skipToken)
+  return { ...r, data: r.data?.items as T[] | undefined }
 }
 
-export const {
-  useGetObjectsQuery,
-  useGetObjectByIdQuery,
-  useGetObjectQuery,
-  useGetObjectsByHandlesQuery,
-  useCreateObjectMutation,
-  useUpdateObjectMutation,
-  useDeleteObjectMutation,
-  useCreateObjectsMutation,
-  useDeleteObjectsByHandleMutation,
-  useMergeObjectsMutation,
-  useUndoTransactionMutation,
-  useSearchQuery,
-  useLazySearchQuery,
-  useMetadataQuery,
-  useAllTagsQuery,
-} = objectsApi
+/* ---------------- thunks (dispatch them) ---------------- */
+
+/** Read one object (e.g. `dispatch(fetchObject('source', { handle }))` + unwrap). */
+export const fetchObject = (kind: AnyKind, arg: GetPersonApiArg, opts?: { forceRefetch?: boolean }) =>
+  oneEndpoint(kind).initiate(arg, { subscribe: false, forceRefetch: opts?.forceRefetch ?? true })
+
+/** Read a page of objects without subscribing. */
+export const fetchObjects = (kind: AnyKind, arg: ObjectListArg) =>
+  listEndpoint(kind).initiate(arg, { subscribe: false, forceRefetch: true })
+
+const write = (kind: AnyKind, op: 'create' | 'update' | 'remove') =>
+  endpointsOf(kind)[registry[kind][op]] as WriteEndpoint
+
+/** Create an object; resolves to the transaction. */
+export const createObject = (kind: AnyKind, body: Record<string, unknown>) =>
+  write(kind, 'create').initiate({ [registry[kind].body]: body } as never)
+
+/** Replace an object; resolves to the transaction. */
+export const updateObject = (kind: AnyKind, handle: string, body: Record<string, unknown>) =>
+  write(kind, 'update').initiate({ handle, [registry[kind].body]: body } as never)
+
+/**
+ * Delete an object; resolves to the transaction. Invalidates nothing by itself: dispatch
+ * `invalidateTransaction(tx)` right away, or after leaving the deleted record's page.
+ */
+export const deleteObject = (kind: AnyKind, handle: string) => write(kind, 'remove').initiate({ handle } as never)
+
+/** Merge `other` into `keep` (both of `kind`); resolves to the transaction. */
+export function mergeObjects(kind: ObjectKind, keep: string, other: string) {
+  const name = registry[kind].merge
+  return (endpointsOf(kind)[name] as WriteEndpoint).initiate({ phoenixHandle: keep, titanicHandle: other } as never)
+}
+
+export type { TxEntry }

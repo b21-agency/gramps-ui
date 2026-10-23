@@ -39,7 +39,7 @@ export function SourcesListPage() {
     ]
     return {
       kind: 'source',
-      query: { keys: 'handle,gramps_id,change,title,author,pubinfo,abbrev,media_list' },
+      query: { keys: ['handle', 'gramps_id', 'change', 'title', 'author', 'pubinfo', 'abbrev', 'media_list'] },
       defaultSort: 'title',
       sorts: [
         { key: 'title', label: t('sources.sort.title') },

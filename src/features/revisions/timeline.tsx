@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState, ErrorState } from '@/components/states'
 import { ObjectThumb } from '@/components/object-thumb'
-import { useTransactionHistoryPageQuery } from '@/api/enhanced/revisions'
+import { useGetTransactionsHistoryQuery } from '@/api/enhanced/transactions-slice-enhanced'
 import { formatTimestamp, timeAgo } from '@/lib/format'
 import type { MediaRef } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -100,7 +100,7 @@ export function RevisionTimeline({
   const { t, i18n } = useTranslation('revisions')
   const { data: maps } = useTypeMaps()
   // `data` keeps the previous page while the next one loads
-  const q = useTransactionHistoryPageQuery({ page, pagesize: PAGE_SIZE })
+  const q = useGetTransactionsHistoryQuery({ page, pagesize: PAGE_SIZE, sort: '-id', old: true, new: true })
   const pages = q.data ? Math.max(1, Math.ceil(q.data.total / PAGE_SIZE)) : 1
   const lang = i18n.language
 

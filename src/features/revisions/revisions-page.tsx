@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ShieldOff } from 'lucide-react'
 import { AlbumPage } from '@/components/album-page'
 import { EmptyState } from '@/components/states'
-import { useTransactionHistoryPageQuery } from '@/api/enhanced/revisions'
+import { useGetTransactionsHistoryQuery } from '@/api/enhanced/transactions-slice-enhanced'
 import { useAuth } from '@/lib/auth'
 import { useTitle } from '@/hooks/use-title'
 import { ObjectRevisions, objectClassName } from './object-revisions'
@@ -59,7 +59,7 @@ function RevisionsList() {
   const objHandle = params.get('handle')
   const wide = useMinWidth(1280)
   // same cache entry as the timeline: the newest change of the page opens next to it on wide screens
-  const q = useTransactionHistoryPageQuery({ page, pagesize: PAGE_SIZE }, { skip: !!(objCls && objHandle) || !wide })
+  const q = useGetTransactionsHistoryQuery({ page, pagesize: PAGE_SIZE, sort: '-id', old: true, new: true }, { skip: !!(objCls && objHandle) || !wide })
   const go = (p: number) => {
     setParams(p > 1 ? { page: String(p) } : {})
     window.scrollTo({ top: 0 })

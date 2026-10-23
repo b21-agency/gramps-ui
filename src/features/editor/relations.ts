@@ -1,6 +1,6 @@
 // Linking people into families (add parent / partner / child / sibling).
 import { store } from '@/store'
-import { objectsApi } from '@/api/enhanced/objects'
+import { createObject } from '@/api/enhanced/objects'
 import { unwrapApi } from '@/api/enhanced/editor'
 import { classOf, emptyObject, fetchWritable, putObject, type AnyObj, type Transaction } from './lib'
 
@@ -12,9 +12,9 @@ function childRef(h: string) {
 
 async function createFamily(fields: AnyObj): Promise<Transaction> {
   const fam = { ...emptyObject('family'), type: 'Unknown', ...fields }
-  return unwrapApi(
-    store.dispatch(objectsApi.endpoints.createObject.initiate({ kind: 'family', body: { ...fam, _class: classOf.family } })),
-  ).then((tx) => [...tx] as Transaction) // mutable copy (RTK results are frozen)
+  return unwrapApi(store.dispatch(createObject('family', { ...fam, _class: classOf.family }))).then(
+    (tx) => [...tx] as Transaction, // mutable copy (RTK results are frozen)
+  )
 }
 
 /** Add an existing child to an existing family. */

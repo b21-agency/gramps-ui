@@ -15,7 +15,7 @@ import {
 import { Kbd } from './kbd'
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/components/ui/drawer'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { useSearchQuery } from '@/api/enhanced/objects'
+import { useGetSearchQuery } from '@/api/enhanced/search-slice-enhanced'
 import { apiLocale } from '@/i18n'
 import { describeObject, kindIcon, objectPath } from '@/lib/objects'
 import type { ObjectKind } from '@/lib/types'
@@ -79,8 +79,8 @@ export function CommandSearch() {
   }, [])
 
   // `data` keeps the previous hits while the next query loads
-  const { data: page, isFetching } = useSearchQuery(
-    dq.trim().length > 1 ? { query: searchQuery(dq), locale: apiLocale(), profile: 'self', page: 1, pagesize: 12 } : skipToken,
+  const { data: page, isFetching } = useGetSearchQuery(
+    dq.trim().length > 1 ? { query: searchQuery(dq), locale: apiLocale(), profile: ['self'], page: 1, pagesize: 12 } : skipToken,
   )
   const data = page?.items
 

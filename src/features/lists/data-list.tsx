@@ -31,9 +31,9 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, Dr
 import { useIsMobile } from '@/hooks/use-mobile'
 import { EmptyState, ErrorState } from '@/components/states'
 import { searchQuery, useDebounced } from '@/components/command-search'
-import type { Query } from '@/lib/api'
 import { listsApi, useListPageQuery, type ListPageArg } from '@/api/enhanced/lists'
-import type { Page as RowsPage } from '@/api/enhanced/objects'
+import type { ObjectListArg, Page as RowsPage } from '@/api/enhanced/objects'
+import type { GetSearchApiArg } from '@/api/enhanced/search-slice-enhanced'
 import { useAppDispatch, useAppSelector } from '@/store'
 import { apiLocale } from '@/i18n'
 import { useAuth } from '@/lib/auth'
@@ -79,10 +79,10 @@ export interface SortOption {
 
 export interface ListConfig<T extends ListItem> {
   kind: ObjectKind
-  /** base query for GET /{endpoint}/ (keys, profile, extend ...) */
-  query: Query
+  /** base params of the kind's list endpoint (keys, profile, extend ...) */
+  query: ObjectListArg
   /** profile for /search/ when the quick filter uses the full-text index */
-  searchProfile?: string
+  searchProfile?: string[]
   sorts: SortOption[]
   /** e.g. 'surname' or '-change' */
   defaultSort: string
@@ -201,11 +201,18 @@ export function useListSource<T extends ListItem>(config: ListConfig<T>, state: 
   const text = q ? textFilter(q, config.textRule) : null
   const allRules = [...(text ? [text] : []), ...filterRules]
   const rules = allRules.length ? JSON.stringify(and(...allRules)) : undefined
-  const listQuery: Query = { ...config.query, locale, sort: effectiveSort, rules, gql, pagesize: pageSize }
-  const search: Query | null = useSearch
-    ? { query: searchQuery(q), type: config.kind, locale, profile: config.searchProfile ?? 'self', pagesize: pageSize }
+  const list: ObjectListArg = {
+    ...config.query,
+    locale,
+    sort: effectiveSort ? [effectiveSort] : undefined,
+    rules,
+    gql: gql || undefined,
+    pagesize: pageSize,
+  }
+  const search: GetSearchApiArg | null = useSearch
+    ? { query: searchQuery(q), type: [config.kind], locale, profile: config.searchProfile ?? ['self'], pagesize: pageSize }
     : null
-  const arg: Omit<ListPageArg, 'page'> = { kind: config.kind, query: listQuery, search }
+  const arg: Omit<ListPageArg, 'page'> = { kind: config.kind, list, search }
   return {
     key: [arg],
     arg,

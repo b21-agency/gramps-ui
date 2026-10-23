@@ -9,7 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { AlbumPage } from '@/components/album-page'
 import { EmptyState, ErrorState } from '@/components/states'
-import { useReportListQuery, useRunReportMutation } from '@/api/enhanced/tools'
+import { useGetReportsQuery, usePostReportFileMutation } from '@/api/enhanced/tasks-slice-enhanced'
 import { useAccessToken } from '@/lib/auth'
 import { useHomePerson } from '@/lib/prefs'
 import { cn } from '@/lib/utils'
@@ -44,7 +44,7 @@ function useReportText(strings: string[] = []) {
 export function ReportsPage() {
   const { t } = useTranslation('tools')
   useTitle(t('reports.title'))
-  const q = useReportListQuery()
+  const q = useGetReportsQuery({ includeHelp: true })
   const text = useReportText((q.data ?? []).flatMap((r) => [r.name, r.description]))
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState<ReportDef | null>(null)
@@ -164,14 +164,14 @@ function ReportForm({ report }: { report: ReportDef }) {
     Object.fromEntries(fields.map((f) => [f.key, f.defaultValue])),
   )
   const task = useTask<ReportResult>()
-  const [runReport] = useRunReportMutation()
+  const [runReport] = usePostReportFileMutation()
   const set = (k: string) => (v: string) => setValues((s) => ({ ...s, [k]: v }))
 
   const run = async () => {
     const options: Record<string, string> = {}
     for (const f of fields) if (values[f.key] !== '' || f.kind === 'text') options[f.key] = values[f.key]
     try {
-      await task.start((signal) => unwrapWith(signal, runReport({ id: report.id, options })))
+      await task.start((signal) => unwrapWith(signal, runReport({ reportId: report.id, options: JSON.stringify(options) })))
     } catch (e) {
       if (!isAbort(e)) toast.error(t('reports.failed', { message: taskErrorText(t, e) }))
     }

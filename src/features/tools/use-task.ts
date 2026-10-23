@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TagDescription } from '@reduxjs/toolkit/query'
 import { api as rtkApi } from '@/api'
-import { api as tasksApi } from '@/api/tasks-api-slice.gen'
+import { tasksApi } from '@/api/enhanced/tasks-slice-enhanced'
 import type { TagType } from '@/api/enhanced/tags'
 import { store } from '@/store'
 import { ApiError, freshAccessToken, tokens } from '@/lib/api'

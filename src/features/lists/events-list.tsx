@@ -83,8 +83,8 @@ export function EventsListPage() {
     ]
     return {
       kind: 'event',
-      query: { profile: 'participants', keys: 'handle,gramps_id,change,description,profile' },
-      searchProfile: 'all',
+      query: { profile: ['participants'], keys: ['handle', 'gramps_id', 'change', 'description', 'profile'] },
+      searchProfile: ['all'],
       defaultSort: '-date',
       sorts: [
         { key: 'date', label: t('events.sort.date') },

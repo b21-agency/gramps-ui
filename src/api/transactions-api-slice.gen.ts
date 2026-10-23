@@ -7,7 +7,11 @@ const injectedRtkApi = api
   .injectEndpoints({
     endpoints: (build) => ({
       postObjects: build.mutation<PostObjectsApiResponse, PostObjectsApiArg>({
-        query: () => ({ url: `/api/objects/`, method: "POST" }),
+        query: (queryArg) => ({
+          url: `/api/objects/`,
+          method: "POST",
+          body: queryArg.body,
+        }),
         invalidatesTags: ["Transactions"],
       }),
       postDeleteObjects: build.mutation<
@@ -41,6 +45,7 @@ const injectedRtkApi = api
         query: (queryArg) => ({
           url: `/api/transactions/`,
           method: "POST",
+          body: queryArg.body,
           params: {
             undo: queryArg.undo,
             message: queryArg.message,
@@ -129,7 +134,12 @@ const injectedRtkApi = api
   });
 export { injectedRtkApi as api };
 export type PostObjectsApiResponse = /** status 201 Created */ Transaction[];
-export type PostObjectsApiArg = void;
+export type PostObjectsApiArg = {
+  /** Gramps objects to add in one transaction. */
+  body: {
+    [key: string]: any;
+  }[];
+};
 export type PostDeleteObjectsApiResponse = /** status 200 OK */ TaskReference;
 export type PostDeleteObjectsApiArg = {
   /** Comma-delimited list of object types to delete (e.g. 'people,families,events'). */
@@ -150,6 +160,10 @@ export type PostTransactionsApiArg = {
   force?: boolean;
   /** If true and Celery is configured, apply the transactions in the background and return HTTP 202. Use this for anything but a few objects. */
   background?: boolean;
+  /** Transaction entries (as returned by a write). */
+  body: {
+    [key: string]: any;
+  }[];
 };
 export type GetTransactionsHistoryApiResponse =
   /** status 200 OK */ UndoTransaction[];

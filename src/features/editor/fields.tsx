@@ -32,7 +32,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ObjectSearchList } from '@/components/object-picker'
 import { tagColor } from '@/components/tag-list'
-import { useCreateObjectMutation } from '@/api/enhanced/objects'
+import { usePostTagsMutation, type TagBody } from '@/api/enhanced/tags-slice-enhanced'
 import { unwrapApi } from '@/api/enhanced/editor'
 import { useObjectByHandle, useTags } from '@/lib/queries'
 import { describeObject, kindIcon } from '@/lib/objects'
@@ -320,7 +320,7 @@ const TAG_COLORS = ['#7a8f3f', '#b08a3e', '#a8553a', '#4f7a8a', '#7a5a8a', '#5a5
 export function TagsField({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const { t } = useTranslation('editor')
   const tags = useTags()
-  const [createObject] = useCreateObjectMutation()
+  const [postTag] = usePostTagsMutation()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
@@ -336,7 +336,7 @@ export function TagsField({ value, onChange }: { value: string[]; onChange: (v: 
     try {
       const color = TAG_COLORS[all.length % TAG_COLORS.length]
       // invalidates the tag list itself (Tags LIST from the transaction)
-      const tx = await unwrapApi(createObject({ kind: 'tag', body: { _class: 'Tag', name, color, priority: all.length } }))
+      const tx = await unwrapApi(postTag({ tag: { _class: 'Tag', name, color, priority: all.length } as TagBody }))
       await tags.refetch() // show the new tag as selected right away
       const h = tx[0]?.handle
       if (h) onChange([...value, h])
@@ -436,7 +436,7 @@ export function useRefTitle(kind: ObjectKind, handle: string | null | undefined)
   const { label } = useGrampsTypes()
   const local = s.objOf(handle)
   const preferLocal = !!local && (s.isNew(handle!) || ['person', 'event', 'place', 'note', 'source', 'repository', 'media'].includes(kind))
-  const q = useObjectByHandle<AnyObj>(kind, preferLocal ? null : handle, { profile: 'self' })
+  const q = useObjectByHandle<AnyObj>(kind, preferLocal ? null : handle, { profile: ['self'] })
   if (!handle) return { title: '', subtitle: '', loading: false }
   if (preferLocal) return { title: describeLocal(kind, local, i18n.language, label), subtitle: local?.gramps_id ?? '', loading: false }
   if (q.data) {

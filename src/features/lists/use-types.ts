@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useGetTypesQuery } from '@/api/metadata-api-slice.gen'
-import { useGrampsTypeTranslationsQuery } from '@/api/enhanced/lists'
+import { useGetTypesQuery, usePostTranslationQuery } from '@/api/enhanced/metadata-slice-enhanced'
 import { apiLocale } from '@/i18n'
 
 export type TypeSet =
@@ -31,7 +30,9 @@ function useTypes(set: TypeSet) {
 export function useGrampsTranslations(strings: string[]) {
   const lang = apiLocale()
   const sorted = useMemo(() => [...new Set(strings.filter(Boolean))].sort(), [strings])
-  const { data } = useGrampsTypeTranslationsQuery(lang !== 'en' && sorted.length > 0 ? { lang, strings: sorted } : skipToken)
+  const { data } = usePostTranslationQuery(
+    lang !== 'en' && sorted.length > 0 ? { language: lang, translationPostArgs: { strings: sorted } } : skipToken,
+  )
   const map = useMemo(() => new Map(data?.map((d) => [d.original, d.translation])), [data])
   return useCallback((s: string) => map.get(s) ?? s, [map])
 }

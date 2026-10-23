@@ -18,7 +18,7 @@ import {
   type EventRow,
 } from '@/components/detail/sections'
 import { qs } from '@/lib/api'
-import { useGetRelationQuery } from '@/api/people-api-slice.gen'
+import { useGetRelationQuery } from '@/api/enhanced/people-slice-enhanced'
 import { useAuth } from '@/lib/auth'
 import { apiLocale } from '@/i18n'
 import { useObjectById } from '@/lib/queries'
@@ -40,7 +40,7 @@ export function PersonPage() {
   const { id } = useParams()
   const { t } = useTranslation(['person', 'detail', 'common'])
   const { can } = useAuth()
-  const q = useObjectById<Person>('person', id, { profile: 'all', extend: 'all', backlinks: true, precision: 1 })
+  const q = useObjectById<Person>('person', id, { profile: ['all'], extend: ['all'], backlinks: true, precision: 1 })
   const person = q.data
   const profile = person?.profile
   const name = profile ? profileName(profile) : ''
@@ -261,8 +261,8 @@ function RelationToHome({ person }: { person: Person }) {
   const { t } = useTranslation('person')
   const [homeId] = useHomePerson()
   const home = useObjectById<{ handle: string; profile: PersonProfile }>('person', homeId ?? undefined, {
-    profile: 'self',
-    keys: 'handle,profile',
+    profile: ['self'],
+    keys: ['handle', 'profile'],
   })
   const homeHandle = home.data?.handle
   const { data } = useGetRelationQuery(

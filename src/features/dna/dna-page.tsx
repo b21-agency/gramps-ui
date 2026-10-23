@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useAuth } from '@/lib/auth'
 import { errorMessage } from '@/features/editor/lib'
-import { useUndoTransactionMutation } from '@/api/enhanced/objects'
+import { usePostTransactionsMutation } from '@/api/enhanced/transactions-slice-enhanced'
 import type { TxEntry } from '@/api/enhanced/tags'
 import { toApiError } from '@/api/enhanced/editor'
 import { MatchDialog } from './match-dialog'
@@ -170,7 +170,7 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
   )
   const current = matchId ? rows.find((r) => r.p?.gramps_id === matchId) : undefined
   const { can } = useAuth()
-  const [undo] = useUndoTransactionMutation()
+  const [postTransactions] = usePostTransactionsMutation()
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   // legend click shows one match alone (without leaving the overview)
@@ -196,7 +196,7 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
           label: t('edit.undo'),
           onClick: async () => {
             try {
-              await undo(tx as unknown as TxEntry[]).unwrap()
+              await postTransactions({ undo: true, body: tx as unknown as TxEntry[] }).unwrap()
             } catch (e) {
               toast.error(t('edit.failed'), { description: errorMessage(toApiError(e)) })
             }

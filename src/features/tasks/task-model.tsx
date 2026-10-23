@@ -2,7 +2,8 @@
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Circle, CircleCheck, CircleDot, CircleSlash } from 'lucide-react'
-import { objectsApi, useUpdateObjectMutation } from '@/api/enhanced/objects'
+import { fetchObject } from '@/api/enhanced/objects'
+import { usePutSourceMutation, type SourceBody } from '@/api/enhanced/sources-slice-enhanced'
 import { unwrapApi } from '@/api/enhanced/editor'
 import { useAppDispatch } from '@/store'
 import type { Attribute, Note, Source } from '@/lib/types'
@@ -100,14 +101,13 @@ export function PriorityBadge({ priority, className, quiet }: { priority: number
 export function useUpdateTask() {
   const { t } = useTranslation('tasks')
   const dispatch = useAppDispatch()
-  const [updateObject] = useUpdateObjectMutation()
+  const [putSource] = usePutSourceMutation()
   // the mutation invalidates the task (and the task list) from its transaction
   const put = (task: Source, patch: { Status?: string; Priority?: string }) =>
     unwrapApi(
-      updateObject({
-        kind: 'source',
+      putSource({
         handle: task.handle,
-        body: writableSource(task, { attribute_list: withAttrs(task, patch) }),
+        source: writableSource(task, { attribute_list: withAttrs(task, patch) }) as SourceBody,
       }),
     )
   return async (task: Source, patch: { Status?: TaskStatus; Priority?: string }, opts: { undo?: boolean } = {}) => {
@@ -121,7 +121,7 @@ export function useUpdateTask() {
             onClick: async () => {
               // re-read: the PUT changed `change`, and the server wants the full current object
               const fresh = (await unwrapApi(
-                dispatch(objectsApi.endpoints.getObject.initiate({ kind: 'source', handle: task.handle }, { subscribe: false, forceRefetch: true })),
+                dispatch(fetchObject('source', { handle: task.handle })),
               )) as unknown as Source
               await put(fresh, { Status: before.Status })
             },

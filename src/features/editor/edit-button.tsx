@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useState } from 'react'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -23,8 +24,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/states'
-import { useGetObjectQuery } from '@/api/enhanced/objects'
-import { unwrapApi, useDeleteObjectDeferredMutation, useEditableObjectQuery, useInvalidateOnUnmount } from '@/api/enhanced/editor'
+import { deleteObject as deleteObjectThunk, useObjectQuery } from '@/api/enhanced/objects'
+import { unwrapApi, useInvalidateOnUnmount } from '@/api/enhanced/editor'
+import { useAppDispatch } from '@/store'
 import { useAuth } from '@/lib/auth'
 import { describeObject, objectPath } from '@/lib/objects'
 import { cn } from '@/lib/utils'
@@ -188,9 +190,12 @@ function EditSheetBody({
   onSaved: () => void
 }) {
   const { t } = useTranslation(['editor', 'common'])
-  // uncached snapshot, never refetched while the form is open (see editableObject)
-  const eq = useEditableObjectQuery({ kind, handle }, { refetchOnReconnect: false, refetchOnMountOrArgChange: true })
-  const q = { ...eq, data: eq.data as AnyObj | undefined }
+  // fresh from the server on every opening (extend=all); the first answer is frozen, so a
+  // refetch while the sheet is open never re-seeds the form under the user's hands
+  const eq = useObjectQuery<AnyObj>(kind, { handle, extend: ['all'] }, { refetchOnReconnect: false, refetchOnMountOrArgChange: true })
+  const [snapshot, setSnapshot] = useState<AnyObj | undefined>()
+  if (!snapshot && eq.data && !eq.isFetching) setSnapshot(eq.data)
+  const q = { ...eq, data: snapshot }
   const title = q.data ? describeObject(kind, q.data).title : ''
   return (
     <>
@@ -253,20 +258,22 @@ export function DeleteDialog({
 }) {
   const { t } = useTranslation(['editor', 'common'])
   const invalidateLater = useInvalidateOnUnmount()
-  const [deleteObject] = useDeleteObjectDeferredMutation()
+  const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const title = describeObject(kind, object).title || object.gramps_id
   // a place that still encloses other places can't be deleted (they would point nowhere)
-  const encloses = useGetObjectQuery(
-    { kind: 'place', handle: object.handle, query: { backlinks: true, keys: 'backlinks' } },
-    { skip: !(open && kind === 'place'), refetchOnMountOrArgChange: true },
+  const encloses = useObjectQuery<AnyObj>(
+    'place',
+    open && kind === 'place' ? { handle: object.handle, backlinks: true, keys: ['backlinks'] } : skipToken,
+    { refetchOnMountOrArgChange: true },
   )
   const blocked = kind === 'place' && ((encloses.data?.backlinks as { place?: string[] } | undefined)?.place ?? []).length > 0
   const run = async () => {
     setBusy(true)
     try {
-      const { tx } = await unwrapApi(deleteObject({ kind, handle: object.handle }))
+      // the generated delete invalidates nothing: refreshed below, once this page is gone
+      const tx = await unwrapApi(dispatch(deleteObjectThunk(kind, object.handle)))
       onOpenChange(false)
       // leave the page first: refreshed once this page is gone, so the deleted record isn't refetched
       invalidateLater(tx)

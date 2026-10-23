@@ -6,7 +6,7 @@ import { skipToken } from '@reduxjs/toolkit/query'
 import { History, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
-import { OBJECT_HISTORY_MAX_ITEMS as MAX_ITEMS, useRevisionsObjectHistoryInfiniteQuery } from '@/api/enhanced/revisions'
+import { OBJECT_HISTORY_MAX as MAX_ITEMS, useObjectHistoryInfiniteQuery } from '@/api/enhanced/revisions'
 import { useAuth } from '@/lib/auth'
 import { formatTimestamp, timeAgo } from '@/lib/format'
 import { transVerb } from './history'
@@ -23,7 +23,7 @@ export function ObjectRevisions({ cls, handle, lastChange }: { cls: string; hand
   const { can } = useAuth()
   const objClass = objectClassName(cls)
   // only the most recent revisions are listed (see objectHistory)
-  const q = useRevisionsObjectHistoryInfiniteQuery(can('ViewPrivate') && handle ? { objClass, handle } : skipToken)
+  const q = useObjectHistoryInfiniteQuery(can('ViewPrivate') && handle ? { objClass, handle } : skipToken)
 
   if (!can('ViewPrivate')) return null
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} className="py-6" />

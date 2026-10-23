@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { ObjectPicker } from '@/components/object-picker'
 import { mediaThumbUrl } from '@/lib/api'
-import { useFaceDetectionQuery } from '@/api/enhanced/shared'
+import { useGetMediaFaceDetectionQuery } from '@/api/enhanced/media-slice-enhanced'
 import { useMetadata } from '@/lib/queries'
 import type { Media, ObjectKind } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -79,7 +79,7 @@ export function RegionEditor({ media, regions, onChanged, onClose }: { media: Me
   const { t } = useTranslation(['objects', 'common'])
   const { data: meta } = useMetadata()
   const faceDetection = !!meta?.server?.face_detection
-  const faces = useFaceDetectionQuery(faceDetection ? { handle: media.handle, checksum: media.checksum } : skipToken)
+  const faces = useGetMediaFaceDetectionQuery(faceDetection ? { handle: media.handle } : skipToken)
   const box = useRef<HTMLDivElement>(null)
   const [sel, setSel] = useState<Selection | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)

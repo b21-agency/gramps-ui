@@ -434,8 +434,8 @@ function ScopeFilter({
   onChange: (kind: 'person' | 'place' | null, id: string | null, mode?: ScopeMode) => void
 }) {
   const { t } = useTranslation(['timeline', 'common'])
-  const person = useObjectById<Person>('person', kind === 'person' ? (id ?? undefined) : undefined, { keys: 'handle,gramps_id,profile', profile: 'self' })
-  const place = useObjectById<Place>('place', kind === 'place' ? (id ?? undefined) : undefined, { keys: 'handle,gramps_id,profile', profile: 'self' })
+  const person = useObjectById<Person>('person', kind === 'person' ? (id ?? undefined) : undefined, { keys: ['handle', 'gramps_id', 'profile'], profile: ['self'] })
+  const place = useObjectById<Place>('place', kind === 'place' ? (id ?? undefined) : undefined, { keys: ['handle', 'gramps_id', 'profile'], profile: ['self'] })
   const name = kind === 'person' ? profileName(person.data?.profile) : kind === 'place' ? place.data?.profile?.name : ''
   return (
     <div className="flex flex-wrap items-center gap-2">

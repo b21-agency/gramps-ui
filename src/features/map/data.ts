@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useMapEventsQuery, useMapPlaceCoordinatesQuery, type MapEventRow } from '@/api/enhanced/map'
+import { MAP_EVENT_KEYS, useMapPlaceCoordinatesQuery, type MapEventRow } from '@/api/enhanced/map'
+import { useGetEventsQuery } from '@/api/enhanced/events-slice-enhanced'
 import { apiLocale } from '@/i18n'
 
 export interface PlacePoint {
@@ -83,8 +84,8 @@ export function filterPlacesByEvents(
 
 /** Years of all dated events per place, for the time filter. Fetched only when needed. */
 export function usePlaceYears(enabled: boolean) {
-  const q = useMapEventsQuery(enabled ? undefined : skipToken)
-  const data = useMemo(() => (q.data ? placeYears(q.data) : undefined), [q.data])
+  const q = useGetEventsQuery(enabled ? { keys: MAP_EVENT_KEYS } : skipToken)
+  const data = useMemo(() => (q.data ? placeYears(q.data.items as unknown as MapEventRow[]) : undefined), [q.data])
   return { ...q, data }
 }
 

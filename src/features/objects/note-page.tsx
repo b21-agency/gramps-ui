@@ -23,8 +23,8 @@ export function NotePage() {
   const { id } = useParams()
   const { t } = useTranslation(['objects', 'detail', 'common'])
   const { q, title } = useObjectPage<Note>('note', id, (n) => snippet(n.text?.string ?? '') || typeStr(n.type) || n.gramps_id, {
-    formats: 'html',
-    format_options: formatOptions,
+    formats: ['html'],
+    formatOptions,
   })
   const note = q.data
 

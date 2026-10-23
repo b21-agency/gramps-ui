@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Lock, UserRoundPlus } from 'lucide-react'
 import { PageSkeleton } from '@/components/app-shell'
 import { EmptyState, ErrorState } from '@/components/states'
-import { useGetObjectQuery } from '@/api/enhanced/objects'
+import { useObjectQuery } from '@/api/enhanced/objects'
 import { useAuth } from '@/lib/auth'
 import { describeObject, kindIcon, objectPath } from '@/lib/objects'
 import { surnameOf } from '@/lib/format'
@@ -76,10 +76,10 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
   const eventOwnerHandle = eventOwner ? params.get(eventOwner)! : null
 
   const relatedHandle = relHandle ?? eventOwnerHandle
-  const relatedQ = useGetObjectQuery(
-    relatedHandle ? { kind: eventOwner ?? relKind, handle: relatedHandle, query: { extend: 'all', profile: 'self' } } : skipToken,
+  const related = useObjectQuery<AnyObj>(
+    eventOwner ?? relKind,
+    relatedHandle ? { handle: relatedHandle, extend: ['all'], profile: ['self'] } : skipToken,
   )
-  const related = { ...relatedQ, data: relatedQ.data as AnyObj | undefined }
 
   // participants of a new event: the person/family it was started from, plus any added in the form
   const [draft, setDraft] = useState<AnyObj | null>(null)

@@ -21,8 +21,8 @@ export function TimelinePage() {
   const personId = params.get('person') ?? (params.get('view') === 'all' || params.has('event') || params.has('ofk') ? null : home)
 
   const q = useObjectById<Person>('person', personId ?? undefined, {
-    keys: 'handle,gramps_id,profile,media_list',
-    profile: 'self',
+    keys: ['handle', 'gramps_id', 'profile', 'media_list'],
+    profile: ['self'],
   })
   const person = q.data
   const name = person?.profile ? profileName(person.profile) : ''

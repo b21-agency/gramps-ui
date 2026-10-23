@@ -11,7 +11,7 @@ import { AlbumPage } from '@/components/album-page'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState, ErrorState } from '@/components/states'
 import { api } from '@/lib/api'
-import { TASK_TAGS, useImporterListQuery } from '@/api/enhanced/tools'
+import { TASK_TAGS, useGetImportersQuery } from '@/api/enhanced/tasks-slice-enhanced'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 import { useTitle } from '@/hooks/use-title'
@@ -42,7 +42,7 @@ export function ImportPage() {
   const { t, i18n } = useTranslation('tools')
   const { can } = useAuth()
   useTitle(t('import.title'))
-  const q = useImporterListQuery(can('ImportFile') ? undefined : skipToken)
+  const q = useGetImportersQuery(can('ImportFile') ? undefined : skipToken)
   const [file, setFile] = useState<File | null>(null)
   const [ext, setExt] = useState('')
   const [dragging, setDragging] = useState(false)

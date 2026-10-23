@@ -44,7 +44,7 @@ export function BookmarksPage() {
   // one request per kind; an object the server no longer returns was deleted
   const fresh = useGetObjectsMixedQuery(
     list.length
-      ? { refs: list.map((b) => ({ kind: b.kind, handle: b.handle })), query: { profile: 'self', locale: apiLocale() } }
+      ? { refs: list.map((b) => ({ kind: b.kind, handle: b.handle })), arg: { profile: ['self'], locale: apiLocale() } }
       : skipToken,
   )
   // `data` may be the previous list's answer while a changed list loads; only call

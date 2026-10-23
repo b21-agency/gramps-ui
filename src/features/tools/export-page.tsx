@@ -13,7 +13,13 @@ import { Panel } from '@/components/detail/panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/states'
 import { ObjectPicker } from '@/components/object-picker'
-import { useCreateMediaArchiveMutation, useExporterListQuery, useRunExportMutation, type Exporter } from '@/api/enhanced/tools'
+import {
+  useGetExportersQuery,
+  usePostExporterFileMutation,
+  type Exporter,
+  type PostExporterFileApiArg,
+} from '@/api/enhanced/tasks-slice-enhanced'
+import { usePostMediaArchiveMutation } from '@/api/enhanced/media-slice-enhanced'
 import { apiLocale } from '@/i18n'
 import { useAccessToken, useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
@@ -39,8 +45,8 @@ export function ExportPage() {
   useTitle(t('export.title'))
   useAccessToken()
   const { can } = useAuth()
-  const q = useExporterListQuery()
-  const [runExport] = useRunExportMutation()
+  const q = useGetExportersQuery()
+  const [runExport] = usePostExporterFileMutation()
 
   const [ext, setExt] = useState('gramps')
   const [privateOff, setPrivateOff] = useState(false)
@@ -48,8 +54,8 @@ export function ExportPage() {
   const [yearsAfterDeath, setYearsAfterDeath] = useState('0')
   const [personFilter, setPersonFilter] = useState<(typeof PERSON_FILTERS)[number]>('all')
   const [person, setPerson] = useState<{ handle: string; title: string; gramps_id: string } | null>(null)
-  const [csv, setCsv] = useState({ include_individuals: true, include_marriages: true, include_children: true, include_places: true, translate_headers: true })
-  const [ged, setGed] = useState({ include_media: true, include_witnesses: true })
+  const [csv, setCsv] = useState({ includeIndividuals: true, includeMarriages: true, includeChildren: true, includePlaces: true, translateHeaders: true })
+  const [ged, setGed] = useState({ includeMedia: true, includeWitnesses: true })
   const [compress, setCompress] = useState(true)
   const task = useTask<ExportResult>()
 
@@ -69,21 +75,22 @@ export function ExportPage() {
       toast.error(t('export.personRequired'))
       return
     }
-    const query: Record<string, string | number | boolean> = {
+    const query: PostExporterFileApiArg = {
+      extension: ext,
       private: privateOff,
-      living,
-      years_after_death: Number(yearsAfterDeath) || 0,
+      living: living as PostExporterFileApiArg['living'],
+      yearsAfterDeath: Number(yearsAfterDeath) || 0,
       locale: apiLocale(),
     }
     if (personFilter !== 'all' && person) {
       query.person = personFilter
-      query.gramps_id = person.gramps_id
+      query.grampsId = person.gramps_id
     }
     if (isCsv) Object.assign(query, csv)
     if (isGed) Object.assign(query, ged)
     if (ext === 'gramps') query.compress = compress
     try {
-      await task.start((signal) => unwrapWith(signal, runExport({ ext, params: query })))
+      await task.start((signal) => unwrapWith(signal, runExport(query)))
     } catch (e) {
       if (!isAbort(e)) toast.error(t('export.failed', { message: taskErrorText(t, e) }))
     }
@@ -224,11 +231,11 @@ export function ExportPage() {
                 <div className="grid gap-3 rounded-2xl bg-secondary/50 p-4 sm:grid-cols-2">
                   {(
                     [
-                      ['include_individuals', 'individuals'],
-                      ['include_marriages', 'marriages'],
-                      ['include_children', 'children'],
-                      ['include_places', 'places'],
-                      ['translate_headers', 'translateHeaders'],
+                      ['includeIndividuals', 'individuals'],
+                      ['includeMarriages', 'marriages'],
+                      ['includeChildren', 'children'],
+                      ['includePlaces', 'places'],
+                      ['translateHeaders', 'translateHeaders'],
                     ] as const
                   ).map(([k, l]) => (
                     <SwitchRow
@@ -243,12 +250,12 @@ export function ExportPage() {
               )}
               {isGed && (
                 <div className="grid gap-3 rounded-2xl bg-secondary/50 p-4 sm:grid-cols-2">
-                  <SwitchRow id="ged-media" label={t('export.gedcom.media')} checked={ged.include_media} onChange={(c) => setGed((s) => ({ ...s, include_media: c }))} />
+                  <SwitchRow id="ged-media" label={t('export.gedcom.media')} checked={ged.includeMedia} onChange={(c) => setGed((s) => ({ ...s, includeMedia: c }))} />
                   <SwitchRow
                     id="ged-wit"
                     label={t('export.gedcom.witnesses')}
-                    checked={ged.include_witnesses}
-                    onChange={(c) => setGed((s) => ({ ...s, include_witnesses: c }))}
+                    checked={ged.includeWitnesses}
+                    onChange={(c) => setGed((s) => ({ ...s, includeWitnesses: c }))}
                   />
                 </div>
               )}
@@ -355,7 +362,7 @@ export function ResultBlock({
 function MediaArchive({ lang }: { lang: string }) {
   const { t } = useTranslation('tools')
   const task = useTask<ExportResult>()
-  const [createArchive] = useCreateMediaArchiveMutation()
+  const [createArchive] = usePostMediaArchiveMutation()
   const run = async () => {
     try {
       await task.start((signal) => unwrapWith(signal, createArchive()))

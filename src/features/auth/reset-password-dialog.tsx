@@ -1,3 +1,4 @@
+import { usePostTriggerResetPasswordMutation } from '@/api/enhanced/users-slice-enhanced'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -19,17 +20,16 @@ export function ResetPasswordDialog({ defaultUser }: { defaultUser: string }) {
   const [user, setUser] = useState(defaultUser)
   const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'error' | 'notFound' | 'mailFailed' | 'rateLimited'>('idle')
 
+  const [trigger] = usePostTriggerResetPasswordMutation()
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setState('busy')
-    try {
-      const res = await fetch(`/api/users/${encodeURIComponent(user.trim())}/password/reset/trigger/`, { method: 'POST' })
-      setState(
-        res.ok ? 'sent' : res.status === 404 ? 'notFound' : res.status === 500 ? 'mailFailed' : res.status === 429 ? 'rateLimited' : 'error',
-      )
-    } catch {
-      setState('error')
-    }
+    const r = await trigger({ userName: user.trim() })
+    const status = 'error' in r && r.error && 'status' in r.error ? r.error.status : null
+    setState(
+      !('error' in r) ? 'sent' : status === 404 ? 'notFound' : status === 500 ? 'mailFailed' : status === 429 ? 'rateLimited' : 'error',
+    )
   }
 
   return (

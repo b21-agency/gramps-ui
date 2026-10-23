@@ -20,7 +20,7 @@ const PAGE = 40
 /** Place summary + the events that happened there (from backlinks). */
 export function PlaceDetails({ handle, range }: { handle: string; range?: [number, number] | null }) {
   const { t } = useTranslation(['map', 'common'])
-  const q = useObjectByHandle<Place>('place', handle, { profile: 'self', backlinks: true, extend: 'media_list' })
+  const q = useObjectByHandle<Place>('place', handle, { profile: ['self'], backlinks: true, extend: ['media_list'] })
   const place = q.data
   const eventHandles = place?.backlinks?.event ?? []
   const [limit, setLimit] = useState(PAGE)

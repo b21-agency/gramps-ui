@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { AdaptivePopover } from '@/components/adaptive-popover'
 import { ObjectPicker } from '@/components/object-picker'
-import { useGetFiltersNamespaceQuery, useGetTypesQuery } from '@/api/metadata-api-slice.gen'
+import { useGetFiltersNamespaceQuery, useGetTypesQuery } from '@/api/enhanced/metadata-slice-enhanced'
 import { apiLocale } from '@/i18n'
 import { useTags } from '@/lib/queries'
 import { endpointOf, type ObjectKind } from '@/lib/types'

@@ -24,7 +24,7 @@ import {
   useGetTransactionHistoryQuery,
   useGetTransactionUndoQuery,
   usePostTransactionUndoMutation,
-} from '@/api/transactions-api-slice.gen'
+} from '@/api/enhanced/transactions-slice-enhanced'
 import { unwrapApi } from '@/api/enhanced/editor'
 import { DERIVED, type TagType } from '@/api/enhanced/tags'
 import { useAppDispatch } from '@/store'

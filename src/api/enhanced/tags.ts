@@ -69,3 +69,60 @@ export function tagsForKind(kind: ObjectKind | 'tag', handle?: string): TagDescr
   const type = tagOf[kind]
   return [...DERIVED, { type, id: 'LIST' }, ...(handle ? [{ type, id: handle }] : [type])]
 }
+
+/* ---------- providesTags / invalidatesTags for the generated object endpoints ---------- */
+
+type Obj = { handle?: string; _class?: string; extended?: unknown } & Record<string, unknown>
+
+/** Tag type of an object in an `extended` section (by `_class`, else by its shape). */
+function tagOfObject(o: Obj): TagType | undefined {
+  if (typeof o._class === 'string') return tagOfClass[o._class]
+  if ('primary_name' in o) return 'People'
+  if ('child_ref_list' in o) return 'Families'
+  if ('placeref_list' in o) return 'Places'
+  if ('mime' in o) return 'Media'
+  if ('source_handle' in o) return 'Citations'
+  if ('text' in o && 'format' in o) return 'Notes'
+  return undefined
+}
+
+/** Objects pulled in via `extend=…` are part of a response too, so they tag it as well. */
+function extendedTags(o: Obj | undefined): TagDescription<TagType>[] {
+  return Object.values((o?.extended as Record<string, unknown>) ?? {}).flatMap((v) =>
+    (Array.isArray(v) ? v : v && typeof v === 'object' ? [v] : [])
+      .filter((x): x is Obj => !!(x as Obj)?.handle)
+      .flatMap((x) => {
+        const type = tagOfObject(x)
+        return type ? [{ type, id: x.handle! }] : []
+      }),
+  )
+}
+
+/** `providesTags` of a list endpoint: the list, each row and what the rows extend. */
+export const listTags =
+  (type: TagType) =>
+  <T extends object>(res: { items: T[] } | undefined): TagDescription<TagType>[] => [
+    { type, id: 'LIST' },
+    ...((res?.items ?? []) as Obj[]).flatMap((o) => (o?.handle ? [{ type, id: o.handle }, ...extendedTags(o)] : [])),
+  ]
+
+/** `providesTags` of a single-object endpoint. */
+export const oneTags =
+  (type: TagType) =>
+  <T extends object>(res: T | undefined, _e: unknown, arg: { handle: string }): TagDescription<TagType>[] => [
+    { type, id: arg.handle },
+    ...extendedTags(res as Obj | undefined),
+  ]
+
+/**
+ * `invalidatesTags` of a create/update/merge: Gramps answers with the transaction (every
+ * object it touched, incl. reciprocal links), so exactly those objects, their lists and
+ * the derived views refresh. Without a transaction the whole kind does.
+ */
+export const writeTags =
+  (type: TagType) =>
+  (tx: TxEntry[] | undefined, _e: unknown, arg: { handle?: string } | unknown): TagDescription<TagType>[] => {
+    if (Array.isArray(tx) && tx.length) return tagsForTransaction(tx)
+    const handle = (arg as { handle?: string } | undefined)?.handle
+    return [...DERIVED, { type, id: 'LIST' }, ...(handle ? [{ type, id: handle }] : [type])]
+  }

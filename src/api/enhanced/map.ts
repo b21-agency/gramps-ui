@@ -1,16 +1,17 @@
 import { api } from '../index'
 import type { GEvent } from '@/lib/types'
+import { chunks, run } from './compose'
+import { eventsApi } from './events-slice-enhanced'
+import type { Page } from './page'
+import { placesApi, type CoordRow } from './places-slice-enhanced'
 
-// Map page (src/features/map): place coordinates, events per place (time/type filters, place
-// panel), georeferenced historic maps and vector files attached to a place. The cache holds
-// the raw (serializable) rows; the feature hooks derive maps/bounds from them.
+// Composites for the map page (src/features/map): place coordinates (with a fallback for
+// servers before 3.23), the events at a place (fetched in URL-sized slices) and the vector
+// files in a place's gallery. The event and overlay lists are the generated list endpoints
+// (MAP_EVENT_KEYS, overlayMediaArg). The cache holds raw rows; the feature hooks derive
+// maps and bounds from them.
 
-export interface CoordRow {
-  handle: string
-  name: string
-  lat: number | string | null
-  long: number | string | null
-}
+export type { CoordRow }
 
 export interface MapEventRow {
   handle: string
@@ -18,6 +19,9 @@ export interface MapEventRow {
   type: string | { string?: string }
   date?: { sortval?: number; year?: number; dateval?: number[] }
 }
+
+/** Keys of every event the map loads for its time and type filters. */
+export const MAP_EVENT_KEYS = ['date', 'handle', 'place', 'type']
 
 export interface MapMediaRow {
   handle: string
@@ -27,6 +31,12 @@ export interface MapMediaRow {
   mime: string
   path: string
   attribute_list?: Array<{ type: string | { string: string }; value: string }>
+}
+
+/** Media that are georeferenced historic maps (`map:bounds` attribute). */
+export const overlayMediaArg = {
+  rules: JSON.stringify({ rules: [{ name: 'HasAttribute', values: ['map:bounds', '*'], regex: true }] }),
+  keys: ['handle', 'gramps_id', 'desc', 'checksum', 'mime', 'path', 'attribute_list'],
 }
 
 export interface PlaceVectorFileRaw {
@@ -57,18 +67,20 @@ export const mapApi = api.injectEndpoints({
   endpoints: (build) => ({
     /** All places with coordinates: /places/coordinates/ (API >= 3.23), else the place list. */
     mapPlaceCoordinates: build.query<CoordRow[], { locale: string }>({
-      async queryFn({ locale }, _api, _extra, baseQuery) {
-        const r = await baseQuery({ url: '/api/places/coordinates/' })
-        if (!r.error) return { data: r.data as CoordRow[] }
-        if (r.error.status !== 404) return { error: r.error }
-        const list = await baseQuery({
-          url: '/api/places/',
-          params: { keys: 'handle,profile', profile: 'self', place_hierarchy: 0, locale },
-        })
-        if (list.error) return { error: list.error }
+      async queryFn({ locale }, queryApi) {
+        const r = await run<CoordRow[]>(queryApi, placesApi.endpoints.getPlacesCoordinates.initiate(undefined, { subscribe: false, forceRefetch: true }))
+        if (!('error' in r) || r.error.status !== 404) return r
         type P = { handle: string; profile?: { name?: string; lat?: number | null; long?: number | null } }
+        const list = await run<Page<P>>(
+          queryApi,
+          placesApi.endpoints.getPlaces.initiate(
+            { keys: ['handle', 'profile'], profile: ['self'], placeHierarchy: false, locale },
+            { subscribe: false, forceRefetch: true },
+          ),
+        )
+        if ('error' in list) return list
         return {
-          data: (list.data as P[]).map((p) => ({
+          data: list.data.items.map((p) => ({
             handle: p.handle,
             name: p.profile?.name ?? '',
             lat: p.profile?.lat ?? null,
@@ -79,53 +91,37 @@ export const mapApi = api.injectEndpoints({
       providesTags: [{ type: 'Places', id: 'LIST' }],
     }),
 
-    /** Every event's date, type and place (map time / type filters). */
-    mapEvents: build.query<MapEventRow[], void>({
-      query: () => ({ url: '/api/events/', params: { keys: 'date,handle,place,type' } }),
-      providesTags: [{ type: 'Events', id: 'LIST' }],
-    }),
-
     /** Events by handle (the events at a place), fetched in slices to keep URLs short. */
     mapEventsByHandle: build.query<GEvent[], { handles: string[]; locale: string }>({
-      async queryFn({ handles, locale }, _api, _extra, baseQuery) {
+      async queryFn({ handles, locale }, queryApi) {
         const out: GEvent[] = []
-        for (let i = 0; i < handles.length; i += 80) {
-          const r = await baseQuery({
-            url: '/api/events/',
-            params: {
-              handles: handles.slice(i, i + 80).join(','),
-              keys: 'handle,gramps_id,date,type,profile',
-              profile: 'participants',
-              locale,
-            },
-          })
-          if (r.error) return { error: r.error }
-          out.push(...(r.data as GEvent[]))
+        for (const chunk of chunks(handles)) {
+          const r = await run<Page<GEvent>>(
+            queryApi,
+            eventsApi.endpoints.getEvents.initiate(
+              { handles: chunk, keys: ['handle', 'gramps_id', 'date', 'type', 'profile'], profile: ['participants'], locale },
+              { subscribe: false, forceRefetch: true },
+            ),
+          )
+          if ('error' in r) return r
+          out.push(...r.data.items)
         }
         return { data: out }
       },
       providesTags: (_r, _e, { handles }) => [{ type: 'Events', id: 'LIST' }, ...handles.map((id) => ({ type: 'Events' as const, id }))],
     }),
 
-    /** Media that are georeferenced historic maps (`map:bounds` attribute). */
-    mapOverlayMedia: build.query<MapMediaRow[], void>({
-      query: () => ({
-        url: '/api/media/',
-        params: {
-          rules: JSON.stringify({ rules: [{ name: 'HasAttribute', values: ['map:bounds', '*'], regex: true }] }),
-          keys: 'handle,gramps_id,desc,checksum,mime,path,attribute_list',
-        },
-      }),
-      providesTags: (res) => [{ type: 'Media', id: 'LIST' }, ...(res ?? []).map((m) => ({ type: 'Media' as const, id: m.handle }))],
-    }),
-
     /** Vector files (KML/GPX/GeoJSON) in a place's gallery, downloaded as text. */
     mapPlaceVectorFiles: build.query<PlaceVectorFileRaw[], string>({
-      async queryFn(place, _api, _extra, baseQuery) {
-        const r = await baseQuery({ url: `/api/places/${place}`, params: { extend: 'media_list', keys: 'handle,extended' } })
-        if (r.error) return { error: r.error }
-        const media = ((r.data as { extended?: { media?: MapMediaRow[] } }).extended?.media ?? []).filter((m) => !!vectorFormat(m))
+      async queryFn(place, queryApi, _extra, baseQuery) {
+        const r = await run<{ extended?: { media?: MapMediaRow[] } }>(
+          queryApi,
+          placesApi.endpoints.getPlace.initiate({ handle: place, extend: ['media_list'], keys: ['handle', 'extended'] }, { subscribe: false, forceRefetch: true }),
+        )
+        if ('error' in r) return r
+        const media = (r.data.extended?.media ?? []).filter((m) => !!vectorFormat(m))
         const unique = [...new Map(media.map((m) => [m.handle, m])).values()]
+        // file contents are file responses, not JSON: plain requests to the file URL
         const files = await Promise.all(
           unique.map(async (m) => {
             const f = await baseQuery({ url: `/api/media/${m.handle}/file`, responseHandler: 'text' })
@@ -143,10 +139,4 @@ export const mapApi = api.injectEndpoints({
   }),
 })
 
-export const {
-  useMapPlaceCoordinatesQuery,
-  useMapEventsQuery,
-  useMapEventsByHandleQuery,
-  useMapOverlayMediaQuery,
-  useMapPlaceVectorFilesQuery,
-} = mapApi
+export const { useMapPlaceCoordinatesQuery, useMapEventsByHandleQuery, useMapPlaceVectorFilesQuery } = mapApi

@@ -25,11 +25,17 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ObjectPicker } from '@/components/object-picker'
 import { ErrorState } from '@/components/states'
-import { useGetTreeQuery } from '@/api/trees-api-slice.gen'
-import { useGetMetadataResearcherQuery, usePutMetadataResearcherMutation } from '@/api/metadata-api-slice.gen'
-import { useReplaceTreeConfigMutation, useUpdateTreeConfigMutation } from '@/api/enhanced/shared'
-import { useDeleteAllObjectsMutation, useMigrateTreeMutation, useVerifyTreeMutation } from '@/api/enhanced/settings'
-import { TASK_TAGS } from '@/api/enhanced/tools'
+import {
+  patchTreeConfig,
+  useGetTreeQuery,
+  usePostMigrateTreeMutation,
+  usePostVerifyMutation,
+  usePutTreeConfigMutation,
+} from '@/api/enhanced/trees-slice-enhanced'
+import { useGetMetadataResearcherQuery, usePutMetadataResearcherMutation } from '@/api/enhanced/metadata-slice-enhanced'
+import { usePostDeleteObjectsMutation } from '@/api/enhanced/transactions-slice-enhanced'
+import { TASK_TAGS } from '@/api/enhanced/tasks-slice-enhanced'
+import { useAppDispatch } from '@/store'
 import { apiLocale } from '@/i18n'
 import { useAuth } from '@/lib/auth'
 import { useMetadata, useObjectByHandle, useObjectList } from '@/lib/queries'
@@ -108,13 +114,13 @@ export function UsageBlock() {
 /* ---------------- media file status ---------------- */
 
 type MediaCheck = Array<{ checksum?: string; gramps_id: string }>
-const MEDIA_CHECK = { keys: 'checksum,gramps_id', sort: 'gramps_id' }
+const MEDIA_CHECK = { keys: ['checksum', 'gramps_id'], sort: ['gramps_id'] }
 
 export function MediaStatusBlock() {
   const { t } = useTranslation('settings')
   const { data: meta } = useMetadata()
   const allQ = useObjectList<MediaCheck[number]>('media', MEDIA_CHECK)
-  const missingQ = useObjectList<MediaCheck[number]>('media', { ...MEDIA_CHECK, filemissing: 1 }, !!meta?.object_counts.media)
+  const missingQ = useObjectList<MediaCheck[number]>('media', { ...MEDIA_CHECK, filemissing: true }, !!meta?.object_counts.media)
   const all = { ...allQ, data: allQ.data?.items }
   const missing = { ...missingQ, data: missingQ.data?.items }
   const noChecksum = (all.data ?? []).filter((m) => !m.checksum)
@@ -287,15 +293,19 @@ export function CustomizationBlock() {
 
 function useSaveConfig() {
   const { t } = useTranslation('settings')
-  const [update, { isLoading: saving }] = useUpdateTreeConfigMutation()
+  const dispatch = useAppDispatch()
+  const [saving, setSaving] = useState(false)
   const save = async (patch: TreeConfig, success = t('custom.saved')) => {
+    setSaving(true)
     try {
-      await update(patch).unwrap()
+      await dispatch(patchTreeConfig(patch))
       toast.success(success)
       return true
     } catch (err) {
       toast.error(t('custom.saveFailed'), { description: errText(err) })
       return false
+    } finally {
+      setSaving(false)
     }
   }
   return { save, saving }
@@ -441,7 +451,7 @@ function HomePageObject({ kind, configKey, config }: { kind: 'note' | 'media'; c
 
 function ConfigImportExport({ config }: { config: TreeConfig }) {
   const { t } = useTranslation('settings')
-  const [replace] = useReplaceTreeConfigMutation()
+  const [replace] = usePutTreeConfigMutation()
   const fileRef = useRef<HTMLInputElement>(null)
   const exportConfig = () => {
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' })
@@ -464,7 +474,7 @@ function ConfigImportExport({ config }: { config: TreeConfig }) {
       return
     }
     try {
-      await replace(data as TreeConfig).unwrap()
+      await replace({ treeId: '-', treeConfigBodyArgs: data as TreeConfig }).unwrap()
       toast.success(t('custom.imported'))
     } catch (err) {
       toast.error(t('custom.saveFailed'), { description: errText(err) })
@@ -530,7 +540,7 @@ interface VerifyIssue {
 export function VerifyBlock() {
   const { t } = useTranslation('settings')
   const task = useTask<VerifyIssue[] | string>()
-  const [verify] = useVerifyTreeMutation()
+  const [verify] = usePostVerifyMutation()
   const [opts, setOpts] = useState<Record<string, number>>(() => Object.fromEntries(verifyInts))
   const [estimate, setEstimate] = useState(false)
   const [invdate, setInvdate] = useState(true)
@@ -538,7 +548,7 @@ export function VerifyBlock() {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning'>('all')
   const run = () =>
     task
-      .start((signal) => unwrapWith(signal, verify({ locale: apiLocale(), ...opts, estimate_age: estimate, invdate })))
+      .start((signal) => unwrapWith(signal, verify({ treeId: '-', locale: apiLocale(), ...opts, estimateAge: estimate, invdate })))
       .catch((e) => {
         if (!isAbort(e)) toast.error(taskErrorText(t, e))
       })
@@ -667,7 +677,7 @@ export function DangerZoneBlock() {
   const { t } = useTranslation('settings')
   const { data: meta } = useMetadata()
   const task = useTask({ invalidates: TASK_TAGS.deleteAll })
-  const [deleteAll] = useDeleteAllObjectsMutation()
+  const [deleteAll] = usePostDeleteObjectsMutation()
   const [relogin, setRelogin] = useState(false)
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string[]>([...namespaces])
@@ -773,11 +783,11 @@ export function UpgradeBlock() {
   const { t } = useTranslation('settings')
   const outdated = useSchemaOutdated()
   const task = useTask({ invalidates: TASK_TAGS.migrate })
-  const [migrate] = useMigrateTreeMutation()
+  const [migrate] = usePostMigrateTreeMutation()
   if (!outdated && task.phase === 'idle') return null
   const run = () =>
     task
-      .start((signal) => unwrapWith(signal, migrate()))
+      .start((signal) => unwrapWith(signal, migrate({ treeId: '-' })))
       .catch((e) => {
         if (!isAbort(e)) toast.error(taskErrorText(t, e))
       })

@@ -1,8 +1,7 @@
 // Gramps type vocabularies (event types, roles, ...) with translated labels.
 import { useCallback, useMemo } from 'react'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useGetTypesQuery } from '@/api/metadata-api-slice.gen'
-import { useEditorTypeTranslationsQuery } from '@/api/enhanced/editor'
+import { translationMap, useGetTypesQuery, usePostTranslationQuery } from '@/api/enhanced/metadata-slice-enhanced'
 import { apiLocale } from '@/i18n'
 
 interface TypesResponse {
@@ -39,8 +38,10 @@ export function useGrampsTypes() {
     for (const list of Object.values(types.data?.default ?? {})) list.forEach((s) => all.add(s))
     return [...all].sort()
   }, [types.data])
-  const translations = useEditorTypeTranslationsQuery(lang !== 'en' && strings.length > 0 ? { lang, strings } : skipToken)
-  const tr = translations.data
+  const translations = usePostTranslationQuery(
+    lang !== 'en' && strings.length > 0 ? { language: lang, translationPostArgs: { strings } } : skipToken,
+  )
+  const tr = useMemo(() => translationMap(translations.data), [translations.data])
   const label = useCallback((s: string) => (s && tr?.[s]) || s, [tr])
   const options = useCallback(
     (cat: TypeCategory) => {

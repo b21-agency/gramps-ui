@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useDnaParseQuery } from '@/api/enhanced/dna'
+import { usePostDnaMatchParserQuery } from '@/api/enhanced/people-slice-enhanced'
 import { toApiError } from '@/api/enhanced/editor'
 import { toast } from 'sonner'
 import { FileUp, Loader2 } from 'lucide-react'
@@ -88,7 +88,7 @@ export function RawDataField({
 /** Live preview of how the server parses the pasted segment data. */
 function useParsed(raw: string) {
   const d = useDebounced(raw.trim(), 300)
-  const q = useDnaParseQuery(d ? d : skipToken)
+  const q = usePostDnaMatchParserQuery(d ? { dnaMatchParserBodyArgs: { string: d } } : skipToken)
   // only the parse of the current text (never a stale preview)
   return { ...q, data: q.currentData as DnaSegment[] | undefined, error: q.error && toApiError(q.error) }
 }

@@ -93,8 +93,8 @@ export function PeopleListPage() {
     ]
     return {
       kind: 'person',
-      query: { profile: 'self', keys: 'handle,gramps_id,change,media_list,profile' },
-      searchProfile: 'self',
+      query: { profile: ['self'], keys: ['handle', 'gramps_id', 'change', 'media_list', 'profile'] },
+      searchProfile: ['self'],
       defaultSort: 'name',
       sorts: [
         { key: 'name', label: t('people.sort.name') },

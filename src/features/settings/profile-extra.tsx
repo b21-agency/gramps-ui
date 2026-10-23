@@ -21,13 +21,15 @@ import {
 import { useCurrentUser } from '@/components/user-menu'
 import { freshAccessToken } from '@/lib/api'
 import {
-  useAccessTokenStatusQuery,
-  useCreateAccessTokenMutation,
-  useRevokeAccessTokenMutation,
-  useSyncTokensQuery,
-  useUpdateUserMutation,
+  useDeleteUserAccessTokenItemMutation,
+  useDeleteUserAccessTokenMutation,
+  useGetUserAccessTokenListQuery,
+  useGetUserAccessTokenQuery,
+  usePostUserAccessTokenListMutation,
+  usePostUserAccessTokenMutation,
+  usePutUserMutation,
   type AccessTokenScope,
-} from '@/api/enhanced/settings'
+} from '@/api/enhanced/users-slice-enhanced'
 import { rtkErrorMessage } from '@/features/tools/use-task'
 import { formatTimestamp } from '@/lib/format'
 import { Field, SettingsBlock } from './parts'
@@ -58,7 +60,7 @@ export function UsernameBlock() {
 function UsernameForm({ current }: { current: string }) {
   const { t } = useTranslation('settings')
   const [name, setName] = useState(current)
-  const [updateUser, { isLoading: saving }] = useUpdateUserMutation()
+  const [updateUser, { isLoading: saving }] = usePutUserMutation()
   const [error, setError] = useState<string | null>(null)
   const valid = /^[\w.@+-]+$/.test(name)
   const dirty = name !== current
@@ -67,7 +69,7 @@ function UsernameForm({ current }: { current: string }) {
     if (!dirty || !valid) return
     setError(null)
     try {
-      await updateUser({ name: '-', body: { name_new: name } }).unwrap()
+      await updateUser({ userName: '-', userPutBodyArgs: { name_new: name } }).unwrap()
       toast.success(t('username.saved'))
     } catch (err) {
       setError((err as { status?: unknown })?.status === 409 ? t('username.taken') : errText(err))
@@ -105,14 +107,19 @@ const parseUtc = (v?: string | null) => (v ? new Date(/(Z|[+-]\d\d:?\d\d)$/i.tes
 
 export function AccessTokensBlock() {
   const { t, i18n } = useTranslation('settings')
-  const ics = useAccessTokenStatusQuery('anniversaries_ics')
+  const ics = useGetUserAccessTokenQuery({ scope: 'anniversaries_ics' })
   // null: server without sync tokens
-  const sync = useSyncTokensQuery()
+  // a server without sync tokens answers 404: then the section is hidden (data null)
+  const syncQ = useGetUserAccessTokenListQuery({ scope: 'sync' })
+  const syncMissing = !!syncQ.error && 'status' in syncQ.error && syncQ.error.status === 404
+  const sync = { ...syncQ, data: syncMissing ? null : syncQ.data, isError: syncQ.isError && !syncMissing }
   const [created, setCreated] = useState<{ title: string; value: string; hint: string } | null>(null)
   const [adding, setAdding] = useState(false)
-  const [revoke, setRevoke] = useState<{ scope: AccessTokenScope; id?: string; label: string } | null>(null)
-  const [createToken, { isLoading: creating }] = useCreateAccessTokenMutation()
-  const [revokeToken, { isLoading: revoking }] = useRevokeAccessTokenMutation()
+  const [revoke, setRevoke] = useState<{ scope: AccessTokenScope; id?: number; label: string } | null>(null)
+  const [createToken, { isLoading: creating }] = usePostUserAccessTokenMutation()
+  const [revokeScope, { isLoading: revokingScope }] = useDeleteUserAccessTokenMutation()
+  const [revokeItem, { isLoading: revokingItem }] = useDeleteUserAccessTokenItemMutation()
+  const revoking = revokingScope || revokingItem
   const busy = creating || revoking
 
   // the calendar feed lives at /api/anniversaries.ics?token=…
@@ -132,7 +139,10 @@ export function AccessTokensBlock() {
   const doRevoke = async () => {
     if (!revoke) return
     try {
-      await revokeToken({ scope: revoke.scope, id: revoke.id }).unwrap()
+      await (revoke.id !== undefined
+        ? revokeItem({ scope: revoke.scope, tokenId: revoke.id })
+        : revokeScope({ scope: revoke.scope })
+      ).unwrap()
       toast.success(t('tokens.revoked'))
       setRevoke(null)
     } catch (err) {
@@ -280,12 +290,12 @@ function AddSyncDialog({
 }) {
   const { t } = useTranslation('settings')
   const [label, setLabel] = useState('')
-  const [createToken, { isLoading: busy }] = useCreateAccessTokenMutation()
+  const [createToken, { isLoading: busy }] = usePostUserAccessTokenListMutation()
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!label.trim()) return
     try {
-      const r = await createToken({ scope: 'sync', label: label.trim() }).unwrap()
+      const r = await createToken({ scope: 'sync', accessTokenLabel: { label: label.trim() } }).unwrap()
       setLabel('')
       onOpenChange(false)
       onCreated(r.token)

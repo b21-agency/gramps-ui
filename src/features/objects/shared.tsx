@@ -1,3 +1,4 @@
+import type { ObjectListArg } from '@/api/enhanced/objects'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -17,14 +18,14 @@ import { cn } from '@/lib/utils'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type AnyObj = Record<string, any>
 
-export const fullQuery = { profile: 'all', extend: 'all', backlinks: true } as const
+export const fullQuery: ObjectListArg = { profile: ['all'], extend: ['all'], backlinks: true }
 
 /** Fetch an object page by Gramps ID, set the tab title and record the visit. */
 export function useObjectPage<T extends { handle: string; gramps_id: string }>(
   kind: ObjectKind,
   id: string | undefined,
   titleOf: (o: T) => string,
-  extra: Record<string, string | number | boolean> = {},
+  extra: ObjectListArg = {},
 ) {
   const q = useObjectById<T>(kind, id, { ...fullQuery, ...extra })
   const title = q.data ? titleOf(q.data) : ''

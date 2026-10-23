@@ -4,53 +4,11 @@ import { useCallback, useEffect, useRef } from 'react'
 import { api } from '../index'
 import { store } from '@/store'
 import { ApiError } from '@/lib/api'
-import { endpointOf, type ObjectKind } from '@/lib/types'
 import { tagsForTransaction, type TxEntry } from './tags'
 
-// Editor data: the object being edited (an uncached snapshot), Gramps type vocabularies,
-// deletes whose cache invalidation must wait until the page has been left, and a helper
-// that turns RTK errors into `ApiError`s (the editors show `error.message` in toasts).
-
-type AnyObj = { handle: string } & Record<string, unknown>
-
-export const editorApi = api.injectEndpoints({
-  // fail loudly instead of silently keeping an endpoint of the same name
-  overrideExisting: 'throw',
-  endpoints: (build) => ({
-    /**
-     * The object for the edit sheet (extend=all). Deliberately provides no tags and is
-     * dropped right after the sheet closes: a form must not be re-seeded under the user's
-     * hands, and every opening starts from the server's current state.
-     */
-    editableObject: build.query<AnyObj, { kind: ObjectKind; handle: string }>({
-      query: ({ kind, handle }) => ({ url: `/api/${endpointOf[kind]}/${handle}`, params: { extend: 'all' } }),
-      keepUnusedDataFor: 0,
-    }),
-
-    /** English → UI-language map for Gramps type names, POST /translations/{lang}. */
-    editorTypeTranslations: build.query<Record<string, string>, { lang: string; strings: string[] }>({
-      query: ({ lang, strings }) => ({ url: `/api/translations/${lang}`, method: 'POST', body: { strings } }),
-      transformResponse: (res: Array<{ original: string; translation: string }>) =>
-        Object.fromEntries(res.map((r) => [r.original, r.translation])),
-      // the string list only grows with the vocabulary; its length is a good enough key
-      serializeQueryArgs: ({ endpointName, queryArgs }) => `${endpointName}(${queryArgs.lang},${queryArgs.strings.length})`,
-      keepUnusedDataFor: 24 * 3600,
-    }),
-
-    /**
-     * DELETE without automatic invalidation (the result is wrapped so the write listener
-     * ignores it too). Used when deleting the object of the current page: navigate away
-     * first, then `dispatch(invalidateTransaction(tx))`, so the deleted record isn't
-     * refetched (and cached as "not found") while its page is still mounted.
-     */
-    deleteObjectDeferred: build.mutation<{ tx: TxEntry[] }, { kind: ObjectKind; handle: string }>({
-      query: ({ kind, handle }) => ({ url: `/api/${endpointOf[kind]}/${handle}`, method: 'DELETE' }),
-      transformResponse: (tx: TxEntry[]) => ({ tx: Array.isArray(tx) ? tx : [] }),
-    }),
-  }),
-})
-
-export const { useEditableObjectQuery, useEditorTypeTranslationsQuery, useDeleteObjectDeferredMutation } = editorApi
+// Editor helpers: invalidating a write transaction now or after leaving the page (the
+// generated deletes invalidate nothing themselves, see objects.ts), and turning RTK errors
+// into `ApiError`s (the editors show `error.message` in toasts).
 
 /** Invalidate everything a write transaction touched (objects, lists, derived views). */
 export const invalidateTransaction = (tx: ReadonlyArray<{ _class?: string; handle?: string }> | null | undefined) =>

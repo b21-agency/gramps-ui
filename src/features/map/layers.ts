@@ -5,7 +5,8 @@ import { useMemo } from 'react'
 import { skipToken } from '@reduxjs/toolkit/query'
 import type { Map as MapLibre, StyleSpecification } from 'maplibre-gl'
 import { qs, tokens } from '@/lib/api'
-import { useMapOverlayMediaQuery, useMapPlaceVectorFilesQuery, vectorFormat, type VectorFormat } from '@/api/enhanced/map'
+import { overlayMediaArg, useMapPlaceVectorFilesQuery, vectorFormat, type MapMediaRow, type VectorFormat } from '@/api/enhanced/map'
+import { useGetMediaObjectsQuery } from '@/api/enhanced/media-slice-enhanced'
 
 export { vectorFormat }
 
@@ -39,10 +40,10 @@ function parseBounds(v: string | undefined): MapOverlay['bounds'] {
 
 /** Media objects that are georeferenced historic maps (served as tiles by the API). */
 export function useMapOverlays() {
-  const q = useMapOverlayMediaQuery()
+  const q = useGetMediaObjectsQuery(overlayMediaArg)
   const data = useMemo(
     () =>
-      q.data?.map((m): MapOverlay => {
+      (q.data?.items as MapMediaRow[] | undefined)?.map((m): MapOverlay => {
         const attr = m.attribute_list?.find((a) => (typeof a.type === 'string' ? a.type : a.type?.string) === 'map:bounds')
         return { handle: m.handle, gramps_id: m.gramps_id, desc: m.desc, checksum: m.checksum, bounds: parseBounds(attr?.value) }
       }),

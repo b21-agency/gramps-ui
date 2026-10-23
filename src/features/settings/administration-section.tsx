@@ -25,10 +25,12 @@ import {
 } from '@/components/ui/alert-dialog'
 import { EmptyState, ErrorState, RowsSkeleton } from '@/components/states'
 import { tagColor } from '@/components/tag-list'
-import { useCreateObjectMutation, useDeleteObjectMutation, useUpdateObjectMutation } from '@/api/enhanced/objects'
-import { useGetTreeQuery } from '@/api/trees-api-slice.gen'
-import { useRenameTreeMutation, useRepairTreeMutation } from '@/api/enhanced/settings'
-import { TASK_TAGS, useReindexSearchMutation } from '@/api/enhanced/tools'
+import { useDeleteTagMutation, usePostTagsMutation, usePutTagMutation, type TagBody } from '@/api/enhanced/tags-slice-enhanced'
+import { invalidateTransaction } from '@/api/enhanced/editor'
+import { useAppDispatch } from '@/store'
+import { useGetTreeQuery, usePostRepairTreeMutation, usePutTreeMutation } from '@/api/enhanced/trees-slice-enhanced'
+import { usePostSearchIndexMutation } from '@/api/enhanced/search-slice-enhanced'
+import { TASK_TAGS } from '@/api/enhanced/tasks-slice-enhanced'
 import { useAuth } from '@/lib/auth'
 import { useMetadata, useTags } from '@/lib/queries'
 import type { Tag } from '@/lib/types'
@@ -88,14 +90,14 @@ function TreeNameBlock() {
 function TreeNameForm({ current }: { current: string }) {
   const { t } = useTranslation('settings')
   const [name, setName] = useState(current)
-  const [renameTree, { isLoading: saving }] = useRenameTreeMutation()
+  const [renameTree, { isLoading: saving }] = usePutTreeMutation()
   const dirty = name.trim() !== '' && name.trim() !== current
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!dirty) return
     try {
-      await renameTree(name.trim()).unwrap()
+      await renameTree({ treeId: '-', treeUpdateBodyArgs: { name: name.trim() } }).unwrap()
       toast.success(t('admin.treeRenamed'))
     } catch (err) {
       toast.error(t('admin.treeRenameFailed'), { description: rtkErrorMessage(err) })
@@ -222,8 +224,8 @@ function TagForm({ tag, existing, onDone }: { tag?: Tag; existing: Tag[]; onDone
   const { t } = useTranslation('settings')
   const [name, setName] = useState(tag?.name ?? '')
   const [color, setColor] = useState(toHex6(tag?.color ?? swatches[existing.length % swatches.length]))
-  const [createTag, { isLoading: creating }] = useCreateObjectMutation()
-  const [updateTag, { isLoading: updating }] = useUpdateObjectMutation()
+  const [createTag, { isLoading: creating }] = usePostTagsMutation()
+  const [updateTag, { isLoading: updating }] = usePutTagMutation()
   const saving = creating || updating
   const duplicate = existing.some((x) => x.handle !== tag?.handle && x.name.toLowerCase() === name.trim().toLowerCase())
   const valid = name.trim() !== '' && !duplicate
@@ -235,12 +237,11 @@ function TagForm({ tag, existing, onDone }: { tag?: Tag; existing: Tag[]; onDone
       // the write's transaction invalidates the tag, the tag lists and everything tagged with it
       if (tag) {
         await updateTag({
-          kind: 'tag',
           handle: tag.handle,
-          body: { _class: 'Tag', handle: tag.handle, name: name.trim(), color, priority: tag.priority ?? 0 },
+          tag: { _class: 'Tag', handle: tag.handle, name: name.trim(), color, priority: tag.priority ?? 0 } as TagBody,
         }).unwrap()
       } else {
-        await createTag({ kind: 'tag', body: { _class: 'Tag', name: name.trim(), color, priority: existing.length } }).unwrap()
+        await createTag({ tag: { _class: 'Tag', name: name.trim(), color, priority: existing.length } as TagBody }).unwrap()
       }
       toast.success(tag ? t('tags.saved', { name: name.trim() }) : t('tags.created', { name: name.trim() }))
       onDone()
@@ -305,11 +306,12 @@ function TagForm({ tag, existing, onDone }: { tag?: Tag; existing: Tag[]; onDone
 
 function DeleteTagDialog({ tag, onClose }: { tag: Tag | null; onClose: () => void }) {
   const { t } = useTranslation('settings')
-  const [deleteTag, { isLoading: busy }] = useDeleteObjectMutation()
+  const dispatch = useAppDispatch()
+  const [deleteTag, { isLoading: busy }] = useDeleteTagMutation()
   const remove = async () => {
     if (!tag) return
     try {
-      await deleteTag({ kind: 'tag', handle: tag.handle }).unwrap()
+      dispatch(invalidateTransaction(await deleteTag({ handle: tag.handle }).unwrap()))
       toast.success(t('tags.deleted', { name: tag.name }))
       onClose()
     } catch (err) {
@@ -350,7 +352,7 @@ function DeleteTagDialog({ tag, onClose }: { tag: Tag | null; onClose: () => voi
 function ReindexBlock() {
   const { t } = useTranslation('settings')
   const task = useTask({ invalidates: TASK_TAGS.reindex })
-  const [reindex] = useReindexSearchMutation()
+  const [reindex] = usePostSearchIndexMutation()
   const run = () =>
     task
       .start((signal) => unwrapWith(signal, reindex({ full: true })))
@@ -388,12 +390,12 @@ interface RepairResult {
 function RepairBlock() {
   const { t } = useTranslation('settings')
   const task = useTask<RepairResult>({ invalidates: TASK_TAGS.repair })
-  const [repairTree] = useRepairTreeMutation()
+  const [repairTree] = usePostRepairTreeMutation()
   const [confirm, setConfirm] = useState(false)
   const run = () => {
     setConfirm(false)
     task
-      .start((signal) => unwrapWith(signal, repairTree()))
+      .start((signal) => unwrapWith(signal, repairTree({ treeId: '-' })))
       .catch((e) => {
         if (!isAbort(e)) toast.error(taskErrorText(t, e))
       })

@@ -2,12 +2,13 @@ import { configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 import { type TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux'
 import { api } from '@/api'
-import { writeListener } from '@/api/enhanced/writes'
+import '@/api/enhanced'
+import { searchRefresh } from '@/api/enhanced/search-refresh'
 import { onAuthChange, tokens } from '@/lib/api'
 
 export const store = configureStore({
   reducer: { [api.reducerPath]: api.reducer },
-  middleware: (getDefault) => getDefault().prepend(writeListener.middleware).concat(api.middleware),
+  middleware: (getDefault) => getDefault().prepend(searchRefresh.middleware).concat(api.middleware),
 })
 
 // refetchOnReconnect / refetchOnFocus support

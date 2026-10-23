@@ -3,9 +3,10 @@
 // invalidates exactly what its transaction touched; errors are thrown as `ApiError`s.
 import { store } from '@/store'
 import { api } from '@/api'
-import { objectsApi } from '@/api/enhanced/objects'
+import { deleteObject as deleteObjectThunk, fetchObject, updateObject } from '@/api/enhanced/objects'
+import { transactionsApi } from '@/api/enhanced/transactions-slice-enhanced'
 import { tagsForKind, type TxEntry as RtkTxEntry } from '@/api/enhanced/tags'
-import { unwrapApi } from '@/api/enhanced/editor'
+import { invalidateTransaction, unwrapApi } from '@/api/enhanced/editor'
 import { type DateVal, type ObjectKind } from '@/lib/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -165,7 +166,7 @@ const txOf = (p: { unwrap(): Promise<unknown> }) =>
   unwrapApi(p).then((r) => (Array.isArray(r) ? [...r] : []) as Transaction)
 
 export function putObject(kind: ObjectKind, obj: AnyObj) {
-  return txOf(dispatch(objectsApi.endpoints.updateObject.initiate({ kind, handle: obj.handle, body: toWritable(kind, obj) })))
+  return txOf(dispatch(updateObject(kind, obj.handle, toWritable(kind, obj))))
 }
 
 /** Create several objects atomically (POST /objects/). */
@@ -173,22 +174,23 @@ export function createObjects(objs: AnyObj[]) {
   // families last: the server updates the members' family lists, so they must exist first
   const sorted = [...objs.filter((o) => o._class !== 'Family'), ...objs.filter((o) => o._class === 'Family')]
   const clean = sorted.map((o) => toWritable(kindOfClass[o._class], o))
-  return txOf(dispatch(objectsApi.endpoints.createObjects.initiate(clean)))
+  return txOf(dispatch(transactionsApi.endpoints.postObjects.initiate({ body: clean })))
 }
 
-export function deleteObject(kind: ObjectKind, handle: string) {
-  return txOf(dispatch(objectsApi.endpoints.deleteObject.initiate({ kind, handle })))
+/** Delete an object and refresh what it touched right away (for the record a page shows, see useInvalidateOnUnmount). */
+export async function deleteObject(kind: ObjectKind, handle: string) {
+  const tx = await txOf(dispatch(deleteObjectThunk(kind, handle)))
+  dispatch(invalidateTransaction(tx))
+  return tx
 }
 
 export function undoTransaction(tx: Transaction) {
-  return txOf(dispatch(objectsApi.endpoints.undoTransaction.initiate(tx as unknown as RtkTxEntry[])))
+  return txOf(dispatch(transactionsApi.endpoints.postTransactions.initiate({ undo: true, body: tx as unknown as RtkTxEntry[] })))
 }
 
 /** Fetch a raw writable copy of an object (no profile/extend), always fresh from the server. */
 export async function fetchWritable(kind: ObjectKind, handle: string) {
-  const obj = await unwrapApi(
-    dispatch(objectsApi.endpoints.getObject.initiate({ kind, handle }, { subscribe: false, forceRefetch: true })),
-  )
+  const obj = await unwrapApi(dispatch(fetchObject(kind, { handle })))
   return toWritable(kind, obj as AnyObj)
 }
 

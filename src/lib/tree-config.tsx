@@ -4,8 +4,7 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useGetTreeConfigQuery } from '@/api/trees-api-slice.gen'
-import type { TreeConfig } from '@/api/enhanced/shared'
+import { useGetTreeConfigQuery, type TreeConfig } from '@/api/enhanced/trees-slice-enhanced'
 import { useAuth } from './auth'
 
 export const TREE_CONFIG = {
@@ -22,7 +21,7 @@ export type { TreeConfig }
 export function useTreeConfig() {
   const { authenticated } = useAuth()
   const r = useGetTreeConfigQuery(authenticated ? { treeId: '-' } : skipToken)
-  return { ...r, data: r.data as TreeConfig | undefined }
+  return r
 }
 
 /** Reads a string value; also accepts a nested {frontend: {...}} shape. */
@@ -35,7 +34,7 @@ export function configString(config: TreeConfig | undefined, key: string): strin
   return typeof nested === 'string' ? nested : ''
 }
 
-// Saving: useUpdateTreeConfigMutation / useReplaceTreeConfigMutation from '@/api/enhanced/shared'.
+// Saving: dispatch(patchTreeConfig(patch)) / usePutTreeConfigMutation from '@/api/enhanced/trees-slice-enhanced'.
 
 /** App title: the tree's custom title, else our default app name. */
 export function useAppTitle() {

@@ -10,7 +10,7 @@ import { Panel } from '@/components/detail/panel'
 import { ObjectThumb } from '@/components/object-thumb'
 import { EmptyState, ErrorState } from '@/components/states'
 import { searchQuery, useDebounced } from '@/components/command-search'
-import { useSearchQuery } from '@/api/enhanced/objects'
+import { useGetSearchQuery } from '@/api/enhanced/search-slice-enhanced'
 import { useSearchCountsQuery } from '@/api/enhanced/shared'
 import { apiLocale } from '@/i18n'
 import { describeObject, kindIcon, objectPath } from '@/lib/objects'
@@ -76,17 +76,17 @@ export function SearchPage() {
   const locale = apiLocale()
   const query = semantic ? q : searchQuery(q)
   // `data` keeps the previous page while the next one loads (shown dimmed)
-  const results = useSearchQuery(
+  const results = useGetSearchQuery(
     query
       ? {
           query,
-          type: type ?? KINDS.join(','),
-          sort,
+          type: types.length ? types : KINDS,
+          sort: sort ? [sort] : undefined,
           page,
           pagesize: PAGE_SIZE,
           locale,
-          profile: 'self',
-          semantic: semanticAvailable ? (semantic ? 1 : 0) : undefined,
+          profile: ['self'],
+          semantic: semanticAvailable ? semantic : undefined,
         }
       : skipToken,
   )
@@ -95,7 +95,7 @@ export function SearchPage() {
   // counts per object type for the chips (cheap: one hit each)
   const counts = useSearchCountsQuery(
     query
-      ? { query, types: [null, ...KINDS], params: { locale, semantic: semanticAvailable ? (semantic ? 1 : 0) : undefined } }
+      ? { search: { query, locale, semantic: semanticAvailable ? semantic : undefined }, types: [null, ...KINDS] }
       : skipToken,
   )
   const countOf = (i: number) => counts.data?.[i]

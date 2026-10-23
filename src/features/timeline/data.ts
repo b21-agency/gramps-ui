@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { shallowEqual } from 'react-redux'
-import { timelineApi, useTimelineEventsQuery, useTimelineScopeQuery, type TimelineEventDetail } from '@/api/enhanced/timeline'
+import { TIMELINE_EVENT_KEYS, timelineApi, useTimelineScopeQuery, type TimelineEventDetail, type TimelineEventRow } from '@/api/enhanced/timeline'
+import { useGetEventsQuery } from '@/api/enhanced/events-slice-enhanced'
 import { useGrampsTranslations } from '@/features/lists/use-types'
 import { useAppDispatch, useAppSelector } from '@/store'
 import { apiLocale } from '@/i18n'
@@ -27,11 +28,11 @@ export interface DatedEvent {
 
 /** All dated events, sorted chronologically (one request, cached). */
 export function useAllEvents() {
-  const q = useTimelineEventsQuery()
+  const q = useGetEventsQuery({ keys: TIMELINE_EVENT_KEYS })
   const data = useMemo(() => {
     if (!q.data) return undefined
     const out: DatedEvent[] = []
-    for (const e of q.data) {
+    for (const e of q.data.items as unknown as TimelineEventRow[]) {
       const sortval = e.date?.sortval ?? 0
       const year = e.date?.year || e.date?.dateval?.[2] || 0
       if (!sortval || !year) continue

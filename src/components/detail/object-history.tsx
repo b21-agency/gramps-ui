@@ -7,7 +7,7 @@ import { ChevronUp, FilePen, FilePlus2, FileX2, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
-import { useObjectHistoryInfiniteQuery } from '@/api/enhanced/shared'
+import { useObjectHistoryInfiniteQuery } from '@/api/enhanced/revisions'
 import { useAuth } from '@/lib/auth'
 import { timeAgo } from '@/lib/format'
 

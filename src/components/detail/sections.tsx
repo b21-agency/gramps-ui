@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { skipToken } from '@reduxjs/toolkit/query'
 import { Skeleton } from '@/components/ui/skeleton'
 import { NoteHtml } from '@/components/note-html'
 import { Lightbox } from './lightbox'
 import { refThumbUrl } from '@/components/portrait'
 import { mediaFileUrl, mediaThumbUrl } from '@/lib/api'
-import { useGetObjectsByHandlesQuery } from '@/api/enhanced/objects'
+import { useObjectsByHandlesQuery } from '@/api/enhanced/objects'
 import { useAccessToken } from '@/lib/auth'
 import { apiLocale } from '@/i18n'
 import { describeObject, kindIcon, normalizeKind, objectPath } from '@/lib/objects'
@@ -147,12 +146,7 @@ export function Gallery({ refs, media }: { refs: MediaRef[]; media?: Media[] }) 
 const noteFormatOptions = JSON.stringify({ link_format: '/{obj_class}/{gramps_id}' })
 
 export function useNotesHtml(handles: string[] | undefined) {
-  const r = useGetObjectsByHandlesQuery(
-    handles?.length
-      ? { kind: 'note', handles, query: { formats: 'html', format_options: noteFormatOptions, locale: apiLocale() } }
-      : skipToken,
-  )
-  return { ...r, data: r.data as Note[] | undefined }
+  return useObjectsByHandlesQuery<Note>('note', handles, { formats: ['html'], formatOptions: noteFormatOptions, locale: apiLocale() })
 }
 
 export function NotesList({ handles }: { handles: string[] }) {
@@ -208,11 +202,7 @@ const confidenceKeys = ['veryLow', 'low', 'normal', 'high', 'veryHigh'] as const
 
 export function CitationsList({ handles }: { handles: string[] }) {
   const { t } = useTranslation('detail')
-  const r = useGetObjectsByHandlesQuery(
-    handles.length ? { kind: 'citation', handles, query: { profile: 'self', locale: apiLocale() } } : skipToken,
-  )
-  const { isLoading } = r
-  const data = r.data as Citation[] | undefined
+  const { isLoading, data } = useObjectsByHandlesQuery<Citation>('citation', handles, { profile: ['self'], locale: apiLocale() })
   if (isLoading) return <Skeleton className="h-16" />
   return (
     <ul className="divide-y">

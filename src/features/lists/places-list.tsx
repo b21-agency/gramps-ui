@@ -63,8 +63,8 @@ export function PlacesListPage() {
     ]
     return {
       kind: 'place',
-      query: { profile: 'self', keys: 'handle,gramps_id,change,lat,long,media_list,profile' },
-      searchProfile: 'self',
+      query: { profile: ['self'], keys: ['handle', 'gramps_id', 'change', 'lat', 'long', 'media_list', 'profile'] },
+      searchProfile: ['self'],
       defaultSort: 'title',
       sorts: [
         { key: 'title', label: t('places.sort.title') },

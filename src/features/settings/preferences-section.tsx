@@ -108,7 +108,7 @@ function HomePersonBlock() {
     gramps_id: string
     media_list: MediaRef[]
     profile: PersonProfile
-  }>('person', homeId ?? undefined, { profile: 'self', keys: 'handle,gramps_id,profile,media_list' })
+  }>('person', homeId ?? undefined, { profile: ['self'], keys: ['handle', 'gramps_id', 'profile', 'media_list'] })
 
   const picker = (label: string, variant: 'default' | 'outline') => (
     <ObjectPicker

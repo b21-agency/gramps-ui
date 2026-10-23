@@ -1,11 +1,18 @@
 // Write helpers for the "Source tagged X" pattern used by the blog (tag "Blog") and
 // tasks (tag "ToDo"): ensure the tag exists, create Note+Source atomically, PUT full objects.
-// All writes go through the RTK Query object mutations (cache invalidation from the
-// returned transaction); only the binary media upload is a raw request.
+// All writes go through the generated endpoints (cache invalidation from the returned
+// transaction); only the binary media upload is a raw request.
 import { store } from '@/store'
 import { api } from '@/lib/api'
-import { objectsApi } from '@/api/enhanced/objects'
-import { editorApi, invalidateTransaction, unwrapApi } from '@/api/enhanced/editor'
+import {
+  createObject as createObjectThunk,
+  deleteObject as deleteObjectThunk,
+  fetchObject,
+  updateObject as updateObjectThunk,
+} from '@/api/enhanced/objects'
+import { tagsApi } from '@/api/enhanced/tags-slice-enhanced'
+import { transactionsApi } from '@/api/enhanced/transactions-slice-enhanced'
+import { invalidateTransaction, unwrapApi } from '@/api/enhanced/editor'
 import type { ObjectKind, Attribute, MediaRef, Note, Source, Tag } from '@/lib/types'
 
 export const newHandle = () => crypto.randomUUID().replace(/-/g, '')
@@ -26,9 +33,8 @@ export function txnObject<T = Record<string, unknown>>(txn: TxnEntry[], cls: str
 
 /** Handle of the tag with this name; creates it when missing. */
 export async function ensureTag(name: string, color = '#2f6f5e'): Promise<string> {
-  const tags = (await unwrapApi(
-    store.dispatch(objectsApi.endpoints.allTags.initiate(undefined, { subscribe: false, forceRefetch: true })),
-  )) as Tag[]
+  const tags = (await unwrapApi(store.dispatch(tagsApi.endpoints.getTags.initiate({}, { subscribe: false, forceRefetch: true }))))
+    .items as Tag[]
   const found = tags.find((t) => t.name === name)
   if (found) return found.handle
   const txn = (await createObject('tag', { _class: 'Tag', name, color, priority: 0 })) as TxnEntry[]
@@ -69,16 +75,16 @@ const txOf = (p: { unwrap(): Promise<unknown> }) =>
   unwrapApi(p).then((r) => (Array.isArray(r) ? [...r] : []) as TxnEntry[])
 
 export function createObject(kind: ObjectKind | 'tag', body: Record<string, unknown>) {
-  return txOf(store.dispatch(objectsApi.endpoints.createObject.initiate({ kind, body })))
+  return txOf(store.dispatch(createObjectThunk(kind, body)))
 }
 
 export function updateObject(kind: ObjectKind | 'tag', handle: string, body: Record<string, unknown>) {
-  return txOf(store.dispatch(objectsApi.endpoints.updateObject.initiate({ kind, handle, body })))
+  return txOf(store.dispatch(updateObjectThunk(kind, handle, body)))
 }
 
 /** Several linked objects in one atomic transaction (POST /objects/). */
 export function postObjects(objects: Array<Record<string, unknown>>) {
-  return txOf(store.dispatch(objectsApi.endpoints.createObjects.initiate(objects)))
+  return txOf(store.dispatch(transactionsApi.endpoints.postObjects.initiate({ body: objects })))
 }
 
 /**
@@ -88,17 +94,13 @@ export function postObjects(objects: Array<Record<string, unknown>>) {
  */
 export async function deleteTaggedSource(sourceHandle: string, noteHandle?: string): Promise<TxnEntry[]> {
   const del = (kind: ObjectKind, handle: string) =>
-    unwrapApi(store.dispatch(editorApi.endpoints.deleteObjectDeferred.initiate({ kind, handle }))).then((r) => [...r.tx] as TxnEntry[]) // copy: RTK results are frozen
+    // the generated delete invalidates nothing; the caller invalidates the transaction
+    txOf(store.dispatch(deleteObjectThunk(kind, handle)))
   const tx = await del('source', sourceHandle)
   if (noteHandle) {
-    const n = (await unwrapApi(
-      store.dispatch(
-        objectsApi.endpoints.getObject.initiate(
-          { kind: 'note', handle: noteHandle, query: { backlinks: true } },
-          { subscribe: false, forceRefetch: true },
-        ),
-      ),
-    )) as { backlinks?: Record<string, string[]> }
+    const n = (await unwrapApi(store.dispatch(fetchObject('note', { handle: noteHandle, backlinks: true })))) as {
+      backlinks?: Record<string, string[]>
+    }
     if (Object.values(n.backlinks ?? {}).flat().length === 0) tx.push(...(await del('note', noteHandle)))
   }
   return tx
