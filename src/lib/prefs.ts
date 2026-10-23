@@ -3,6 +3,7 @@
 // in localStorage, namespaced by the tree id from the access token.
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { decodeJwt, tokens } from './api'
+import { useMetadata, useObjectByHandle } from './queries'
 import type { ObjectKind } from './types'
 
 const listeners = new Set<() => void>()
@@ -72,8 +73,16 @@ export const setPref = write
 
 /* ---------- home person ---------- */
 
+/**
+ * The user's home person (Gramps ID). Chosen per browser; until someone is chosen, the tree's
+ * own home person (set in Gramps desktop, `default_person`) is used, so a new device or a
+ * cleared browser doesn't start without one.
+ */
 export function useHomePerson() {
-  return usePref<string | null>('homePerson', null) // Gramps ID
+  const [own, setOwn] = usePref<string | null>('homePerson', null)
+  const { data: meta } = useMetadata()
+  const { data: fallback } = useObjectByHandle<{ gramps_id: string }>('person', own ? null : meta?.default_person, { keys: ['gramps_id'] })
+  return [own ?? fallback?.gramps_id ?? null, setOwn] as const
 }
 
 /* ---------- bookmarks ---------- */

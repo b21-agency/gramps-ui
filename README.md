@@ -180,6 +180,19 @@ This is an independent, community frontend. It is not affiliated with or endorse
 It talks only to the public Gramps Web API and does not modify the backend. Many thanks to the Gramps and
 Gramps Web developers for their excellent work.
 
+## Credits
+
+Built on the shoulders of great open-source work:
+
+- [Gramps](https://gramps-project.org/) and [Gramps Web](https://www.grampsweb.org/) — the genealogy engine and API
+  behind everything here.
+- [shadcn/ui](https://ui.shadcn.com/) and [Radix UI](https://www.radix-ui.com/) — the component foundation.
+- [Redux Toolkit / RTK Query](https://redux-toolkit.js.org/rtk-query/overview) — data fetching, caching and the
+  code generator for the Gramps Web OpenAPI spec.
+- [MapLibre GL JS](https://maplibre.org/) with [OpenStreetMap](https://www.openstreetmap.org/copyright) data — the map.
+- [React](https://react.dev/), [Vite](https://vite.dev/), [Tailwind CSS](https://tailwindcss.com/),
+  [Lucide](https://lucide.dev/) icons and [i18next](https://www.i18next.com/).
+
 ## License
 
 [GNU Affero General Public License v3.0 or later](LICENSE), the same license as Gramps Web. You may use,
