@@ -6,7 +6,7 @@ import { listEndpoint, type AnyObject, type ObjectListArg } from './objects'
 import type { Page } from './page'
 import { peopleApi } from './people-slice-enhanced'
 import { searchApi } from './search-slice-enhanced'
-import { tagOf } from './tags'
+import { profileTags, tagOf } from './tags'
 
 // Composites for the virtualized object lists (src/features/lists): one cache entry per page
 // of rows, so only the pages on screen are fetched and each page refreshes on its own after a
@@ -46,10 +46,11 @@ export const listsApi = api.injectEndpoints({
         if ('error' in r) return r
         return { data: { items: r.data.items.map((h) => h.object as unknown as AnyObject), total: r.data.total } }
       },
-      providesTags: (res, _e, { kind, search }) => {
+      providesTags: (res, _e, { kind, list, search }) => {
         const type = tagOf[kind]
         return [
           { type, id: 'LIST' },
+          ...profileTags(search ?? list),
           ...(search ? (['Search'] as const) : []),
           ...(res?.items ?? []).filter((o) => o?.handle).map((o) => ({ type, id: o.handle })),
         ]

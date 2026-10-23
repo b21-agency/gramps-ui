@@ -48,6 +48,7 @@ export const tagTypes = [
   'Trees',
   'Tasks',
   'Bookmarks',
+  'Profiles',
 ] as const
 
 export const api = createApi({

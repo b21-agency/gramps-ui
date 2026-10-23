@@ -54,6 +54,7 @@ export function tagsForTransaction(tx: TxEntry[] | undefined | null): TagDescrip
   const seenLists = new Set<TagType>()
   const touched = new Set<string>()
   const linked = new Set<string>()
+  let profiles = false
   for (const e of tx ?? []) {
     const type = e._class ? tagOfClass[e._class] : undefined
     if (!type) continue
@@ -65,9 +66,13 @@ export function tagsForTransaction(tx: TxEntry[] | undefined | null): TagDescrip
       seenLists.add(type)
       out.push({ type, id: 'LIST' })
     }
+    if (!NO_PROFILE.has(type)) profiles = true
     collectRefs(e.old, linked)
     collectRefs(e.new, linked)
   }
+  // profiles are summaries the server builds from other objects (a person's "born 1855 in
+  // Great Falls" names the event's place without its handle), so they refresh on any change
+  if (profiles) out.push('Profiles')
   // Objects a changed object points to (old or new version) show it among their backlinks
   // ("cited by", citations of a source, places within ...), but Gramps only writes reciprocal
   // links for families, so they are not in the transaction. Their kind isn't known from the
@@ -77,6 +82,8 @@ export function tagsForTransaction(tx: TxEntry[] | undefined | null): TagDescrip
 }
 
 const OBJECT_TAGS = Object.values(tagOf).filter((t) => t !== 'Tags')
+/** Kinds that never appear in a profile. */
+const NO_PROFILE = new Set<TagType>(['Notes', 'Repositories', 'Tags'])
 const REF_KEYS = new Set(['ref', 'source_handle', 'place', 'father_handle', 'mother_handle'])
 const REF_LIST_KEYS = new Set(['citation_list', 'note_list', 'family_list', 'parent_family_list'])
 
@@ -98,8 +105,12 @@ function collectRefs(v: unknown, into: Set<string>) {
 /** Fallback when a write's response carries no transaction: refresh the whole kind. */
 export function tagsForKind(kind: ObjectKind | 'tag', handle?: string): TagDescription<TagType>[] {
   const type = tagOf[kind]
-  return [...DERIVED, { type, id: 'LIST' }, ...(handle ? [{ type, id: handle }] : [type])]
+  return [...DERIVED, 'Profiles', { type, id: 'LIST' }, ...(handle ? [{ type, id: handle }] : [type])]
 }
+
+/** Queries that ask for `profile=…` show server-built summaries of other objects. */
+export const profileTags = (arg: unknown): TagType[] =>
+  ((arg as { profile?: unknown } | undefined)?.profile as unknown[] | undefined)?.length ? ['Profiles'] : []
 
 /* ---------- providesTags / invalidatesTags for the generated object endpoints ---------- */
 
@@ -132,8 +143,9 @@ function extendedTags(o: Obj | undefined): TagDescription<TagType>[] {
 /** `providesTags` of a list endpoint: the list, each row and what the rows extend. */
 export const listTags =
   (type: TagType) =>
-  <T extends object>(res: { items: T[] } | undefined): TagDescription<TagType>[] => [
+  <T extends object>(res: { items: T[] } | undefined, _e?: unknown, arg?: unknown): TagDescription<TagType>[] => [
     { type, id: 'LIST' },
+    ...profileTags(arg),
     ...((res?.items ?? []) as Obj[]).flatMap((o) => (o?.handle ? [{ type, id: o.handle }, ...extendedTags(o)] : [])),
   ]
 
@@ -142,6 +154,7 @@ export const oneTags =
   (type: TagType) =>
   <T extends object>(res: T | undefined, _e: unknown, arg: { handle: string }): TagDescription<TagType>[] => [
     { type, id: arg.handle },
+    ...profileTags(arg),
     ...extendedTags(res as Obj | undefined),
   ]
 
@@ -155,5 +168,5 @@ export const writeTags =
   (tx: TxEntry[] | undefined, _e: unknown, arg: { handle?: string } | unknown): TagDescription<TagType>[] => {
     if (Array.isArray(tx) && tx.length) return tagsForTransaction(tx)
     const handle = (arg as { handle?: string } | undefined)?.handle
-    return [...DERIVED, { type, id: 'LIST' }, ...(handle ? [{ type, id: handle }] : [type])]
+    return [...DERIVED, 'Profiles', { type, id: 'LIST' }, ...(handle ? [{ type, id: handle }] : [type])]
   }

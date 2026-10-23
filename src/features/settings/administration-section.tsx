@@ -74,6 +74,9 @@ export function AdministrationSection() {
 function TreeNameBlock() {
   const { t } = useTranslation('settings')
   const q = useGetTreeQuery({ treeId: '-' })
+  // a single-tree server takes the name from its configuration and refuses renaming
+  const { data: meta } = useMetadata()
+  const fixed = meta?.server?.multi_tree === false
   return (
     <SettingsBlock title={t('admin.tree')} description={t('admin.treeDescription')}>
       {q.isLoading ? (
@@ -81,13 +84,13 @@ function TreeNameBlock() {
       ) : q.isError || !q.data ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} className="py-6" />
       ) : (
-        <TreeNameForm key={q.data.name} current={q.data.name ?? ''} />
+        <TreeNameForm key={q.data.name} current={q.data.name ?? ''} fixed={fixed} />
       )}
     </SettingsBlock>
   )
 }
 
-function TreeNameForm({ current }: { current: string }) {
+function TreeNameForm({ current, fixed }: { current: string; fixed: boolean }) {
   const { t } = useTranslation('settings')
   const [name, setName] = useState(current)
   const [renameTree, { isLoading: saving }] = usePutTreeMutation()
@@ -105,14 +108,21 @@ function TreeNameForm({ current }: { current: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
-      <Field id="tree-name" label={t('admin.treeName')} className="flex-1">
-        <Input id="tree-name" value={name} onChange={(e) => setName(e.target.value)} />
-      </Field>
-      <Button type="submit" disabled={!dirty || saving}>
-        {saving && <Loader2 className="animate-spin" />}
-        {t('admin.rename')}
-      </Button>
+    <form onSubmit={submit} className="flex max-w-md flex-col gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <Field id="tree-name" label={t('admin.treeName')} className="flex-1">
+          <Input id="tree-name" value={name} disabled={fixed} aria-describedby={fixed ? 'tree-name-fixed' : undefined} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Button type="submit" disabled={fixed || !dirty || saving}>
+          {saving && <Loader2 className="animate-spin" />}
+          {t('admin.rename')}
+        </Button>
+      </div>
+      {fixed && (
+        <p id="tree-name-fixed" className="text-sm text-muted-foreground">
+          {t('admin.treeNameFixed')}
+        </p>
+      )}
     </form>
   )
 }

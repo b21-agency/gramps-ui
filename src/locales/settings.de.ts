@@ -117,6 +117,7 @@ export default {
     rename: 'Umbenennen',
     treeRenamed: 'Stammbaum umbenannt',
     treeRenameFailed: 'Der Stammbaum konnte nicht umbenannt werden',
+    treeNameFixed: 'Dieser Server enthält nur einen Stammbaum. Sein Name wird in der Serverkonfiguration festgelegt und lässt sich hier nicht ändern.',
     data: 'Einträge',
     dataDescription: 'So viele Einträge enthält der Stammbaum.',
     reindex: 'Suchindex',

@@ -5,7 +5,7 @@ import { run } from './compose'
 import { listEndpoint, type AnyObject, type ObjectListArg } from './objects'
 import type { Page } from './page'
 import { searchApi } from './search-slice-enhanced'
-import { tagOf } from './tags'
+import { profileTags, tagOf } from './tags'
 
 // Composites for shared components (several generated requests in one cache entry):
 // hit counts per object type for the search chips, and objects of mixed kinds (bookmarks).
@@ -51,7 +51,8 @@ export const sharedApi = api.injectEndpoints({
         for (const r of results) if ('data' in r) for (const o of r.data.items) if (o?.handle) out[o.handle] = o
         return { data: out }
       },
-      providesTags: (_r, _e, { refs }) => [
+      providesTags: (_r, _e, { refs, arg }) => [
+        ...profileTags(arg),
         ...[...new Set(refs.map((r) => tagOf[r.kind]))].map((type) => ({ type, id: 'LIST' })),
         ...refs.map((r) => ({ type: tagOf[r.kind], id: r.handle })),
       ],

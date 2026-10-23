@@ -166,3 +166,8 @@ This is a young project and every bit of help makes it better for families every
 This is an independent, community frontend. It is not affiliated with or endorsed by the Gramps project.
 It talks only to the public Gramps Web API and does not modify the backend. Many thanks to the Gramps and
 Gramps Web developers for their excellent work.
+
+## License
+
+[GNU Affero General Public License v3.0 or later](LICENSE), the same license as Gramps Web. You may use,
+change and share this software; if you run a modified version for others, you have to offer them its source code.

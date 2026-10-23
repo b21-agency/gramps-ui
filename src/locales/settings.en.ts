@@ -116,6 +116,7 @@ export default {
     rename: 'Rename',
     treeRenamed: 'Family tree renamed',
     treeRenameFailed: 'Could not rename the family tree',
+    treeNameFixed: 'This server hosts a single family tree, so its name is set in the server configuration and can’t be changed here.',
     data: 'Records',
     dataDescription: 'How many records the family tree contains.',
     reindex: 'Search index',
