@@ -7,6 +7,12 @@
 > [Discussions](https://github.com/b21-agency/gramps-ui/discussions), bugs go to
 > [Issues](https://github.com/b21-agency/gramps-ui/issues).
 
+> [!TIP]
+> **Drop-in replacement — only the image changes.** Swap the image of your existing Gramps Web containers and restart;
+> your data, users and settings stay as they are, and switching back is just as quick.
+> [How to switch →](#option-1-replace-the-classic-ui) · or run it
+> [next to the classic UI](#option-2-additional-service-classic-ui-stays).
+
 A new, fast and friendly web interface for [Gramps Web](https://www.grampsweb.org/), the web version of the
 genealogy software [Gramps](https://gramps-project.org/). It replaces only the user interface: your data,
 users, permissions, search, media, reports and background jobs stay exactly as they are, served by the
