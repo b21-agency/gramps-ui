@@ -102,6 +102,21 @@ export function SearchPage() {
   const total = results.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const unavailable = (results.error as { status?: unknown } | undefined)?.status === 503
+  // another page of hits starts at the top of the list (the pager sits below it)
+  const resultsRef = useRef<HTMLDivElement>(null)
+  const shownPage = useRef(page)
+  useEffect(() => {
+    if (shownPage.current === page) return
+    shownPage.current = page
+    const el = resultsRef.current
+    if (el && el.getBoundingClientRect().top < 0) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 96 })
+  }, [page])
+  // a page past the end (old link, fewer hits now) answers with no hits and no total: go to page 1
+  const pastEnd = page > 1 && !!results.currentData && results.currentData.items.length === 0
+  useEffect(() => {
+    if (pastEnd) update((p) => p.delete('page'), true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pastEnd])
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-14">
@@ -121,7 +136,7 @@ export function SearchPage() {
 
       <SearchBox value={q} onChange={setQ} />
 
-      {q && (
+      {query && (
         <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-start">
         <div
           className="-mx-4 flex min-w-0 flex-1 gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
@@ -159,8 +174,8 @@ export function SearchPage() {
         </div>
       )}
 
-      <div className="mt-6 sm:mt-8">
-        {!q ? (
+      <div ref={resultsRef} className="mt-6 sm:mt-8">
+        {!query ? (
           <SearchHelp />
         ) : unavailable ? (
           <EmptyState icon={SearchX} title={t('unavailable')} className="rounded-3xl bg-card">

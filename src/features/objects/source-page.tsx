@@ -10,6 +10,7 @@ import { FactsTable, Gallery, NotesList } from '@/components/detail/sections'
 import { useObjectsByHandlesQuery } from '@/api/enhanced/objects'
 import { apiLocale } from '@/i18n'
 import { typeStr } from '@/lib/format'
+import { useTypeLabel } from '@/features/lists/use-types'
 import { kindIcon, objectPath } from '@/lib/objects'
 import type { Source } from '@/lib/types'
 import { AlbumFrame, AlbumGrid, CoverVisual, glyphOf, ObjectHero, PhotoVisual } from './album'
@@ -17,6 +18,7 @@ import {
   ConfidenceMeter,
   countRefs,
   MetaList,
+  NewLinkedButton,
   ObjectSkeleton,
   referenceItems,
   refTitle,
@@ -32,6 +34,8 @@ export function SourcePage() {
   const { t } = useTranslation(['objects', 'detail', 'common'])
   const { q, title } = useObjectPage<Source>('source', id, (s) => s.title || s.gramps_id)
   const source = q.data
+  const repoType = useTypeLabel('repository_types')
+  const mediaType = useTypeLabel('source_media_types')
 
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />
   if (!source) return <ObjectSkeleton />
@@ -59,7 +63,13 @@ export function SourcePage() {
 
   return (
     <AlbumFrame>
-      <ObjectToolbar kind="source" object={source} title={title} onSaved={() => q.refetch()} />
+      <ObjectToolbar
+        kind="source"
+        object={source}
+        title={title}
+        onSaved={() => q.refetch()}
+        extra={<NewLinkedButton to={`/new_citation?source=${source.handle}`} label={t('addCitation')} />}
+      />
 
       <ObjectHero
         size={media.length ? 'portrait' : 'cover'}
@@ -100,7 +110,7 @@ export function SourcePage() {
                           <span className="min-w-0">
                             <span className="block text-[15px] font-semibold leading-tight">{repo?.name ?? r.ref}</span>
                             <span className="block text-xs text-muted-foreground">
-                              {[repo && typeStr(repo.type), typeStr(r.media_type)].filter(Boolean).join(' · ')}
+                              {[repo && repoType(typeStr(repo.type)), mediaType(typeStr(r.media_type))].filter(Boolean).join(' · ')}
                             </span>
                             {r.call_number && (
                               <span className="mt-0.5 block text-xs">

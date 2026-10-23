@@ -243,6 +243,17 @@ export function AdvancedFilterDialog({
   )
 }
 
+/** Rules whose name matches rank above rules that only mention the words in their description. */
+function ruleScore(rule: string, search: string, keywords?: string[]) {
+  const words = search.toLocaleLowerCase().split(/\s+/).filter(Boolean)
+  if (!words.length) return 1
+  const [name = '', description = ''] = (keywords ?? []).map((k) => k.toLocaleLowerCase())
+  const has = (text: string) => words.every((w) => text.includes(w))
+  if (has(name)) return name.startsWith(words[0]) ? 1 : 0.8
+  if (has(`${name} ${description} ${rule.toLocaleLowerCase()}`)) return 0.3
+  return 0
+}
+
 function RulePicker({
   catalogue,
   loading,
@@ -256,26 +267,54 @@ function RulePicker({
 }) {
   const { t } = useTranslation('lists')
   const [open, setOpen] = useState(false)
+  const [search, setSearchState] = useState('')
+  // the best hit stays active while typing, so Enter picks it
+  const [active, setActive] = useState('')
+  const setSearch = (v: string) => {
+    setSearchState(v)
+    setActive('')
+  }
+  // own filtering: cmdk can't reorder groups, so a rule named like the search would stay below
+  // groups whose rules merely mention the words in their description
   const groups = useMemo(() => {
+    if (search.trim()) {
+      const hits = catalogue
+        .map((r) => ({ r, score: ruleScore(r.rule, search, [r.name, r.description]) }))
+        .filter((x) => x.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map((x) => x.r)
+      return hits.length ? [['', hits] as [string, RuleInfo[]]] : []
+    }
     const m = new Map<string, RuleInfo[]>()
     for (const r of catalogue) m.set(r.category, [...(m.get(r.category) ?? []), r])
     return [...m]
-  }, [catalogue])
+  }, [catalogue, search])
   return (
-    <AdaptivePopover open={open} onOpenChange={setOpen} title={t('adv.pick')} size="tall" className="w-[min(32rem,calc(100vw-2rem))] p-0" trigger={trigger}>
-      <Command>
-        <CommandInput placeholder={t('adv.pick')} autoFocus />
+    <AdaptivePopover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o)
+        if (!o) setSearch('')
+      }}
+      title={t('adv.pick')}
+      size="tall"
+      className="w-[min(32rem,calc(100vw-2rem))] p-0"
+      trigger={trigger}
+    >
+      <Command shouldFilter={false} value={active || groups[0]?.[1][0]?.rule || ''} onValueChange={setActive}>
+        <CommandInput placeholder={t('adv.pick')} autoFocus value={search} onValueChange={setSearch} />
         <CommandList className="max-h-96">
           <CommandEmpty>{loading ? '…' : t('common:noResults')}</CommandEmpty>
           {groups.map(([cat, rules]) => (
-            <CommandGroup key={cat} heading={cat}>
+            <CommandGroup key={cat || 'hits'} heading={cat || undefined}>
               {rules.map((r) => (
                 <CommandItem
                   key={r.rule}
-                  value={`${r.name} ${r.description} ${r.rule}`}
+                  value={r.rule}
                   onSelect={() => {
                     onPick(r)
                     setOpen(false)
+                    setSearch('')
                   }}
                 >
                   <span className="min-w-0">

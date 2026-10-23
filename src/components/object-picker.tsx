@@ -29,25 +29,35 @@ export function ObjectSearchList({
   selected,
   placeholder,
   autoFocus,
+  onQueryChange,
 }: {
   kinds: ObjectKind[]
   onPick: (o: PickedObject) => void
   selected?: string | null
   placeholder?: string
   autoFocus?: boolean
+  /** The typed search (e.g. to prefill "create new" with it). */
+  onQueryChange?: (q: string) => void
 }) {
   const { t } = useTranslation()
-  const [q, setQ] = useState('')
+  const [q, setQState] = useState('')
+  const setQ = (v: string) => {
+    setQState(v)
+    onQueryChange?.(v)
+  }
   const dq = useDebounced(q, 180)
   // `data` keeps the previous hits while the next query loads
+  const query = searchQuery(dq)
   const { data: page, isFetching } = useGetSearchQuery(
-    dq.trim().length > 0
-      ? { query: searchQuery(dq), type: kinds, locale: apiLocale(), profile: ['self'], page: 1, pagesize: 20 }
-      : skipToken,
+    query ? { query, type: kinds, locale: apiLocale(), profile: ['self'], page: 1, pagesize: 20 } : skipToken,
   )
   const data = page?.items
+  // hits arrive after cmdk's own "select first item" ran: keep the first hit active so Enter picks it
+  const [active, setActive] = useState('')
+  const handles = (data ?? []).filter((hit) => hit.object_type in kindIcon).map((hit) => hit.handle)
+  const activeValue = handles.includes(active) ? active : (handles[0] ?? '')
   return (
-    <Command shouldFilter={false}>
+    <Command shouldFilter={false} value={activeValue} onValueChange={setActive}>
       <CommandInput value={q} onValueChange={setQ} placeholder={placeholder ?? t('actions.searchPlaceholder')} autoFocus={autoFocus} />
       <CommandList>
         {isFetching && !data && (
@@ -62,6 +72,9 @@ export function ObjectSearchList({
               const kind = hit.object_type as ObjectKind
               const Icon = kindIcon[kind]
               const d = describeObject(kind, hit.object)
+              // places of the same name (three "Gainesville"s) only differ by what encloses them
+              const parents = kind === 'place' ? ((hit.object.profile?.parent_places ?? []) as Array<{ name?: string }>).map((p) => p.name).filter(Boolean) : []
+              const subtitle = parents.length ? [d.subtitle, parents.join(', ')].filter(Boolean).join(' · ') : d.subtitle
               return (
                 <CommandItem
                   key={hit.handle}
@@ -73,7 +86,7 @@ export function ObjectSearchList({
                   <Icon className="text-muted-foreground" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{d.title}</span>
-                    {d.subtitle && <span className="block truncate text-xs text-muted-foreground">{d.subtitle}</span>}
+                    {subtitle && <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>}
                   </span>
                   <span className="text-xs text-muted-foreground">{hit.object.gramps_id}</span>
                   {selected === hit.handle && <Check className="ml-1" />}

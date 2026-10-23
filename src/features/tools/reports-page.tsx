@@ -168,6 +168,11 @@ function ReportForm({ report }: { report: ReportDef }) {
   const set = (k: string) => (v: string) => setValues((s) => ({ ...s, [k]: v }))
 
   const run = async () => {
+    const missing = fields.find((f) => f.required && !values[f.key].trim())
+    if (missing) {
+      toast.error(t('reports.required', { label: t(`reports.options.${missing.key}`, { defaultValue: missing.key }) }))
+      return
+    }
     const options: Record<string, string> = {}
     for (const f of fields) if (values[f.key] !== '' || f.kind === 'text') options[f.key] = values[f.key]
     try {

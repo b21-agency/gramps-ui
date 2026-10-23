@@ -36,7 +36,7 @@ export function RecentPage() {
   const today = dayKey(now)
   const yesterday = dayKey(now - 864e5)
   const dayFmt = new Intl.DateTimeFormat(i18n.language, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const timeFmt = new Intl.DateTimeFormat(i18n.language, { hour: '2-digit', minute: '2-digit' })
+  const timeFmt = new Intl.DateTimeFormat(i18n.language, { timeStyle: 'short' })
 
   const groups: Array<{ key: string; label: string; items: typeof list }> = []
   for (const item of [...list].sort((a, b) => b.at - a.at)) {

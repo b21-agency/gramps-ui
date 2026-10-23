@@ -76,6 +76,27 @@ export function decodeJwt(token: string | null): JwtClaims | null {
   }
 }
 
+/**
+ * True for a response that rejects the access token itself: 401, or the 422 that the JWT
+ * layer answers for a token it cannot read (bad signature after a server key change, a
+ * mangled value). Those carry only `{message}`; validation errors carry `error`/`errors`.
+ */
+export function isAuthFailure(status: unknown, body: unknown) {
+  if (status === 401) return true
+  if (status !== 422 || !body || typeof body !== 'object') return false
+  return typeof (body as { message?: unknown }).message === 'string' && !('error' in body) && !('errors' in body)
+}
+
+async function authFailed(res: Response) {
+  if (res.status === 401) return true
+  if (res.status !== 422) return false
+  try {
+    return isAuthFailure(422, await res.clone().json())
+  } catch {
+    return false
+  }
+}
+
 let refreshing: Promise<boolean> | null = null
 
 export async function refreshAccessToken(): Promise<boolean> {
@@ -151,10 +172,10 @@ export async function apiRaw<T>(
     return fetch(url, { ...rest, headers, body: json !== undefined ? JSON.stringify(json) : rest.body })
   }
   let res = await doFetch()
-  if (res.status === 401 && auth && tokens.refresh) {
+  if (auth && tokens.refresh && (await authFailed(res))) {
     if (await refreshAccessToken()) res = await doFetch()
   }
-  if (res.status === 401 && auth) tokens.clear()
+  if (auth && (await authFailed(res))) tokens.clear()
   if (!res.ok) {
     let body: unknown = undefined
     try {

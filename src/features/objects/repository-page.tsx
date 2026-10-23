@@ -7,6 +7,7 @@ import { Panel } from '@/components/detail/panel'
 import { ObjectHistory } from '@/components/detail/object-history'
 import { FactsTable, NotesList } from '@/components/detail/sections'
 import { typeStr } from '@/lib/format'
+import { useTypeLabel } from '@/features/lists/use-types'
 import type { Repository } from '@/lib/types'
 import { AlbumFrame, AlbumGrid, CoverVisual, glyphOf, ObjectHero } from './album'
 import {
@@ -25,6 +26,7 @@ export function RepositoryPage() {
   const { t } = useTranslation(['objects', 'detail', 'common'])
   const { q, title } = useObjectPage<Repository>('repository', id, (r) => r.name || r.gramps_id)
   const repo = q.data
+  const repoType = useTypeLabel('repository_types')
 
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />
   if (!repo) return <ObjectSkeleton />
@@ -42,12 +44,12 @@ export function RepositoryPage() {
 
       <ObjectHero
         size="cover"
-        visual={<CoverVisual icon={Landmark} glyph={glyphOf(title)} label={typeStr(repo.type) || t('common:object.repository')} sub={repo.gramps_id} />}
+        visual={<CoverVisual icon={Landmark} glyph={glyphOf(title)} label={repoType(typeStr(repo.type)) || t('common:object.repository')} sub={repo.gramps_id} />}
         eyebrow={
           sources.length > 0 && <p className="text-sm font-semibold text-brass">{t('album.sourcesHeld', { count: sources.length })}</p>
         }
         title={title}
-        subtitle={typeStr(repo.type) || undefined}
+        subtitle={repoType(typeStr(repo.type)) || undefined}
         tags={ext.tags}
       />
 
@@ -91,6 +93,7 @@ export function RepositoryPage() {
 function HeldSources({ sources, repoHandle }: { sources: AnyObj[]; repoHandle: string }) {
   const { t } = useTranslation('detail')
   const { shown, hidden, all, setAll } = useLimited(sources, 30)
+  const mediaType = useTypeLabel('source_media_types')
   return (
     <>
       <ul className="divide-y divide-border/60">
@@ -114,7 +117,7 @@ function HeldSources({ sources, repoHandle }: { sources: AnyObj[]; repoHandle: s
                           {r.call_number}
                         </span>
                       )}
-                      {typeStr(r.media_type) && <span className="ml-2">{typeStr(r.media_type)}</span>}
+                      {typeStr(r.media_type) && <span className="ml-2">{mediaType(typeStr(r.media_type))}</span>}
                     </span>
                   ))}
                 </span>

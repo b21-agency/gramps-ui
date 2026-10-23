@@ -26,6 +26,16 @@ export interface DatedEvent {
   sortval: number
 }
 
+/** Gregorian year of a Julian day number (Gramps' `sortval`). */
+function gregorianYear(jdn: number) {
+  const a = jdn + 32044
+  const b = Math.floor((4 * a + 3) / 146097)
+  const c = a - Math.floor((146097 * b) / 4)
+  const d = Math.floor((4 * c + 3) / 1461)
+  const m = Math.floor((5 * (c - Math.floor((1461 * d) / 4)) + 2) / 153)
+  return 100 * b + d - 4800 + Math.floor(m / 10)
+}
+
 /** All dated events, sorted chronologically (one request, cached). */
 export function useAllEvents() {
   const q = useGetEventsQuery({ keys: TIMELINE_EVENT_KEYS })
@@ -34,7 +44,8 @@ export function useAllEvents() {
     const out: DatedEvent[] = []
     for (const e of q.data.items as unknown as TimelineEventRow[]) {
       const sortval = e.date?.sortval ?? 0
-      const year = e.date?.year || e.date?.dateval?.[2] || 0
+      // non-Gregorian dates carry their own calendar's year; place them by the day number
+      const year = e.date?.calendar ? gregorianYear(sortval) : e.date?.year || e.date?.dateval?.[2] || 0
       if (!sortval || !year) continue
       out.push({
         handle: e.handle,

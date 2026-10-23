@@ -11,7 +11,7 @@ import {
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { shallowEqual } from 'react-redux'
-import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { useWindowVirtualizer, type VirtualItem } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowDownUp, ArrowUp, Check, Columns3, FlaskConical, Loader2, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -195,7 +195,7 @@ export function useListSource<T extends ListItem>(config: ListConfig<T>, state: 
   if (adv) filterRules.push(adv)
   const gql = state.params.get('gql')?.trim() || undefined
   const q = state.q.trim()
-  const useSearch = !!q && filterRules.length === 0 && !gql && !state.sort
+  const useSearch = !!searchQuery(q) && filterRules.length === 0 && !gql && !state.sort
   const effectiveSort = useSearch ? null : (state.sort ?? config.defaultSort)
 
   const text = q ? textFilter(q, config.textRule) : null
@@ -347,6 +347,33 @@ function useScrollRestore(ready: boolean) {
   }, [ready, storageKey])
 }
 
+/** Measured row heights per history entry, so back/forward rebuilds the same layout. */
+const rowSizes = new Map<string, Map<VirtualItem['key'], number>>()
+
+/**
+ * Restoring the scroll offset only lands on the same row when the rows above it have the same
+ * heights as before (group headings make measured rows taller than the estimate): keep the
+ * measured heights of the list per history entry and seed the virtualizer with them.
+ */
+function useRowSizeCache(id: string) {
+  const { key } = useLocation()
+  const cacheKey = `${key}:${id}`
+  const initial = useMemo(
+    () => [...(rowSizes.get(cacheKey) ?? [])].map(([k, size]) => ({ key: k, index: Number(k), size, start: 0, end: 0, lane: 0 })),
+    [cacheKey],
+  )
+  const save = useCallback(
+    (sizes: Map<VirtualItem['key'], number>) => {
+      rowSizes.delete(cacheKey)
+      rowSizes.set(cacheKey, new Map(sizes))
+      // only the last few entries are worth keeping
+      while (rowSizes.size > 20) rowSizes.delete(rowSizes.keys().next().value!)
+    },
+    [cacheKey],
+  )
+  return { initial, save }
+}
+
 /* ------------------------------------------------------------------ toolbar */
 
 /** Select toggle while selecting: gold like the active chips. */
@@ -468,10 +495,11 @@ export function AddButton({ kind, path, needsEdit }: { kind: ObjectKind; path?: 
   const { can } = useAuth()
   if (!path || !can('AddObject') || (needsEdit && !can('EditObject'))) return null
   return (
-    <Button asChild className="h-11 gap-2 rounded-full px-5 text-[15px] transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] max-sm:size-12 max-sm:px-0">
+    <Button asChild className="h-11 gap-2 rounded-full px-5 text-[15px] transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] max-lg:size-12 max-lg:px-0">
       <Link to={path} title={t(`add.${kind}`)}>
         <Plus className="size-5" />
-        <span className="max-sm:sr-only">{t(`add.${kind}`)}</span>
+        {/* icon only until the title has room next to it (long German labels) */}
+        <span className="max-lg:sr-only">{t(`add.${kind}`)}</span>
       </Link>
     </Button>
   )
@@ -509,7 +537,8 @@ export function useListController<T extends ListItem>(config: ListConfig<T>): Li
   const state = useListState(config.filters)
   const source = useListSource(config, state)
   const first = useFirstPage(source)
-  const total = first.data?.total
+  // while a new filter loads, `data` is still the previous result: don't label its total as the new count
+  const total = first.isPlaceholderData ? undefined : first.data?.total
   const countLabel = useCountLabel(config.kind, total, source.filtered)
   const selection = useSelection<T>(source.key)
   const [columnPrefs, setColumnPrefs] = usePref<Record<string, boolean>>(`listColumns.${config.kind}`, {})
@@ -874,13 +903,17 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
 
   useResetScroll(source.key, wrapRef)
   useScrollRestore(!!first.data && width > 0)
+  const sizes = useRowSizeCache(`${JSON.stringify(source.key)}:${compact}`)
 
   const virtualizer = useWindowVirtualizer({
     count: total,
     estimateSize: () => (compact ? config.compactRowHeight : config.rowHeight),
     overscan: 12,
     scrollMargin,
+    initialMeasurementsCache: sizes.initial,
   })
+  const saveSizes = sizes.save
+  useEffect(() => () => saveSizes(virtualizer.itemSizeCache), [saveSizes, virtualizer])
   const items = virtualizer.getVirtualItems()
   const pageIdx = useMemo(() => {
     const s = new Set<number>()
@@ -901,18 +934,35 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
     return out
   }
 
-  // re-measure when the layout mode changes
+  // re-measure when the layout mode changes (not on mount: that would drop the restored heights)
+  const layoutMode = `${compact}:${grouping}`
+  const measuredMode = useRef(layoutMode)
   useEffect(() => {
+    if (measuredMode.current === layoutMode) return
+    measuredMode.current = layoutMode
     virtualizer.measure()
-  }, [compact, grouping, virtualizer])
+  }, [layoutMode, virtualizer])
 
   const groupKey = (i: number) => {
     const it = getItem(i)
     return it && config.group ? config.group.key(it) : undefined
   }
 
-  if (first.isError && !first.data)
+  if (first.isError && !first.data) {
+    // a rejected advanced filter (bad GQL, rule values) is fixed by changing it, not by retrying
+    const status = (first.error as { status?: unknown } | undefined)?.status
+    const advanced = !!state.params.get('adv') || !!state.params.get('gql')
+    if (advanced && (status === 400 || status === 422))
+      return (
+        <EmptyState icon={FlaskConical} title={t('adv.invalid')} className="rounded-3xl bg-card py-16">
+          <p className="font-mono text-sm">{errorText(first.error)}</p>
+          <Button className="mt-4 h-11 rounded-full px-5 sm:h-10" onClick={() => state.setMany({ adv: null, gql: null })}>
+            {t('adv.clear')}
+          </Button>
+        </EmptyState>
+      )
     return <ErrorState error={first.error} onRetry={() => first.refetch()} className="rounded-3xl bg-card" />
+  }
 
   const rowClass = (on = false) =>
     cn(
@@ -1011,6 +1061,12 @@ export function VirtualList<T extends ListItem>({ config, ctl }: { config: ListC
       {selecting && <SelectionBar kind={config.kind} selection={selection} merge={config.merge !== false} />}
     </div>
   )
+}
+
+/** Server message of an RTK Query error ({ data: { error: { message } } }). */
+function errorText(error: unknown) {
+  const data = (error as { data?: { error?: { message?: string }; message?: string } } | undefined)?.data
+  return data?.error?.message ?? data?.message ?? ''
 }
 
 /** A row that is scrolled into view before its page has loaded. */

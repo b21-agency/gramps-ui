@@ -298,6 +298,12 @@ export function flatten(obj: RawObject | null, maps: TypeMaps | undefined, t: TF
       push({ type: 'refs', kind: REF_LISTS[parentList], handles: [v] }, [...labels, fieldLabel('ref', t)])
       return
     }
+    // a person's birth/death is an index into their event references: show the event itself
+    if ((key === 'birth_ref_index' || key === 'death_ref_index') && typeof v === 'number' && !path.length) {
+      const ref = (obj.event_ref_list as Array<{ ref?: string }> | undefined)?.[v]?.ref
+      push({ type: 'refs', kind: 'event', handles: ref ? [ref] : [] })
+      return
+    }
     if (HANDLE_FIELDS[key] && (typeof v === 'string' || v === null)) {
       push({ type: 'refs', kind: HANDLE_FIELDS[key], handles: v ? [v as string] : [] })
       return

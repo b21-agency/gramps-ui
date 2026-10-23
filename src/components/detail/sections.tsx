@@ -10,7 +10,8 @@ import { useObjectsByHandlesQuery } from '@/api/enhanced/objects'
 import { useAccessToken } from '@/lib/auth'
 import { apiLocale } from '@/i18n'
 import { describeObject, kindIcon, normalizeKind, objectPath } from '@/lib/objects'
-import { typeStr } from '@/lib/format'
+import { ageText, typeStr } from '@/lib/format'
+import { useGrampsTranslations, useTypeLabel } from '@/features/lists/use-types'
 import type { Address, Attribute, Citation, EventProfile, GEvent, Media, MediaRef, Note, Url } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -71,7 +72,7 @@ export function EventsTable({ rows, showRole = true, showAge = false }: { rows: 
               )}
             </span>
             {showAge && profile.age && !/^0 /.test(profile.age) && (
-              <span className="hidden shrink-0 text-sm text-muted-foreground sm:block">{profile.age}</span>
+              <span className="hidden shrink-0 text-sm text-muted-foreground sm:block">{ageText(profile.age)}</span>
             )}
           </>
         )
@@ -151,6 +152,7 @@ export function useNotesHtml(handles: string[] | undefined) {
 
 export function NotesList({ handles }: { handles: string[] }) {
   const { data, isLoading } = useNotesHtml(handles)
+  const noteType = useTypeLabel('note_types')
   if (isLoading) return <Skeleton className="h-24" />
   // keep the object's note order
   const order = new Map(handles.map((h, i) => [h, i]))
@@ -160,7 +162,7 @@ export function NotesList({ handles }: { handles: string[] }) {
       {notes.map((n) => (
         <article key={n.handle} className="min-w-0 overflow-x-auto rounded-lg border bg-card p-4 [overflow-wrap:anywhere]">
           <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{typeStr(n.type)}</span>
+            <span>{noteType(typeStr(n.type))}</span>
             <Link to={`/note/${n.gramps_id}`} className="-my-2 ml-auto inline-flex min-h-11 items-center px-2 tabular-nums hover:text-foreground">
               {n.gramps_id}
             </Link>
@@ -248,12 +250,14 @@ export function FactsTable({
   addressDates?: string[]
 }) {
   const { t } = useTranslation('detail')
+  // attribute and link types are Gramps core strings (person, family, source attributes alike)
+  const tr = useGrampsTranslations([...(attributes ?? []).map((a) => typeStr(a.type)), ...(urls ?? []).map((u) => typeStr(u.type))])
   const rows: Array<[string, ReactNode]> = []
-  attributes?.forEach((a) => rows.push([typeStr(a.type), a.value]))
+  attributes?.forEach((a) => rows.push([tr(typeStr(a.type)), a.value]))
   urls?.forEach((u) => {
     const href = safeHref(u.path)
     rows.push([
-      u.desc || typeStr(u.type) || t('link'),
+      u.desc || tr(typeStr(u.type)) || t('link'),
       href ? (
         <a href={href} target="_blank" rel="noopener noreferrer" className="break-all text-primary hover:underline">
           {u.path}

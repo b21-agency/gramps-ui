@@ -218,6 +218,8 @@ export function MapView({
     })
     return () => {
       cancelled = true
+      // not applied yet: let the next run (or the remounted map in StrictMode) load it again
+      if (styleKey.current === key) styleKey.current = ''
     }
   }, [dark, base, lang])
 

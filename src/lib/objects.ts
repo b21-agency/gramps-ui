@@ -70,7 +70,9 @@ export function describeObject(kind: ObjectKind, o: any): { title: string; subti
         const m = profileName(p.mother) || '…'
         return { title: `${f} & ${m}`, subtitle: p.relationship ?? '' }
       }
-      return { title: o.gramps_id, subtitle: typeStr(o.type) }
+      // with extend=all the partners come as raw people
+      const names = [o.extended?.father, o.extended?.mother].map((x) => (x ? personName(x) : '')).filter(Boolean)
+      return { title: names.join(' & ') || o.gramps_id, subtitle: typeStr(o.type) }
     }
     case 'event':
       return {

@@ -46,6 +46,8 @@ import {
 
 const LANE_COLORS = ['bg-chart-1', 'bg-chart-2', 'bg-chart-3', 'bg-chart-4', 'bg-chart-5']
 
+const lifespanOf = (p: DnaPerson) => lifespan(p.profile?.birth as { date?: string }, p.profile?.death as { date?: string })
+
 function fmtCm(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 })
 }
@@ -282,7 +284,7 @@ function MatchesView({ person, matchId }: { person: DnaPerson; matchId?: string 
                       <span className="block truncate text-[15px] font-semibold">{mName || '…'}</span>
                       <span className="block truncate text-sm text-muted-foreground">
                         {m.relation || t('relationUnknown')}
-                        {p && <span className="tabular-nums"> · {lifespan(p.profile?.birth as { date?: string }, p.profile?.death as { date?: string })}</span>}
+                        {p && lifespanOf(p) && <span className="tabular-nums"> · {lifespanOf(p)}</span>}
                       </span>
                     </span>
                   </span>

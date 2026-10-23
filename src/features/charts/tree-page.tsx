@@ -185,7 +185,9 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
     const { w, h } = api.size()
     const fit = api.fitView(bounds, 1)
     if (chart === 'fan') return fit.k >= 0.4 ? fit : { k: 0.4, x: w / 2, y: (h + 56) / 2 }
-    if (fit.k >= 0.62) return fit
+    // leave room for the selected-person bar along the bottom edge
+    const boxFit = api.fitView({ ...bounds, y1: bounds.y1 + 110 }, 1)
+    if (boxFit.k >= 0.62) return boxFit
     const k = w < 640 ? 0.62 : 0.8
     const m = 28
     const top = 72
@@ -194,8 +196,15 @@ function TreeView({ chart, id }: { chart: ChartKind; id: string }) {
     if (chart === 'ancestor') return { k, x: w / 2, y: h - m - bounds.y1 * k }
     if (chart === 'descendant' && orientation === 'horizontal') return { k, x: m - bounds.x0 * k, y: midY }
     if (chart === 'descendant') return { k, x: w / 2, y: top - bounds.y0 * k }
+    // a relationship path too long for the screen: keep the centre person in view at the end the path starts from
+    const c = chart === 'relationship' && graph?.target ? layout?.nodes.find((n) => n.handle === graph.centre) : undefined
+    if (c) {
+      const cy = c.y + c.h / 2
+      const down = bounds.y1 - cy > cy - bounds.y0
+      return { k, x: w / 2 - (c.x + c.w / 2) * k, y: down ? top + m + (c.h / 2) * k - cy * k : h - 140 - (c.h / 2) * k - cy * k }
+    }
     return { k, x: w / 2, y: midY }
-  }, [bounds, chart, orientation])
+  }, [bounds, chart, orientation, graph, layout])
 
   const signature = graph?.centre ? `${chart}|${graph.centre}|${orientation}|${graph.target ?? ''}` : ''
   const lastSignature = useRef('')

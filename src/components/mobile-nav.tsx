@@ -42,7 +42,7 @@ export function MobileTabBar() {
   return (
     <>
       <nav
-        aria-label="Main"
+        aria-label={t('a11y.mainNav')}
         className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/92 pb-safe backdrop-blur-lg supports-[backdrop-filter]:bg-background/80 md:hidden"
       >
         <div className="mx-auto flex h-16 max-w-md items-stretch px-1">

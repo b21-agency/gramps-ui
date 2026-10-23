@@ -7,13 +7,23 @@ import { toast } from 'sonner'
 import { Lock, UserRoundPlus } from 'lucide-react'
 import { PageSkeleton } from '@/components/app-shell'
 import { EmptyState, ErrorState } from '@/components/states'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useObjectQuery } from '@/api/enhanced/objects'
 import { useAuth } from '@/lib/auth'
 import { describeObject, kindIcon, objectPath } from '@/lib/objects'
 import { surnameOf } from '@/lib/format'
 import type { ObjectKind } from '@/lib/types'
 import { useTitle } from '@/hooks/use-title'
-import { emptyName, emptyObject, errorMessage, txGrampsId, type AnyObj, type Transaction } from './lib'
+import { emptyName, emptyObject, errorMessage, listPathOf, txGrampsId, type AnyObj, type Transaction } from './lib'
 import { ObjectEditor } from './object-editor'
 import { addChild, addChildToFamily, addEventRef, addParent, addPartner, addSibling } from './relations'
 import { MediaUpload } from './media-upload'
@@ -83,6 +93,11 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
 
   // participants of a new event: the person/family it was started from, plus any added in the form
   const [draft, setDraft] = useState<AnyObj | null>(null)
+  // Cancel asks before throwing away what was typed
+  const [dirty, setDirty] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  // back where the user came from; opened directly (no history in the app), to the list
+  const leave = () => ((window.history.state as { idx?: number } | null)?.idx ? navigate(-1) : navigate(listPathOf[kind]))
   const [participants, setParticipants] = useState<Participant[]>(() =>
     eventOwner && eventOwnerHandle
       ? [{ kind: eventOwner, handle: eventOwnerHandle, role: params.get('role') ?? (eventOwner === 'family' ? 'Family' : 'Primary') }]
@@ -150,7 +165,7 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
     const id = txGrampsId(tx, obj.handle)
     toast.success(t('editor:created', { what }))
     if (id) navigate(objectPath(kind, id), { replace: true })
-    else navigate(-1)
+    else leave()
   }
 
   const relationHint = relation
@@ -183,7 +198,8 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
           onDraftChange={setDraft}
           formClassName="2xl:[&>div]:grid 2xl:[&>div]:grid-cols-2 2xl:[&>div]:items-start 2xl:[&>div]:gap-6 2xl:[&>div>section:first-child]:col-span-2"
           footer={kind === 'event' && can('EditObject') ? <div className="mt-6 rounded-3xl bg-card p-5 sm:p-6"><ParticipantsField value={participants} onChange={setParticipants} /></div> : null}
-          onCancel={() => navigate(-1)}
+          onDirtyChange={setDirty}
+          onCancel={() => (dirty ? setConfirmCancel(true) : leave())}
           onSaved={afterCreate}
           footerClassName="sticky bottom-[var(--tabbar-h)] z-10 mt-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-3xl lg:px-5"
         />
@@ -214,6 +230,20 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
           <p className="mt-3 text-xs text-muted-foreground">{t('editor:newPreview.shortcut')}</p>
         </aside>
       </div>
+      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('editor:discard.title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('editor:discard.description')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('editor:discard.keep')}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={leave}>
+              {t('editor:discard.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

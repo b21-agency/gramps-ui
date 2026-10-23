@@ -84,7 +84,7 @@ export function EditButton({
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
               <Trash2 />
-              {t('editor:delete.action', { what: t(`common:object.${kind}`) })}
+              {t('editor:delete.action', { what: t(`common:object.${kind}`), whatLower: t(`common:object.${kind}`).toLowerCase() })}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -306,7 +306,7 @@ export function DeleteDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{t('editor:delete.title', { name: title })}</AlertDialogTitle>
           <AlertDialogDescription>
-            {blocked ? t('editor:delete.placeEncloses') : t(`editor:delete.description`, { what: t(`common:object.${kind}`) })}
+            {blocked ? t('editor:delete.placeEncloses') : t(`editor:delete.description`, { what: t(`common:object.${kind}`), whatLower: t(`common:object.${kind}`).toLowerCase() })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -39,8 +39,20 @@ export function validateObject(kind: ObjectKind, o: AnyObj): string | null {
     case 'family':
       if (o.father_handle && o.father_handle === o.mother_handle) return 'validation.samePartner'
       return o.father_handle || o.mother_handle || o.child_ref_list?.length ? null : 'validation.familyEmpty'
-    case 'place':
-      return o.name?.value?.trim() ? null : 'validation.placeName'
+    case 'place': {
+      if (!o.name?.value?.trim()) return 'validation.placeName'
+      // both coordinates or none; decimal ones in range (other Gramps notations, e.g. 50°52'21"N, pass)
+      const coord = (v: unknown, max: number) => {
+        const s = String(v ?? '').trim().replace(',', '.')
+        if (!s) return null
+        const n = Number(s)
+        if (!Number.isFinite(n)) return 0
+        return Math.abs(n) > max ? NaN : n
+      }
+      const lat = coord(o.lat, 90)
+      const lng = coord(o.long, 180)
+      return Number.isNaN(lat) || Number.isNaN(lng) || (lat === null) !== (lng === null) ? 'validation.placeCoord' : null
+    }
     case 'source':
       return o.title?.trim() ? null : 'validation.sourceTitle'
     case 'citation':

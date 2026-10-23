@@ -8,7 +8,7 @@ import { Portrait } from '@/components/portrait'
 import { usePortraits } from '@/hooks/use-portraits'
 import { apiLocale } from '@/i18n'
 import { usePref } from '@/lib/prefs'
-import { profileName, yearOf } from '@/lib/format'
+import { ageText, profileName, yearOf } from '@/lib/format'
 import type { Person } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { typeTone, type PersonTimelineItem } from './data'
@@ -165,7 +165,7 @@ function Track({ items, anchor }: { items: PersonTimelineItem[]; anchor: string 
                 <span className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
                   {it.date && it.date !== String(y) && <span className="tabular-nums">{it.date}</span>}
                   {it.age && /\d/.test(it.age) && !(self && it.type === 'Birth') && (
-                    <span>{self ? t('ageAt', { age: it.age }) : t('anchorAge', { name: anchor, age: it.age })}</span>
+                    <span>{self ? t('ageAt', { age: ageText(it.age) }) : t('anchorAge', { name: anchor, age: ageText(it.age) })}</span>
                   )}
                   {placeName && (
                     <span className="flex min-w-0 items-center gap-1">

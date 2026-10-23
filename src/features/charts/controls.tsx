@@ -263,7 +263,7 @@ export function DepthControls({
               </TooltipTrigger>
               <TooltipContent side="bottom">{t('colour.label')}</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-auto">
               <DropdownMenuLabel>{t('colour.label')}</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={s.colour} onValueChange={(v) => update('fan', { colour: v as FanColour })}>
                 {FAN_COLOURS.map((c, i) => (
@@ -331,7 +331,7 @@ export function DisplayMenu() {
         </TooltipTrigger>
         <TooltipContent side="bottom">{t('display')}</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-auto">
         <DropdownMenuLabel>{t('nameOrder.label')}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={order} onValueChange={(v) => setOrder(v as NameOrder)}>
           <DropdownMenuRadioItem value="given">{t('nameOrder.given')}</DropdownMenuRadioItem>
@@ -366,7 +366,7 @@ export function ExportMenu({ onExport }: { onExport: (kind: 'svg' | 'png') => vo
         </TooltipTrigger>
         <TooltipContent side="bottom">{t('export.label')}</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-auto">
         <DropdownMenuItem onSelect={() => onExport('png')}>{t('export.png')}</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => onExport('svg')}>{t('export.svg')}</DropdownMenuItem>
       </DropdownMenuContent>

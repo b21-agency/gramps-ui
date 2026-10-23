@@ -7,7 +7,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { X } from 'lucide-react'
 import { ObjectPicker } from '@/components/object-picker'
+import { Button } from '@/components/ui/button'
+import { useObjectById } from '@/lib/queries'
 
 export interface ReportDef {
   id: string
@@ -21,7 +24,7 @@ export interface ReportDef {
   report_modes?: number[]
 }
 
-export type FieldKind = 'bool' | 'select' | 'person' | 'family' | 'number' | 'text'
+export type FieldKind = 'bool' | 'select' | 'person' | 'family' | 'number' | 'text' | 'people' | 'places'
 
 export interface OptionField {
   key: string
@@ -33,12 +36,18 @@ export interface OptionField {
   group: 'main' | 'more' | 'layout'
   /** input hint from options_help for free-text options ("A number", "Size in cm", …) */
   hint?: string
+  /** the report cannot run while this is empty */
+  required?: boolean
 }
 
-const HIDDEN = new Set(['of', 'css', 'sections', 'gidlist'])
+const HIDDEN = new Set(['of', 'css', 'sections'])
+/** options holding a space-separated list of Gramps IDs, picked one object at a time */
+const ID_LISTS: Record<string, 'people' | 'places'> = { gidlist: 'people', places: 'places' }
 const MAIN = [
   'off',
   'pid',
+  'gidlist',
+  'places',
   'family_id',
   'filter',
   'maxgen',
@@ -73,7 +82,8 @@ export function reportFields(def: ReportDef, prefs: { lang: string; homePerson?:
     const [, text, spec] = help
     let kind: FieldKind = 'text'
     let choices: OptionField['choices'] = []
-    if (Array.isArray(spec)) {
+    if (ID_LISTS[key]) kind = ID_LISTS[key]
+    else if (Array.isArray(spec)) {
       if (spec.length === 2 && spec[0] === 'False' && spec[1] === 'True') kind = 'bool'
       else {
         choices = spec.map(parseChoice)
@@ -90,6 +100,7 @@ export function reportFields(def: ReportDef, prefs: { lang: string; homePerson?:
     if (key === 'trans' && choices.some((c) => c.value === prefs.lang)) defaultValue = prefs.lang
     if (kind === 'person' && prefs.homePerson && choices.some((c) => c.value === prefs.homePerson))
       defaultValue = prefs.homePerson
+    if (kind === 'people' && !defaultValue && prefs.homePerson) defaultValue = prefs.homePerson
     if (kind === 'select' && choices.length && !choices.some((c) => c.value === defaultValue))
       defaultValue = choices[0].value
 
@@ -100,7 +111,9 @@ export function reportFields(def: ReportDef, prefs: { lang: string; homePerson?:
       choices,
       defaultValue,
       // "A number"/"Any text" only restate the input type; other hints (e.g. "Size in cm") help
-      hint: typeof spec === 'string' && spec.trim() && !/^(a number|any text)$/i.test(spec.trim()) ? spec.trim() : undefined,
+      hint:
+        (kind === 'text' || kind === 'number') && typeof spec === 'string' && spec.trim() && !/^(a number|any text)$/i.test(spec.trim()) ? spec.trim() : undefined,
+      required: kind === 'people' || kind === 'places' || undefined,
       group: MAIN.includes(key) ? 'main' : LAYOUT.has(key) || key.startsWith('paper') ? 'layout' : 'more',
     })
   }
@@ -171,7 +184,27 @@ export function OptionInput({
     )
 
   let control: React.ReactNode
-  if (field.kind === 'person' || field.kind === 'family') {
+  if (field.kind === 'people' || field.kind === 'places') {
+    const ids = value.split(/\s+/).filter(Boolean)
+    const kind = field.kind === 'people' ? 'person' : 'place'
+    control = (
+      <div className="space-y-2">
+        {!!ids.length && (
+          <ul className="flex flex-wrap gap-1.5">
+            {ids.map((gid) => (
+              <IdChip key={gid} kind={kind} grampsId={gid} onRemove={() => onChange(ids.filter((x) => x !== gid).join(' '))} />
+            ))}
+          </ul>
+        )}
+        <ObjectPicker
+          kinds={[kind]}
+          value={null}
+          placeholder={field.kind === 'people' ? t('reports.addPerson') : t('reports.addPlace')}
+          onChange={(o) => !ids.includes(o.gramps_id) && onChange([...ids, o.gramps_id].join(' '))}
+        />
+      </div>
+    )
+  } else if (field.kind === 'person' || field.kind === 'family') {
     const current = field.choices.find((c) => c.value === value)
     control = (
       <ObjectPicker
@@ -223,5 +256,25 @@ export function OptionInput({
         </p>
       )}
     </div>
+  )
+}
+
+/** One picked object of an ID list option, named once it is loaded. */
+function IdChip({ kind, grampsId, onRemove }: { kind: 'person' | 'place'; grampsId: string; onRemove: () => void }) {
+  const { t } = useTranslation('tools')
+  const q = useObjectById<{ profile?: { name?: string; name_given?: string; name_surname?: string } }>(kind, grampsId, {
+    keys: ['gramps_id', 'profile'],
+    profile: ['self'],
+  })
+  const p = q.data?.profile
+  const name = kind === 'person' ? [p?.name_given, p?.name_surname].filter(Boolean).join(' ') : p?.name
+  return (
+    <li className="flex items-center gap-1 rounded-full bg-secondary py-1 pr-1 pl-3 text-sm">
+      <span className="truncate">{name || grampsId}</span>
+      {name && <span className="text-xs text-muted-foreground">{grampsId}</span>}
+      <Button type="button" variant="ghost" size="icon" className="size-6 rounded-full" aria-label={t('reports.remove', { name: name || grampsId })} onClick={onRemove}>
+        <X className="size-3.5" />
+      </Button>
+    </li>
   )
 }

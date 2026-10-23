@@ -7,6 +7,7 @@ import { ObjectToolbar } from '@/components/detail/object-header'
 import { Panel } from '@/components/detail/panel'
 import { ObjectHistory } from '@/components/detail/object-history'
 import { typeStr } from '@/lib/format'
+import { useTypeLabel } from '@/features/lists/use-types'
 import type { Note } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { AlbumFrame, AlbumGrid } from './album'
@@ -27,6 +28,7 @@ export function NotePage() {
     formatOptions,
   })
   const note = q.data
+  const noteType = useTypeLabel('note_types')
 
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />
   if (!note) return <ObjectSkeleton />
@@ -44,7 +46,7 @@ export function NotePage() {
 
       <section className="mx-auto max-w-4xl lg:mx-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 max-lg:justify-center">
-          <p className="text-sm font-semibold text-brass">{typeStr(note.type) || t('common:object.note')}</p>
+          <p className="text-sm font-semibold text-brass">{noteType(typeStr(note.type)) || t('common:object.note')}</p>
           {refs.length > 0 && (
             <a href="#references" className="text-sm text-muted-foreground hover:text-foreground">
               {t('album.referencedBy', { count: countRefs(refs) })}

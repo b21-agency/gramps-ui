@@ -22,9 +22,19 @@ export interface EditorSession {
   /** Write main object + pending secondary objects. */
   save: (kind: ObjectKind, main: AnyObj, mode: 'create' | 'edit') => Promise<Transaction>
   version: number
+  /** Inline mini forms (new citation, note, place ...) register while open; returns the unregister. */
+  registerBox: (el: HTMLElement) => () => void
+  /** The first inline mini form still open (its content would be lost on save). */
+  openBox: () => HTMLElement | undefined
+  openBoxes: number
 }
 
 const Ctx = createContext<EditorSession | null>(null)
+
+/** The session if there is one (shared fields are also used outside an editor). */
+export function useOptionalEditorSession() {
+  return useContext(Ctx)
+}
 
 export function useEditorSession() {
   const s = useContext(Ctx)
@@ -57,6 +67,16 @@ export function EditorSessionProvider({ children, seeds }: { children: ReactNode
   const [creates, setCreates] = useState<Record<string, Pending>>({})
   const [updates, setUpdates] = useState<Record<string, Pending>>({})
   const [version, setVersion] = useState(0)
+  const boxes = useRef(new Set<HTMLElement>())
+  const [openBoxes, setOpenBoxes] = useState(0)
+  const registerBox = useCallback((el: HTMLElement) => {
+    boxes.current.add(el)
+    setOpenBoxes(boxes.current.size)
+    return () => {
+      boxes.current.delete(el)
+      setOpenBoxes(boxes.current.size)
+    }
+  }, [])
 
   const seed = useCallback((objs: Array<AnyObj | null | undefined>) => {
     let added = false
@@ -90,6 +110,9 @@ export function EditorSessionProvider({ children, seeds }: { children: ReactNode
       update,
       dirty: Object.keys(updates).length > 0 || Object.keys(creates).length > 0,
       version,
+      registerBox,
+      openBox: () => [...boxes.current].find((el) => el.isConnected),
+      openBoxes,
       save: async (kind, main, mode) => {
         const tx: Transaction = []
         const changed = Object.values(updates)
@@ -104,7 +127,7 @@ export function EditorSessionProvider({ children, seeds }: { children: ReactNode
         return tx
       },
     }),
-    [creates, updates, seed, create, update, version],
+    [creates, updates, seed, create, update, version, registerBox, openBoxes],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

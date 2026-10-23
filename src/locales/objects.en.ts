@@ -1,4 +1,6 @@
 export default {
+  addCitation: 'Add citation',
+  addEnclosed: 'Add place inside',
   eventOf: '{{type}} of {{names}}',
   and: ' and ',
   noDate: 'Date unknown',

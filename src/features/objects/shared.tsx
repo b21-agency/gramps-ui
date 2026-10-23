@@ -1,12 +1,13 @@
 import type { ObjectListArg } from '@/api/enhanced/objects'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
+import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { AlbumSkeleton } from '@/components/album-skeleton'
 import { PersonChip } from '@/components/person-chip'
 import { refThumbUrl } from '@/components/portrait'
-import { useAccessToken } from '@/lib/auth'
+import { useAccessToken, useAuth } from '@/lib/auth'
 import { useObjectById } from '@/lib/queries'
 import { useRecordVisit } from '@/lib/prefs'
 import { describeObject, kindIcon, normalizeKind, objectPath } from '@/lib/objects'
@@ -19,6 +20,20 @@ import { cn } from '@/lib/utils'
 export type AnyObj = Record<string, any>
 
 export const fullQuery: ObjectListArg = { profile: ['all'], extend: ['all'], backlinks: true }
+
+/** Toolbar button that starts a new object linked to this one (e.g. a citation of this source). */
+export function NewLinkedButton({ to, label }: { to: string; label: string }) {
+  const { can } = useAuth()
+  if (!can('AddObject')) return null
+  return (
+    <Button asChild variant="ghost" size="sm" className="max-md:size-11 max-md:px-0">
+      <Link to={to} aria-label={label}>
+        <Plus />
+        <span className="max-md:sr-only">{label}</span>
+      </Link>
+    </Button>
+  )
+}
 
 /** Fetch an object page by Gramps ID, set the tab title and record the visit. */
 export function useObjectPage<T extends { handle: string; gramps_id: string }>(

@@ -10,6 +10,11 @@ export type TypeSet =
   | 'note_types'
   | 'repository_types'
   | 'source_media_types'
+  | 'attribute_types'
+  | 'source_attribute_types'
+  | 'name_types'
+  | 'name_origin_types'
+  | 'url_types'
 
 interface TypesResponse {
   default: Record<string, string[]>
@@ -48,7 +53,7 @@ export function useTypeOptions(set: TypeSet) {
   )
 }
 
-/** Label function for raw (untranslated) type strings in list rows. */
+/** Label function for raw (untranslated) type strings in list rows and on object pages. */
 export function useTypeLabel(set: TypeSet) {
   const { data } = useTypes(set)
   return useGrampsTranslations(data?.defaults ?? [])

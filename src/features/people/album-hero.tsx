@@ -6,7 +6,7 @@ import { TagList } from '@/components/tag-list'
 import { Lightbox } from '@/components/detail/lightbox'
 import { useAccessToken } from '@/lib/auth'
 import { mediaFileUrl, mediaThumbUrl } from '@/lib/api'
-import { initials, isEmpty, profileName, yearOf } from '@/lib/format'
+import { ageText, initials, isEmpty, profileName, yearOf } from '@/lib/format'
 import type { EventProfile, FamilyProfile, Media, MediaRef, Person, PersonProfile } from '@/lib/types'
 import { Lifeline } from './lifeline'
 import type { EventRow } from '@/components/detail/sections'
@@ -135,7 +135,7 @@ function VitalBlock({ label, event, age }: { label: string; event?: EventProfile
       <dd className="mt-1">
         <span className="block font-serif text-2xl leading-tight tabular-nums">{event.date || '?'}</span>
         <span className="block truncate text-sm text-muted-foreground">
-          {[event.place_name, age && age !== 'unknown' && !/^0 /.test(age) ? age : ''].filter(Boolean).join(' · ')}
+          {[event.place_name, age && age !== 'unknown' && !/^0 /.test(age) ? ageText(age) : ''].filter(Boolean).join(' · ')}
         </span>
       </dd>
     </div>
@@ -159,6 +159,11 @@ export function FamilyPanel({
   const families = profile.families ?? []
   const children = families.flatMap((f) => f.children ?? [])
   const siblings = (ppf?.children ?? []).filter((c) => c.handle !== self)
+  const partnerOf = (f: FamilyProfile) => {
+    const p = ((f.father as PersonProfile)?.handle === self ? f.mother : f.father) as PersonProfile | undefined
+    return p && !isEmpty(p) ? p : undefined
+  }
+  const nothing = !parents.length && !children.length && !siblings.length && !families.some((f) => partnerOf(f))
 
   return (
     <Panel title={t('detailSections.family')} action={action}>
@@ -172,9 +177,9 @@ export function FamilyPanel({
         </PanelGroup>
       )}
       {families.map((f) => {
-        const partner = ((f.father as PersonProfile)?.handle === self ? f.mother : f.father) as PersonProfile | undefined
+        const partner = partnerOf(f)
         const m = f.marriage as EventProfile | undefined
-        if (!partner || isEmpty(partner)) return null
+        if (!partner) return null
         return (
           <PanelGroup
             key={f.handle}
@@ -194,7 +199,7 @@ export function FamilyPanel({
           <FaceStack people={siblings} portraits={portraits} moreHref="#family" />
         </PanelGroup>
       )}
-      {!parents.length && !families.length && <p className="text-sm text-muted-foreground">{t('hero.noFamily')}</p>}
+      {nothing && <p className="text-sm text-muted-foreground">{t('hero.noFamily')}</p>}
     </Panel>
   )
 }

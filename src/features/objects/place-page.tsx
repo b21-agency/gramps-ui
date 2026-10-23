@@ -8,11 +8,13 @@ import { ObjectHistory } from '@/components/detail/object-history'
 import { Panel } from '@/components/detail/panel'
 import { CitationsList, FactsTable, Gallery, NotesList } from '@/components/detail/sections'
 import { typeStr, yearOf } from '@/lib/format'
+import { useTypeLabel } from '@/features/lists/use-types'
 import type { EventProfile, Place } from '@/lib/types'
 import { coords, PlaceMap } from './place-map'
 import { AlbumFrame, AlbumGrid, CoverVisual, glyphOf, HeroActions, ObjectHero, PhotoVisual, YearTimeline, type TimelineEntry } from './album'
 import {
   countRefs,
+  NewLinkedButton,
   ObjectSkeleton,
   referenceItems,
   RichReferences,
@@ -102,7 +104,13 @@ export function PlacePage() {
 
   return (
     <AlbumFrame>
-      <ObjectToolbar kind="place" object={place} title={title} onSaved={() => q.refetch()} />
+      <ObjectToolbar
+        kind="place"
+        object={place}
+        title={title}
+        onSaved={() => q.refetch()}
+        extra={<NewLinkedButton to={`/new_place?parent=${place.handle}`} label={t('addEnclosed')} />}
+      />
 
       <ObjectHero
         size={ll ? 'wide' : media.length ? 'portrait' : 'cover'}
@@ -244,6 +252,7 @@ function zoomFor(type: string) {
 
 function EnclosedPlaces({ places }: { places: AnyObj[] }) {
   const { shown, hidden, all, setAll } = useLimited(places, 40)
+  const placeType = useTypeLabel('place_types')
   return (
     <>
       <ul className="grid gap-0.5">
@@ -258,7 +267,7 @@ function EnclosedPlaces({ places }: { places: AnyObj[] }) {
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-[15px] font-semibold">{p.name?.value || p.title || p.gramps_id}</span>
-                <span className="block truncate text-xs text-muted-foreground">{typeStr(p.place_type)}</span>
+                <span className="block truncate text-xs text-muted-foreground">{placeType(typeStr(p.place_type))}</span>
               </span>
             </Link>
           </li>

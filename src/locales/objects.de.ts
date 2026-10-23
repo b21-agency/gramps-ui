@@ -1,4 +1,6 @@
 export default {
+  addCitation: 'Fundstelle hinzufügen',
+  addEnclosed: 'Ort darin anlegen',
   eventOf: '{{type}} von {{names}}',
   and: ' und ',
   noDate: 'Datum unbekannt',

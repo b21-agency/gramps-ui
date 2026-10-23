@@ -24,6 +24,8 @@ export function ResetPasswordDialog({ defaultUser }: { defaultUser: string }) {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
+    // the dialog is portalled out of the sign-in form, but React still bubbles the submit to it
+    e.stopPropagation()
     setState('busy')
     const r = await trigger({ userName: user.trim() })
     const status = 'error' in r && r.error && 'status' in r.error ? r.error.status : null

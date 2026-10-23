@@ -1,5 +1,5 @@
 // Shared form widgets for the object editors.
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -39,7 +39,7 @@ import { describeObject, kindIcon } from '@/lib/objects'
 import { personName, typeStr } from '@/lib/format'
 import type { ObjectKind, TypedValue } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { useEditorSession } from './session'
+import { useEditorSession, useOptionalEditorSession } from './session'
 import { useGrampsTypes, type TypeCategory } from './gramps-types'
 import { emptyObject, type AnyObj } from './lib'
 import { formatDate } from './date'
@@ -125,6 +125,18 @@ export function Grid({ children, className }: { children: ReactNode; className?:
 }
 
 /* ---------------- list helpers ---------------- */
+
+/**
+ * Call from an "add row" button: once the new row has rendered, focus its first text field,
+ * so typing goes into the row instead of re-pressing the button (Space adds another row).
+ * Rows are the `[data-row]` siblings of the button's wrapper.
+ */
+export function focusNewRow(button: HTMLElement) {
+  requestAnimationFrame(() => {
+    const rows = button.parentElement?.parentElement?.querySelectorAll<HTMLElement>(':scope > [data-row]')
+    rows?.[rows.length - 1]?.querySelector<HTMLElement>('input:not([type=hidden]), textarea')?.focus()
+  })
+}
 
 export function move<T>(list: T[], i: number, delta: number): T[] {
   const j = i + delta
@@ -473,7 +485,8 @@ export function RefPicker({
   value: string | null | undefined
   onChange: (handle: string, object?: AnyObj) => void
   placeholder?: string
-  onCreate?: () => void
+  /** Called with what was typed into the search, to prefill the new object's name. */
+  onCreate?: (query: string) => void
   createLabel?: string
   clearable?: boolean
   ariaLabel?: string
@@ -481,6 +494,7 @@ export function RefPicker({
   const { t } = useTranslation('editor')
   const s = useEditorSession()
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const Icon = kindIcon[kind]
   return (
     <div className="flex min-w-0 items-center gap-1">
@@ -505,6 +519,7 @@ export function RefPicker({
             selected={value}
             autoFocus
             placeholder={placeholder}
+            onQueryChange={setQuery}
             onPick={(o) => {
               s.seed([o.object])
               onChange(o.handle, o.object)
@@ -519,7 +534,8 @@ export function RefPicker({
                 className="w-full justify-start"
                 onClick={() => {
                   setOpen(false)
-                  onCreate()
+                  onCreate(query.trim())
+                  setQuery('')
                 }}
               >
                 <Plus /> {createLabel ?? t('createNew')}
@@ -553,8 +569,22 @@ export function InlineBox({
   doneDisabled?: boolean
 }) {
   const { t } = useTranslation(['editor', 'common'])
+  const session = useOptionalEditorSession()
+  const box = useRef<HTMLDivElement>(null)
+  const registerBox = session?.registerBox
+  useEffect(() => (box.current && registerBox ? registerBox(box.current) : undefined), [registerBox])
   return (
-    <div className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-3">
+    <div
+      ref={box}
+      className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-3"
+      onKeyDown={(e) => {
+        // Enter in a field of the box adds it instead of submitting (and saving) the whole object
+        if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.shiftKey || e.defaultPrevented) return
+        if (!(e.target instanceof HTMLInputElement)) return
+        e.preventDefault()
+        if (!doneDisabled) onDone()
+      }}
+    >
       <p className="text-sm font-medium">{title}</p>
       {children}
       <div className="flex justify-end gap-2">
@@ -606,15 +636,16 @@ export function NewPlaceInline({ onCreated, onCancel, initialName = '' }: { onCr
 /** Place picker with inline creation. */
 export function PlaceField({ value, onChange, label }: { value: string; onChange: (h: string) => void; label?: ReactNode }) {
   const { t } = useTranslation('editor')
-  const [creating, setCreating] = useState(false)
+  const [creating, setCreating] = useState<string | null>(null)
   return (
     <Field label={label ?? t('event.place')}>
-      {creating ? (
+      {creating !== null ? (
         <NewPlaceInline
-          onCancel={() => setCreating(false)}
+          initialName={creating}
+          onCancel={() => setCreating(null)}
           onCreated={(h) => {
             onChange(h)
-            setCreating(false)
+            setCreating(null)
           }}
         />
       ) : (
@@ -623,7 +654,7 @@ export function PlaceField({ value, onChange, label }: { value: string; onChange
           value={value}
           onChange={(h) => onChange(h)}
           placeholder={t('place.search')}
-          onCreate={() => setCreating(true)}
+          onCreate={setCreating}
           createLabel={t('place.createNew')}
         />
       )}
@@ -813,7 +844,7 @@ export function CitationsField({ value, onChange }: { value: string[]; onChange:
                 value={source}
                 onChange={setSource}
                 placeholder={t('citation.sourceSearch')}
-                onCreate={() => setNewSource('')}
+                onCreate={setNewSource}
                 createLabel={t('source.createNew')}
               />
             )}
@@ -893,7 +924,7 @@ export function AttributesField({
   return (
     <FormSection title={t('attributes.title')} count={value.length} collapsible defaultOpen={false}>
       {value.map((a, i) => (
-        <div key={i} className="flex flex-col gap-2 rounded-xl border p-2 sm:flex-row sm:items-center">
+        <div key={i} data-row className="flex flex-col gap-2 rounded-xl border p-2 sm:flex-row sm:items-center">
           <div className="sm:w-48">
             <TypeCombobox
               category={category}
@@ -917,7 +948,10 @@ export function AttributesField({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => onChange([...value, { _class: cls, type: category === 'source_attribute_types' ? 'Unknown' : 'Description', value: '', private: false, citation_list: [], note_list: [] }])}
+          onClick={(e) => {
+            focusNewRow(e.currentTarget)
+            onChange([...value, { _class: cls, type: category === 'source_attribute_types' ? 'Unknown' : 'Description', value: '', private: false, citation_list: [], note_list: [] }])
+          }}
         >
           <Plus /> {t('attributes.add')}
         </Button>
@@ -931,7 +965,7 @@ export function UrlsField({ value, onChange }: { value: AnyObj[]; onChange: (v: 
   return (
     <FormSection title={t('urls.title')} count={value.length} collapsible defaultOpen={false}>
       {value.map((u, i) => (
-        <div key={i} className="flex flex-col gap-2 rounded-xl border p-2">
+        <div key={i} data-row className="flex flex-col gap-2 rounded-xl border p-2">
           <div className="flex items-center gap-2">
             <Input
               className="flex-1"
@@ -967,7 +1001,10 @@ export function UrlsField({ value, onChange }: { value: AnyObj[]; onChange: (v: 
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => onChange([...value, { _class: 'Url', path: '', desc: '', type: 'Web Home', private: false }])}
+          onClick={(e) => {
+            focusNewRow(e.currentTarget)
+            onChange([...value, { _class: 'Url', path: '', desc: '', type: 'Web Home', private: false }])
+          }}
         >
           <Plus /> {t('urls.add')}
         </Button>

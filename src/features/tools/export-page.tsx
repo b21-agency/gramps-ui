@@ -58,6 +58,11 @@ export function ExportPage() {
   const [ged, setGed] = useState({ includeMedia: true, includeWitnesses: true })
   const [compress, setCompress] = useState(true)
   const task = useTask<ExportResult>()
+  // a finished export belongs to the options it was made with: changing one asks for a new run
+  const options = JSON.stringify([ext, privateOff, living, yearsAfterDeath, personFilter, person?.handle, csv, ged, compress])
+  const [resultFor, setResultFor] = useState({ options, day: '' })
+  const current = resultFor.options === options || task.running
+  const result = current ? task.result : null
 
   const exporters = [...(q.data ?? [])].sort(
     (a, b) => (ORDER.indexOf(a.extension) + 100) % 100 - ((ORDER.indexOf(b.extension) + 100) % 100),
@@ -90,6 +95,7 @@ export function ExportPage() {
     if (isGed) Object.assign(query, ged)
     if (ext === 'gramps') query.compress = compress
     try {
+      setResultFor({ options, day: new Date().toISOString().slice(0, 10) })
       await task.start((signal) => unwrapWith(signal, runExport(query)))
     } catch (e) {
       if (!isAbort(e)) toast.error(t('export.failed', { message: taskErrorText(t, e) }))
@@ -118,10 +124,7 @@ export function ExportPage() {
               <h2 id="exp-format" className="mb-5 font-serif text-3xl font-medium">{t('export.format')}</h2>
               <RadioGroup
                 value={ext}
-                onValueChange={(v) => {
-                  setExt(v)
-                  task.reset()
-                }}
+                onValueChange={setExt}
                 className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
               >
                 {exporters.map((e) => {
@@ -273,17 +276,17 @@ export function ExportPage() {
                 <h2 className="font-serif text-2xl font-medium">{selected ? label(selected).name : t('export.format')}</h2>
                 <span className="font-serif text-lg text-brass">.{ext}</span>
               </div>
-              {task.result ? (
+              {result ? (
                 <ResultBlock
                   title={t('export.ready')}
-                  url={task.result.url}
-                  fileName={`${selected ? label(selected).name : 'export'}${task.result.file_type ?? `.${ext}`}`}
-                  messages={task.result.messages}
+                  url={result.url}
+                  fileName={`family-tree-${resultFor.day}${result.file_type ?? `.${ext}`}`}
+                  messages={result.messages}
                   messagesTitle={t('export.messages')}
                 />
               ) : (
                 <>
-                  <TaskStatusLine phase={task.phase} progress={task.progress} error={task.error} runningLabel={t('export.running')} />
+                  <TaskStatusLine phase={current ? task.phase : 'idle'} progress={task.progress} error={task.error} runningLabel={t('export.running')} />
                   <Button className="h-11 w-full rounded-full text-base sm:h-11" onClick={run} disabled={task.running || !selected}>
                     {task.running ? <Loader2 className="animate-spin" /> : <Download />}
                     {t('export.start', { format: selected ? label(selected).name : '' })}

@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Portrait } from '@/components/portrait'
 import type { EventRow } from '@/components/detail/sections'
-import { isEmpty, profileName, yearOf } from '@/lib/format'
+import { ageText, isEmpty, profileName, yearOf } from '@/lib/format'
 import type { EventProfile, FamilyProfile, MediaRef, PersonProfile } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -39,7 +39,7 @@ export function LifeStory({
       year: yearOf(p.date),
       date: p.date,
       title: p.type,
-      detail: [p.place || p.place_name, event?.description && !/^\S+ (of|von) /.test(event.description) ? event.description : '', p.age && !/^0 /.test(p.age) ? t('age', { age: p.age }) : '']
+      detail: [p.place || p.place_name, event?.description && !/^\S+ (of|von) /.test(event.description) ? event.description : '', p.age && !/^0 /.test(p.age) ? t('age', { age: ageText(p.age) }) : '']
         .filter(Boolean)
         .join(' · '),
       to: event ? `/event/${event.gramps_id}` : undefined,

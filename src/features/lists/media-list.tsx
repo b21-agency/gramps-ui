@@ -257,10 +257,13 @@ function MediaGrid({ ctl }: { ctl: ListController<MediaRow> }) {
     items.push(it)
   }
 
+  // keyed by the handles in order: a new sort can keep the count and the first tile
+  const handlesKey = items.map((m) => m.handle).join(',')
   const layout = useMemo(
-    () => justify(items.map((m) => ratioOf(m.handle)), width),
+    () => justify(handlesKey ? handlesKey.split(',').map(ratioOf) : [], width),
+    // ratioVersion: a thumbnail reported its real aspect ratio
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items.length, items[0]?.handle, width, ratioVersion],
+    [handlesKey, width, ratioVersion],
   )
 
   useEffect(() => {

@@ -24,6 +24,7 @@ import { apiLocale } from '@/i18n'
 import { useObjectById } from '@/lib/queries'
 import { useHomePerson, useRecordVisit } from '@/lib/prefs'
 import { displayName, isEmpty, profileName, typeStr } from '@/lib/format'
+import { useTypeLabel } from '@/features/lists/use-types'
 import type { ChildRef, EventProfile, Family, FamilyProfile, MediaRef, Person, PersonProfile } from '@/lib/types'
 import { usePortraits } from '@/hooks/use-portraits'
 import { useTitle } from '@/hooks/use-title'
@@ -46,6 +47,8 @@ export function PersonPage() {
   const name = profile ? profileName(profile) : ''
   useTitle(name || id)
   useRecordVisit(person ? { kind: 'person', handle: person.handle, gramps_id: person.gramps_id, title: name } : null)
+  const nameType = useTypeLabel('name_types')
+  const originType = useTypeLabel('name_origin_types')
 
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />
   if (!person || !profile) return <PersonSkeleton />
@@ -111,9 +114,11 @@ export function PersonPage() {
                 </Panel>
               )}
 
-              <Panel id="family" title={t('familyDetails')}>
-                <FamilyBlock profile={profile} self={person.handle} childRefs={childRefsOf(person)} />
-              </Panel>
+              {(!isEmpty(profile.primary_parent_family ?? {}) || (profile.families?.length ?? 0) > 0 || (profile.other_parent_families?.length ?? 0) > 0) && (
+                <Panel id="family" title={t('familyDetails')}>
+                  <FamilyBlock profile={profile} self={person.handle} childRefs={childRefsOf(person)} />
+                </Panel>
+              )}
 
               {(person.citation_list?.length ?? 0) > 0 && (
                 <Panel id="sources" title={t('detail:sections.sources')}>
@@ -175,13 +180,13 @@ export function PersonPage() {
                           <div className="font-medium">{displayName(n)}</div>
                           <div className="text-xs text-muted-foreground">
                             {[
-                              typeStr(n.type),
+                              nameType(typeStr(n.type)),
                               n.nick && `${t('nickname')}: ${n.nick}`,
                               n.call && `${t('callName')}: ${n.call}`,
                               n.famnick && `${t('familyNick')}: ${n.famnick}`,
                               ...(n.surname_list ?? [])
                                 .filter((sn) => sn.surname && typeStr(sn.origintype))
-                                .map((sn) => `${sn.surname} (${typeStr(sn.origintype)})`),
+                                .map((sn) => `${sn.surname} (${originType(typeStr(sn.origintype))})`),
                             ]
                               .filter(Boolean)
                               .join(' · ')}

@@ -65,14 +65,28 @@ function EditorInner({
   const dirty = draft !== base || session.dirty
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
   useEffect(() => onDraftChange?.(draft), [draft, onDraftChange])
+  // validation and "finish the open entry" messages go away as soon as their cause does
+  const [problem, setProblem] = useState<string | null>(null)
+  const [boxHint, setBoxHint] = useState<HTMLElement | null>(null)
+  // (the session re-renders us when a box closes; a closed box is no longer connected)
+  const message =
+    (boxHint?.isConnected && session.openBoxes > 0 ? t('openBox') : null) ??
+    (problem && validateObject(kind, draft) === problem ? t(problem) : null) ??
+    error
 
   const save = async () => {
-    const problem = validateObject(kind, draft)
-    if (problem) {
-      setError(t(problem))
+    // a half-filled inline box (new citation, note, place ...) would silently be dropped
+    const box = session.openBox()
+    setBoxHint(box ?? null)
+    if (box) {
+      box.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      box.querySelector<HTMLElement>('input, textarea, button')?.focus({ preventScroll: true })
       return
     }
+    const invalid = validateObject(kind, draft)
+    setProblem(invalid)
     setError(null)
+    if (invalid) return
     setSaving(true)
     try {
       const obj = finalizeObject(kind, draft, session)
@@ -111,9 +125,9 @@ function EditorInner({
         {footer}
       </div>
       <div className={cn('flex flex-col gap-2 bg-background/90 py-3 backdrop-blur-xl', footerClassName)}>
-        {error && (
+        {message && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{message}</AlertDescription>
           </Alert>
         )}
         <div className="flex items-center justify-end gap-2 [&>button]:h-11 [&>button]:rounded-full [&>button]:px-5 max-md:[&>button]:flex-1 max-md:[&>button]:text-base">

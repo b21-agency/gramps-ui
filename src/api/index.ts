@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery, type BaseQueryFn, type FetchArgs, type FetchBaseQueryError, type FetchBaseQueryMeta } from '@reduxjs/toolkit/query/react'
-import { freshAccessToken, refreshAccessToken, tokens } from '@/lib/api'
+import { freshAccessToken, isAuthFailure, refreshAccessToken, tokens } from '@/lib/api'
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: '/',
@@ -10,12 +10,14 @@ const rawBaseQuery = fetchBaseQuery({
   },
 })
 
-/** Base query with JWT refresh: on 401 refresh once and retry, then sign out. */
+const rejected = (r: { error?: FetchBaseQueryError }) => !!r.error && isAuthFailure(r.error.status, 'data' in r.error ? r.error.data : undefined)
+
+/** Base query with JWT refresh: when the token is rejected, refresh once and retry, then sign out. */
 const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError, {}, FetchBaseQueryMeta> = async (args, api, extra) => {
   let result = await rawBaseQuery(args, api, extra)
-  if (result.error?.status === 401 && tokens.refresh) {
+  if (rejected(result) && tokens.refresh) {
     if (await refreshAccessToken()) result = await rawBaseQuery(args, api, extra)
-    if (result.error?.status === 401) tokens.clear()
+    if (rejected(result)) tokens.clear()
   }
   return result
 }

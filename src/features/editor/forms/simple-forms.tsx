@@ -31,6 +31,7 @@ import {
   TextField,
   TypeCombobox,
   UrlsField,
+  focusNewRow,
   move,
   InlineBox,
 } from '../fields'
@@ -161,7 +162,7 @@ export function PlaceForm({ value, onChange }: FormProps) {
 
       <FormSection title={t('place.altNames')} count={alt.length} collapsible defaultOpen={alt.length > 0}>
         {alt.map((n, i) => (
-          <div key={i} className="flex flex-col gap-2 rounded-xl border p-3">
+          <div key={i} data-row className="flex flex-col gap-2 rounded-xl border p-3">
             <div className="flex items-center gap-2">
               <Input
                 className="flex-1"
@@ -192,7 +193,10 @@ export function PlaceForm({ value, onChange }: FormProps) {
           </div>
         ))}
         <div>
-          <Button type="button" variant="outline" size="sm" onClick={() => onChange({ ...value, alt_names: [...alt, { _class: 'PlaceName', value: '', lang: '' }] })}>
+          <Button type="button" variant="outline" size="sm" onClick={(e) => {
+            focusNewRow(e.currentTarget)
+            onChange({ ...value, alt_names: [...alt, { _class: 'PlaceName', value: '', lang: '' }] })
+          }}>
             <Plus /> {t('place.addAltName')}
           </Button>
         </div>
@@ -313,7 +317,7 @@ export function SourceForm({ value, onChange }: FormProps) {
             value=""
             placeholder={t('source.addRepository')}
             onChange={(h) => h && !repos.some((r) => r.ref === h) && onChange({ ...value, reporef_list: [...repos, repoRef(h)] })}
-            onCreate={() => setNewRepo('')}
+            onCreate={setNewRepo}
             createLabel={t('repository.createNew')}
           />
         )}
@@ -361,7 +365,7 @@ export function CitationForm({ value, onChange }: FormProps) {
               clearable={false}
               placeholder={t('citation.sourceSearch')}
               onChange={(h) => onChange({ ...value, source_handle: h })}
-              onCreate={() => setNewSource('')}
+              onCreate={setNewSource}
               createLabel={t('source.createNew')}
             />
           )}
@@ -453,31 +457,32 @@ export function MediaForm({ value, onChange }: FormProps) {
   const isImage = String(value.mime ?? '').startsWith('image/')
   return (
     <div className="flex flex-col gap-6">
-      {value.gramps_id && (
-        <section className="flex items-center gap-4">
-          <div className="size-24 shrink-0 overflow-hidden rounded-lg border bg-muted">
-            {isImage && <img src={`${mediaThumbUrl(value.handle, 200, { square: true })}${value.checksum ? `&checksum=${value.checksum}` : ''}`} alt="" className="size-full object-cover" />}
-          </div>
-          <div className="min-w-0 flex-1 text-sm">
-            <p className="truncate text-muted-foreground">{value.path}</p>
-            <p className="text-xs text-muted-foreground">{value.mime}</p>
-            <input
-              ref={input}
-              type="file"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) void replace(f)
-                e.target.value = ''
-              }}
-            />
-            <Button type="button" variant="outline" size="sm" className="mt-2" disabled={busy} onClick={() => input.current?.click()}>
-              {busy ? <Loader2 className="animate-spin" /> : <Upload />} {t('media.replaceFile')}
-            </Button>
-          </div>
-        </section>
-      )}
+      {/* one panel: the file and the essentials (the editor styles the first section as a panel) */}
       <section className="flex flex-col gap-4">
+        {value.gramps_id && (
+          <div className="flex items-center gap-4">
+            <div className="size-24 shrink-0 overflow-hidden rounded-lg border bg-muted">
+              {isImage && <img src={`${mediaThumbUrl(value.handle, 200, { square: true })}${value.checksum ? `&checksum=${value.checksum}` : ''}`} alt="" className="size-full object-cover" />}
+            </div>
+            <div className="min-w-0 flex-1 text-sm">
+              <p className="truncate text-muted-foreground">{value.path}</p>
+              <p className="text-xs text-muted-foreground">{value.mime}</p>
+              <input
+                ref={input}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void replace(f)
+                  e.target.value = ''
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" className="mt-2" disabled={busy} onClick={() => input.current?.click()}>
+                {busy ? <Loader2 className="animate-spin" /> : <Upload />} {t('media.replaceFile')}
+              </Button>
+            </div>
+          </div>
+        )}
         <TextField label={t('media.desc')} value={value.desc} onChange={(v) => onChange({ ...value, desc: v })} autoFocus={!value.desc} />
         <DateInput label={t('date')} value={value.date} onChange={(d) => onChange({ ...value, date: d })} lang={i18n.language} />
       </section>

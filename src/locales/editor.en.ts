@@ -11,6 +11,7 @@ export default {
   saveChanges: 'Save changes',
   saved: 'Changes saved',
   saveFailed: 'Could not save',
+  openBox: 'Add or cancel the open entry first.',
   created: '{{what}} created',
   linkFailed: 'Created, but the link could not be added',
   more: 'More',
@@ -49,10 +50,10 @@ export default {
   },
   delete: {
     placeEncloses: 'This place still contains other places. Remove them from it first.',
-    action: 'Delete {{what}}',
+    action: 'Delete {{whatLower}}',
     title: 'Delete “{{name}}”?',
     description:
-      'This {{what}} is removed, together with all links to it from other records. You can undo it right afterwards.',
+      'This {{whatLower}} is removed, together with all links to it from other records. You can undo it right afterwards.',
     done: '“{{name}}” deleted',
     restored: 'Restored',
     failed: 'Could not delete',
@@ -68,6 +69,7 @@ export default {
     familyEmpty: 'Choose at least one partner or child.',
     samePartner: 'The same person can’t be both partners.',
     placeName: 'Enter a name for the place.',
+    placeCoord: 'Enter both latitude (−90 to 90) and longitude (−180 to 180), or leave both empty.',
     sourceTitle: 'Enter a title for the source.',
     citationSource: 'Choose the source this citation refers to.',
     repositoryName: 'Enter a name for the repository.',

@@ -115,4 +115,9 @@ export default {
     openMedia: 'Open media page',
     original: 'Open original file',
   },
+  a11y: {
+    toggleSidebar: 'Show or hide the sidebar',
+    mainNav: 'Main',
+    breadcrumb: 'Breadcrumb',
+  },
 }

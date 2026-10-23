@@ -53,7 +53,7 @@ export function ObjectToolbar({
   if (isMobile) return <MobileToolbar kind={kind} object={object} title={title} extra={extra} onSaved={onSaved} copyLink={copyLink} />
   return (
     <div className="mb-5 flex items-center gap-2">
-      <nav className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground" aria-label="Breadcrumb">
+      <nav className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground" aria-label={t('a11y.breadcrumb')}>
         <Link to={listPath[kind]} className="inline-flex items-center gap-1.5 hover:text-foreground">
           <Icon className="size-4" />
           {t(`objects.${kind}`)}
@@ -143,14 +143,14 @@ function MobileToolbar({
             key: 'delete',
             icon: <Trash2 />,
             destructive: true,
-            label: t('editor:delete.action', { what: t(`object.${kind}`) }),
+            label: t('editor:delete.action', { what: t(`object.${kind}`), whatLower: t(`object.${kind}`).toLowerCase() }),
             onSelect: () => setConfirmDelete(true),
           },
         ]
       : []
   return (
     <div className="-mx-2 mb-4 flex items-center gap-1">
-      <nav className="flex min-w-0 items-center text-sm text-muted-foreground" aria-label="Breadcrumb">
+      <nav className="flex min-w-0 items-center text-sm text-muted-foreground" aria-label={t('a11y.breadcrumb')}>
         <Link
           to={listPath[kind]}
           className="inline-flex h-11 items-center gap-1.5 rounded-lg px-2 active:bg-accent"

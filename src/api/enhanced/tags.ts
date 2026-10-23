@@ -52,16 +52,47 @@ export interface TxEntry {
 export function tagsForTransaction(tx: TxEntry[] | undefined | null): TagDescription<TagType>[] {
   const out: TagDescription<TagType>[] = [...DERIVED]
   const seenLists = new Set<TagType>()
+  const touched = new Set<string>()
+  const linked = new Set<string>()
   for (const e of tx ?? []) {
     const type = e._class ? tagOfClass[e._class] : undefined
     if (!type) continue
-    if (e.handle) out.push({ type, id: e.handle })
+    if (e.handle) {
+      out.push({ type, id: e.handle })
+      touched.add(e.handle)
+    }
     if (!seenLists.has(type)) {
       seenLists.add(type)
       out.push({ type, id: 'LIST' })
     }
+    collectRefs(e.old, linked)
+    collectRefs(e.new, linked)
   }
+  // Objects a changed object points to (old or new version) show it among their backlinks
+  // ("cited by", citations of a source, places within ...), but Gramps only writes reciprocal
+  // links for families, so they are not in the transaction. Their kind isn't known from the
+  // handle alone; a tag only matches a cached object with that handle, so every kind is cheap.
+  for (const h of linked) if (!touched.has(h)) for (const type of OBJECT_TAGS) out.push({ type, id: h })
   return out
+}
+
+const OBJECT_TAGS = Object.values(tagOf).filter((t) => t !== 'Tags')
+const REF_KEYS = new Set(['ref', 'source_handle', 'place', 'father_handle', 'mother_handle'])
+const REF_LIST_KEYS = new Set(['citation_list', 'note_list', 'family_list', 'parent_family_list'])
+
+/** Handles an object refers to (its *_ref_list entries, citations, notes, place, source ...). */
+function collectRefs(v: unknown, into: Set<string>) {
+  if (Array.isArray(v)) {
+    for (const x of v) collectRefs(x, into)
+    return
+  }
+  if (!v || typeof v !== 'object') return
+  for (const [k, x] of Object.entries(v)) {
+    if (REF_KEYS.has(k) && typeof x === 'string' && x) into.add(x)
+    else if (REF_LIST_KEYS.has(k) && Array.isArray(x)) {
+      for (const h of x) if (typeof h === 'string' && h) into.add(h)
+    } else if (x && typeof x === 'object') collectRefs(x, into)
+  }
 }
 
 /** Fallback when a write's response carries no transaction: refresh the whole kind. */

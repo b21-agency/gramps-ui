@@ -15,10 +15,36 @@ type Enhanced = Omit<Definitions, 'getMetadata' | 'postTranslation' | 'getDefaul
   getDefaultTypeMap: OverrideResultType<Definitions['getDefaultTypeMap'], Record<string, string>>
 }
 
+// Type names the server's catalogue leaves untranslated (they carry a context there),
+// so editors and pages would show them in English.
+const CATALOGUE_GAPS: Record<string, Record<string, string>> = {
+  de: {
+    Taken: 'Angenommen',
+    Inherited: 'Geerbt',
+    Patrilineal: 'Patrilinear',
+    Matrilineal: 'Matrilinear',
+    Unknown: 'Unbekannt',
+    'Father Age': 'Alter des Vaters',
+    'Mother Age': 'Alter der Mutter',
+    'To Do': 'Zu erledigen',
+    Safe: 'Tresor',
+    'Bas Mitzvah': 'Bat Mizwa',
+  },
+}
+
 export const metadataApi = baseApi.enhanceEndpoints<TagTypes, Enhanced>({
   endpoints: {
     getMetadata: { providesTags: ['Metadata'], keepUnusedDataFor: 600 },
-    postTranslation: { providesTags: [], keepUnusedDataFor: 24 * 3600 },
+    postTranslation: {
+      providesTags: [],
+      keepUnusedDataFor: 24 * 3600,
+      transformResponse: (data: Translation[], _meta, arg) => {
+        const gaps = CATALOGUE_GAPS[arg.language]
+        return gaps
+          ? data.map((r) => (r.translation === r.original && gaps[r.original.trim()] ? { ...r, translation: gaps[r.original.trim()] } : r))
+          : data
+      },
+    },
     getDefaultTypeMap: { providesTags: [], keepUnusedDataFor: 24 * 3600 },
   },
 })

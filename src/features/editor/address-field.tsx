@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DateInput } from './date-input'
-import { FormSection, PrivateSwitch, RowActions, move } from './fields'
+import { FormSection, PrivateSwitch, RowActions, focusNewRow, move } from './fields'
 import { emptyDate, type AnyObj } from './lib'
 
 const PARTS = ['street', 'locality', 'city', 'postal', 'county', 'state', 'country', 'phone'] as const
@@ -33,7 +33,7 @@ export function AddressesField({ value, onChange }: { value: AnyObj[]; onChange:
   return (
     <FormSection title={t('address.title')} count={value.length} collapsible defaultOpen={value.length > 0}>
       {value.map((a, i) => (
-        <div key={i} className="flex flex-col gap-2 rounded-xl border p-3">
+        <div key={i} data-row className="flex flex-col gap-2 rounded-xl border p-3">
           <div className="flex items-start gap-2">
             <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
               {PARTS.map((k) => (
@@ -60,7 +60,10 @@ export function AddressesField({ value, onChange }: { value: AnyObj[]; onChange:
         </div>
       ))}
       <div>
-        <Button type="button" variant="outline" size="sm" onClick={() => onChange([...value, emptyAddress()])}>
+        <Button type="button" variant="outline" size="sm" onClick={(e) => {
+            focusNewRow(e.currentTarget)
+            onChange([...value, emptyAddress()])
+          }}>
           <Plus /> {t('address.add')}
         </Button>
       </div>

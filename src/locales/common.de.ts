@@ -115,4 +115,9 @@ export default {
     openMedia: 'Medienseite öffnen',
     original: 'Originaldatei öffnen',
   },
+  a11y: {
+    toggleSidebar: 'Seitenleiste ein- oder ausblenden',
+    mainNav: 'Hauptnavigation',
+    breadcrumb: 'Brotkrumen',
+  },
 }

@@ -34,7 +34,14 @@ export function useDebounced<T>(value: T, ms = 200) {
 export function searchQuery(q: string) {
   const s = q.trim()
   if (!s) return ''
-  if (/[*?"]|\b(AND|OR|NOT)\b/.test(s)) return s
+  if (/[*?"]|\b(AND|OR|NOT)\b/.test(s)) {
+    // the index answers 500 to an operator without terms on both sides ("Garner AND" while typing)
+    const op = (w?: string) => !!w && /^(and|or|not)$/i.test(w)
+    const words = s.split(/\s+/).filter((w, i, all) => !(op(w) && op(all[i + 1])))
+    while (op(words[0])) words.shift()
+    while (op(words[words.length - 1])) words.pop()
+    return words.join(' ')
+  }
   return s
     .split(/\s+/)
     .map((w) => `${w}*`)
@@ -79,8 +86,9 @@ export function CommandSearch() {
   }, [])
 
   // `data` keeps the previous hits while the next query loads
+  const query = dq.trim().length > 1 ? searchQuery(dq) : ''
   const { data: page, isFetching } = useGetSearchQuery(
-    dq.trim().length > 1 ? { query: searchQuery(dq), locale: apiLocale(), profile: ['self'], page: 1, pagesize: 12 } : skipToken,
+    query ? { query, locale: apiLocale(), profile: ['self'], page: 1, pagesize: 12 } : skipToken,
   )
   const data = page?.items
 

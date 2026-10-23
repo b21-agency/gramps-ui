@@ -117,7 +117,7 @@ const visualSize = {
   portrait:
     'h-[19rem] w-full sm:h-[26rem] sm:max-w-md lg:aspect-[4/5] lg:h-auto lg:w-[23rem] lg:max-w-none 2xl:w-[28rem]',
   /** maps and landscape photos */
-  wide: 'h-[19rem] w-full sm:h-[24rem] lg:h-[27rem] lg:w-[36rem] 2xl:h-[34rem] 2xl:w-[52rem]',
+  wide: 'h-[19rem] w-full sm:h-[24rem] lg:h-[27rem] lg:w-1/2 xl:w-[36rem] 2xl:h-[34rem] 2xl:w-[52rem]',
   /** typographic covers (sources, citations, repositories) */
   cover: 'h-[13rem] w-[10rem] sm:h-[15rem] sm:w-[11.5rem] lg:h-[22rem] lg:w-[17rem] 2xl:h-[26rem] 2xl:w-[20rem]',
 } as const

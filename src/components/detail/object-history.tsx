@@ -38,6 +38,7 @@ export function ObjectHistory({ objClass, handle, lastChange }: { objClass: stri
         onClick={() => setOpen(true)}
         className="fixed bottom-[calc(var(--tabbar-h)+0.75rem)] right-4 z-30 flex h-11 items-center gap-2 rounded-full border bg-popover/95 py-1 pl-3 pr-4 text-sm shadow-lg backdrop-blur transition-transform duration-150 ease-out active:scale-[0.97] sm:right-6 lg:right-10 2xl:right-14"
         aria-haspopup="dialog"
+        data-dock
       >
         <History className="size-4 text-brass" aria-hidden />
         <span className="font-medium">{t('detail:sections.revisions')}</span>

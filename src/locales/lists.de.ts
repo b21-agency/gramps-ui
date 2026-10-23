@@ -136,10 +136,12 @@ export default {
     datePlaceholder: 'z. B. 1850, vor 1900, zwischen 1800 und 1850',
     gql: 'Gramps-QL-Abfrage',
     gqlHint: 'Optional, z. B. media_list.length >= 1 oder primary_name.first_name ~ Johann',
+    invalid: 'Dieser Filter lässt sich nicht anwenden',
+    clear: 'Erweiterten Filter entfernen',
   },
   empty: {
     filtered: 'Keine Treffer',
-    filteredHint: 'Versuch einen kürzeren Namen oder entferne einen Filter.',
+    filteredHint: 'Versuch es mit weniger oder kürzeren Wörtern oder entferne einen Filter.',
     none: 'Noch keine Einträge',
     noneHint: 'Neue Einträge erscheinen hier.',
   },

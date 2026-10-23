@@ -58,11 +58,11 @@ export function SettingsPage() {
 
   return (
     <AlbumPage title={t('title')} description={t('description')}>
-      <div className="grid gap-6 md:grid-cols-[14rem_minmax(0,1fr)] md:gap-8 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-10">
-        {/* mobile: sideways-scrolling tabs under the header */}
+      <div className="grid gap-6 xl:grid-cols-[16rem_minmax(0,1fr)] xl:gap-10">
+        {/* phones and tablets: sideways-scrolling tabs under the header */}
         <nav
           aria-label={t('title')}
-          className="sticky top-[var(--header-h)] z-20 -mx-4 -mt-2 overflow-x-auto bg-background/90 px-4 py-2 backdrop-blur [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden"
+          className="sticky top-[var(--header-h)] z-20 -mx-4 -mt-2 overflow-x-auto bg-background/90 px-4 py-2 backdrop-blur [scrollbar-width:none] xl:hidden [&::-webkit-scrollbar]:hidden"
         >
           <ul className="flex gap-1.5">
             {visible.map((s) => {
@@ -89,7 +89,7 @@ export function SettingsPage() {
         </nav>
 
         {/* desktop: side nav */}
-        <nav aria-label={t('title')} className="hidden md:block">
+        <nav aria-label={t('title')} className="hidden xl:block">
           <ul className="sticky top-20 space-y-1 rounded-3xl bg-card p-2">
             {visible.map((s) => {
               const active = s.key === current.key

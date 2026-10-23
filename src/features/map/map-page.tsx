@@ -209,7 +209,7 @@ export function MapPage() {
         // MapLibre's own controls as Album glass panels
         '[&_.maplibregl-ctrl-group]:overflow-hidden [&_.maplibregl-ctrl-group]:rounded-2xl! [&_.maplibregl-ctrl-group]:bg-card/90! [&_.maplibregl-ctrl-group]:shadow-[0_12px_32px_-14px_rgb(0_0_0/0.55)]! [&_.maplibregl-ctrl-group]:ring-1 [&_.maplibregl-ctrl-group]:ring-foreground/[0.07] [&_.maplibregl-ctrl-group]:backdrop-blur-xl',
         '[&_.maplibregl-ctrl-group_button]:size-11! [&_.maplibregl-ctrl-group_button+button]:border-foreground/10! [&_.maplibregl-ctrl-group_button:hover]:bg-accent!',
-        'dark:[&_.maplibregl-ctrl-icon]:invert dark:[&_.maplibregl-ctrl-icon]:hue-rotate-180 [&_.maplibregl-ctrl-attrib]:rounded-full! [&_.maplibregl-ctrl-attrib]:bg-card/80! [&_.maplibregl-ctrl-attrib]:text-muted-foreground',
+        'dark:[&_.maplibregl-ctrl-icon]:invert dark:[&_.maplibregl-ctrl-icon]:hue-rotate-180 [&_.maplibregl-ctrl-attrib]:rounded-full! [&_.maplibregl-ctrl-attrib]:bg-card/80! [&_.maplibregl-ctrl-attrib]:text-muted-foreground! [&_.maplibregl-ctrl-attrib_a]:text-muted-foreground! dark:[&_.maplibregl-ctrl-attrib-button]:invert',
       )}
     >
       <MapView

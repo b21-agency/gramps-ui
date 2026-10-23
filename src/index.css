@@ -61,6 +61,10 @@
   }
 }
 
+/* a docked handle (object history) floats over the page end: keep the last row clear of it
+   (unlayered, so it wins over main's padding utility) */
+body:has(> [data-dock]) main { padding-bottom: calc(var(--tabbar-h) + 4.5rem); }
+
 :root {
     /* neutral: off-white surfaces, ink text, gold accent */
     --background: #f7f7f5;

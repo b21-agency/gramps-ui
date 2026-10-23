@@ -89,3 +89,11 @@ export function formatTimestamp(ts: number, lang: string) {
 export function isEmpty(o: object | undefined | null) {
   return !o || Object.keys(o).length === 0
 }
+
+// Gramps' age spans always use the plural ("1 years, 1 months"); singular for exactly one
+const SINGULAR: Record<string, string> = { years: 'year', months: 'month', days: 'day', Jahre: 'Jahr', Monate: 'Monat', Tage: 'Tag' }
+
+/** An age span from the API ("1 years, 2 months") with proper singulars ("1 year, 2 months"). */
+export function ageText(age: string): string {
+  return age.replace(/\b1 (years|months|days|Jahre|Monate|Tage)\b/g, (_, unit: string) => `1 ${SINGULAR[unit]}`)
+}

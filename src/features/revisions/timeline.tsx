@@ -214,7 +214,7 @@ function TransactionRow({
               </span>
             )}
             {who && <span>{who}</span>}
-            {first && informative(tx.description) && <span>{tx.description}</span>}
+            {first && informative(tx.description) && !isUndo(tx) && <span>{tx.description}</span>}
             {isUndo(tx) && (
               <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-px">
                 <Undo2 className="size-3" />

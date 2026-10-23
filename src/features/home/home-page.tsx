@@ -377,7 +377,7 @@ function OnThisDay() {
                     <span className="flex shrink-0">
                       {faces.map((p, i) => (
                         <NameTooltip key={p.handle} name={profileName(p)} detail={lifespan(p.birth as EventProfile, p.death as EventProfile)}>
-                          <span className={cn('rounded-full', i > 0 && '-ml-3')}>
+                          <span className={cn('rounded-full', i > 0 && '-ml-1.5')}>
                             <Portrait mediaRef={portraits.get(p.handle)} name={profileName(p)} sex={p.sex} size={44} className="ring-[3px] ring-card" />
                           </span>
                         </NameTooltip>

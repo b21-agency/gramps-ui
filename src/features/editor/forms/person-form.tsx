@@ -22,6 +22,7 @@ import {
   UrlsField,
   move,
   RefTitle,
+  focusNewRow,
 } from '../fields'
 
 export const GENDERS = [
@@ -58,43 +59,44 @@ function NameFields({ name, onChange, compact }: { name: AnyObj; onChange: (n: A
       <Field label={surnames.length > 1 ? t('person.surnames') : t('person.surname')}>
         <div className="flex flex-col gap-2">
           {surnames.map((s, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input
-                className="w-20 shrink-0 sm:w-24"
-                value={s.prefix ?? ''}
-                placeholder={t('person.prefix')}
-                aria-label={t('person.prefix')}
-                onChange={(e) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, prefix: e.target.value } : x)))}
-              />
-              <Input
-                className="flex-1"
-                value={s.surname ?? ''}
-                aria-label={t('person.surname')}
-                onChange={(e) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, surname: e.target.value } : x)))}
-              />
-              {surnames.length > 1 && (
-                <RowActions index={i} length={surnames.length} onMove={(d) => setSurnames(move(surnames, i, d))} onRemove={() => setSurnames(surnames.filter((_, j) => j !== i))} />
+            // each surname keeps its connector and origin right below it
+            <div key={i} className="flex flex-col gap-2 [&:not(:first-child)]:border-t [&:not(:first-child)]:pt-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  className="w-20 shrink-0 sm:w-24"
+                  value={s.prefix ?? ''}
+                  placeholder={t('person.prefix')}
+                  aria-label={t('person.prefix')}
+                  onChange={(e) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, prefix: e.target.value } : x)))}
+                />
+                <Input
+                  className="flex-1"
+                  value={s.surname ?? ''}
+                  aria-label={t('person.surname')}
+                  onChange={(e) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, surname: e.target.value } : x)))}
+                />
+                {surnames.length > 1 && (
+                  <RowActions index={i} length={surnames.length} onMove={(d) => setSurnames(move(surnames, i, d))} onRemove={() => setSurnames(surnames.filter((_, j) => j !== i))} />
+                )}
+              </div>
+              {(surnames.length > 1 || s.connector || typeStr(s.origintype)) && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    value={s.connector ?? ''}
+                    placeholder={t('person.connector')}
+                    aria-label={`${t('person.connector')} ${i + 1}`}
+                    onChange={(e) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, connector: e.target.value } : x)))}
+                  />
+                  <TypeCombobox
+                    category="name_origin_types"
+                    value={s.origintype}
+                    ariaLabel={`${t('person.origin')} ${i + 1}${s.surname ? ` (${s.surname})` : ''}`}
+                    onChange={(v) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, origintype: v } : x)))}
+                  />
+                </div>
               )}
             </div>
           ))}
-          {surnames.map((s, i) =>
-            surnames.length > 1 || s.connector || typeStr(s.origintype) ? (
-              <div key={`more-${i}`} className="grid grid-cols-2 gap-2">
-                <Input
-                  value={s.connector ?? ''}
-                  placeholder={t('person.connector')}
-                  aria-label={`${t('person.connector')} ${i + 1}`}
-                  onChange={(e) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, connector: e.target.value } : x)))}
-                />
-                <TypeCombobox
-                  category="name_origin_types"
-                  value={s.origintype}
-                  ariaLabel={`${t('person.origin')} ${i + 1}${s.surname ? ` (${s.surname})` : ''}`}
-                  onChange={(v) => setSurnames(surnames.map((x, j) => (j === i ? { ...x, origintype: v } : x)))}
-                />
-              </div>
-            ) : null,
-          )}
           {!compact && (
             <Button
               type="button"
@@ -179,7 +181,7 @@ export function PersonForm({ value, onChange }: { value: AnyObj; onChange: (o: A
 
       <FormSection title={t('person.altNames')} count={alt.length} collapsible defaultOpen={false}>
         {alt.map((n, i) => (
-          <div key={i} className="flex flex-col gap-3 rounded-xl border p-3">
+          <div key={i} data-row className="flex flex-col gap-3 rounded-xl border p-3">
             <div className="flex items-center gap-2">
               <div className="flex-1 sm:max-w-60">
                 <TypeCombobox
@@ -213,7 +215,8 @@ export function PersonForm({ value, onChange }: { value: AnyObj; onChange: (o: A
             type="button"
             variant="outline"
             size="sm"
-            onClick={() =>
+            onClick={(e) => {
+              focusNewRow(e.currentTarget)
               onChange({
                 ...value,
                 alternate_names: [
@@ -221,7 +224,7 @@ export function PersonForm({ value, onChange }: { value: AnyObj; onChange: (o: A
                   { ...emptyName(), type: 'Married Name', surname_list: [{ _class: 'Surname', surname: '', prefix: '', connector: '', primary: true, origintype: '' }] },
                 ],
               })
-            }
+            }}
           >
             <Plus /> {t('person.addAltName')}
           </Button>

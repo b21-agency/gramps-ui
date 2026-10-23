@@ -15,7 +15,7 @@ export interface TimelineEventRow {
   gramps_id: string
   place?: string
   type: string | { string: string }
-  date?: { sortval?: number; year?: number; dateval?: number[]; modifier?: number; quality?: number }
+  date?: { sortval?: number; year?: number; calendar?: number; dateval?: number[]; modifier?: number; quality?: number }
 }
 
 /** Keys of every event the timeline loads up front. */
