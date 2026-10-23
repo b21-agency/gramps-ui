@@ -1,5 +1,12 @@
 # Family Archive — a modern UI for Gramps Web
 
+> [!IMPORTANT]
+> **Early stage, community driven.** This project is not finished yet. You can test it today and it is designed to be
+> fully compatible with Gramps Web, but there is no guarantee for that yet — please back up your data and report
+> anything that doesn't work. Ideas, wishes and questions are very welcome: share them in
+> [Discussions](https://github.com/b21-agency/gramps-ui/discussions), bugs go to
+> [Issues](https://github.com/b21-agency/gramps-ui/issues).
+
 A new, fast and friendly web interface for [Gramps Web](https://www.grampsweb.org/), the web version of the
 genealogy software [Gramps](https://gramps-project.org/). It replaces only the user interface: your data,
 users, permissions, search, media, reports and background jobs stay exactly as they are, served by the
