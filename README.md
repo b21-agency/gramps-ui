@@ -93,8 +93,8 @@ services:
       - grampsweb
 ```
 
-Then `docker compose up -d` and open port 8080 (or route a domain of its own to the `ui` service on port 80,
-e.g. in your reverse proxy, Traefik, Caddy or Coolify). Both UIs share the same data and accounts.
+Then `docker compose up -d` and open port 8080 (or route a domain of its own to the `ui` service on port 80).
+Both UIs share the same data and accounts.
 
 Settings (all optional):
 
