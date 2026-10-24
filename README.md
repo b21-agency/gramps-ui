@@ -170,6 +170,7 @@ This is a young project and every bit of help makes it better for families every
 - **Share your use case.** Large trees, unusual data, other cultures' naming and calendars — real-world
   data exposes the edge cases.
 - **Contribute code.** Pick an issue, open a pull request, keep changes focused and follow the conventions.
+  On your first pull request a bot asks you to accept the [Contributor License Agreement](CLA.md) (one comment, once).
 - **Spread the word** — and star the repository if you like it.
 - **Support Gramps itself.** This UI stands on the shoulders of the Gramps and Gramps Web projects;
   consider contributing to or donating to them as well.
