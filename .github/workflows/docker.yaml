@@ -1,6 +1,6 @@
 name: Build Docker image
 
-# Manual only: GitHub → Actions → "Build Docker image" → Run workflow.
+# Manual only: GitHub → Actions → "Build Docker image" → Run workflow (no other triggers).
 on:
   workflow_dispatch:
     inputs:
