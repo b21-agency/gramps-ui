@@ -4,6 +4,7 @@ set -e
 cd "$(dirname "$0")"
 C="docker compose -p gramps-dev -f docker-compose.yml"
 $C exec -T grampsweb sh -c '
+  python3 -m gramps_webapi user add --fullname "Demo Admin" --role 5 admin admin
   python3 -m gramps_webapi user add --fullname "Demo Owner" --email owner@example.com --role 4 owner owner
   python3 -m gramps_webapi user add --fullname "Demo Editor" --role 3 editor editor
   python3 -m gramps_webapi user add --fullname "Demo Guest" --role 0 guest guest

@@ -16,6 +16,7 @@ export default {
     preferences: 'Preferences',
     users: 'Users',
     administration: 'Administration',
+    server: 'Server',
     info: 'System info',
   },
   profile: {
@@ -359,6 +360,35 @@ export default {
     confirmWord: 'delete',
     typeToConfirm: 'Type “{{word}}” to confirm',
     confirm: 'Delete records',
+  },
+  server: {
+    email: {
+      title: 'E-mail',
+      description: 'The mail server used for password resets, new account notices and e-mail confirmations. Empty fields use the server configuration.',
+      encryption:
+        'Encryption is set in the server configuration: by default the connection uses SSL (port 465). For STARTTLS (usually port 587), set GRAMPSWEB_EMAIL_USE_STARTTLS=true there.',
+    },
+    address: {
+      title: 'Web address',
+      description: 'Where this app can be reached. Links in e-mails point here. Empty fields use the server configuration.',
+    },
+    fields: {
+      EMAIL_HOST: 'Mail server',
+      EMAIL_PORT: 'Port',
+      EMAIL_HOST_USER: 'Username',
+      EMAIL_HOST_PASSWORD: 'Password',
+      DEFAULT_FROM_EMAIL: 'Sender address',
+      BASE_URL: 'App address',
+      FRONTEND_URL: 'Address after single sign-on',
+    },
+    hints: {
+      FRONTEND_URL: 'Only needed when single sign-on should return to another address than the one above.',
+    },
+    passwordSaved: 'A password is saved. Type a new one to replace it.',
+    remove: 'Remove',
+    saved: 'Settings saved',
+    passwordRemoved: 'Password removed',
+    saveFailed: 'Could not save the settings',
   },
   upgrade: {
     title: 'Database upgrade',
