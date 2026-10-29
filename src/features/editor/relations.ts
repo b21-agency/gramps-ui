@@ -2,7 +2,7 @@
 import { store } from '@/store'
 import { createObject } from '@/api/enhanced/objects'
 import { unwrapApi } from '@/api/enhanced/editor'
-import { classOf, emptyObject, fetchWritable, putObject, type AnyObj, type Transaction } from './lib'
+import { classOf, emptyObject, fetchWritable, patchObject, putObject, type AnyObj, type Transaction } from './lib'
 
 export type Relation = 'father' | 'mother' | 'parent' | 'partner' | 'child' | 'sibling'
 
@@ -51,8 +51,8 @@ export async function addParent(childHandle: string, parentHandle: string): Prom
   return createFamily({ [slotFor(parent.gender)]: parentHandle, child_ref_list: [childRef(childHandle)] })
 }
 
-/** New family with both partners, placed by gender. */
-export async function addPartner(personHandle: string, partnerHandle: string): Promise<Transaction> {
+/** New family with both partners, placed by gender, with the given relationship type. */
+export async function addPartner(personHandle: string, partnerHandle: string, type = 'Unknown'): Promise<Transaction> {
   if (personHandle === partnerHandle) throw new Error('self')
   const [a, b] = await Promise.all([fetchWritable('person', personHandle), fetchWritable('person', partnerHandle)])
   let father = a.handle
@@ -61,7 +61,12 @@ export async function addPartner(personHandle: string, partnerHandle: string): P
     father = b.handle
     mother = a.handle
   }
-  return createFamily({ father_handle: father, mother_handle: mother })
+  return createFamily({ father_handle: father, mother_handle: mother, type })
+}
+
+/** Change a family's relationship type (Married, Unmarried, Civil Union, ...). */
+export function setFamilyType(familyHandle: string, type: string): Promise<Transaction> {
+  return patchObject('family', familyHandle, (f) => (f.type = type))
 }
 
 /** Child of a person: into the given family, or a new single-parent family. */

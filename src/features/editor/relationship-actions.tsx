@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ObjectSearchList } from '@/components/object-picker'
 import { ActionSheet } from '@/components/action-sheet'
 import { drawerCommand } from '@/components/adaptive-popover'
@@ -27,7 +28,37 @@ import { personName, profileName } from '@/lib/format'
 import type { FamilyProfile, Person } from '@/lib/types'
 import { qs } from '@/lib/api'
 import { errorMessage } from './lib'
+import { useGrampsTypes } from './gramps-types'
 import { addChild, addChildToFamily, addParent, addPartner, addSibling } from './relations'
+
+/** Relationship type of a new partnership (Married, Unmarried, Civil Union, Unknown, custom types). */
+export function FamilyTypeChips({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+  const { t } = useTranslation('editor')
+  const { label, options } = useGrampsTypes()
+  const { defaults, custom } = options('family_relation_types')
+  const all = [...defaults, ...custom]
+  if (!all.length) return null
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      value={value}
+      onValueChange={(v) => v && onChange(v)}
+      aria-label={t('family.relationship')}
+      className={cn('flex-wrap justify-start', className)}
+    >
+      {all.map((s) => (
+        <ToggleGroupItem
+          key={s}
+          value={s}
+          className="h-9 rounded-full! px-3.5 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:font-medium data-[state=on]:text-primary-foreground pointer-coarse:h-11"
+        >
+          {label(s)}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+}
 
 type Rel = 'father' | 'mother' | 'partner' | 'child' | 'sibling' | 'familyChild'
 
@@ -52,6 +83,7 @@ export function AddRelativeMenu({ person, className }: { person: Person; classNa
   const navigate = useNavigate()
   const [target, setTarget] = useState<LinkTarget | null>(null)
   const [busy, setBusy] = useState(false)
+  const [partnerType, setPartnerType] = useState('Unknown')
   const isMobile = useIsMobile()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [choice, setChoice] = useState<RelEntry | null>(null)
@@ -77,7 +109,7 @@ export function AddRelativeMenu({ person, className }: { person: Person; classNa
     try {
       // the relation helpers write through RTK mutations, which refresh the touched objects
       if (rel === 'father' || rel === 'mother') await addParent(person.handle, other)
-      if (rel === 'partner') await addPartner(person.handle, other)
+      if (rel === 'partner') await addPartner(person.handle, other, partnerType)
       if (rel === 'child') await addChild(person.handle, other, familyHandle)
       if (rel === 'sibling') await addSibling(person.handle, other)
       if (rel === 'familyChild') await addChildToFamily(other, person.handle)
@@ -104,6 +136,12 @@ export function AddRelativeMenu({ person, className }: { person: Person; classNa
 
   const picker = (
     <div className="relative border-t">
+      {target?.rel === 'partner' && (
+        <div className="border-b px-4 py-3">
+          <p className="mb-2 text-xs text-muted-foreground">{t('family.relationship')}</p>
+          <FamilyTypeChips value={partnerType} onChange={setPartnerType} />
+        </div>
+      )}
       <ObjectSearchList
         kinds={target?.rel === 'familyChild' ? ['family'] : ['person']}
         autoFocus

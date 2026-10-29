@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
-import { Image as ImageIcon, ChartGantt, Dna, Home, Map as MapIcon, Network, Upload } from 'lucide-react'
+import { Image as ImageIcon, ChartGantt, ChevronDown, Dna, Home, Map as MapIcon, Network, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PersonChip } from '@/components/person-chip'
 import { ErrorState } from '@/components/states'
@@ -36,6 +36,9 @@ import { AlbumSkeleton } from '@/components/album-skeleton'
 import { LifeStory } from './life-story'
 import { ExternalSearch } from './external-search'
 import { AddRelativeMenu } from '@/features/editor/relationship-actions'
+import { TypeCombobox } from '@/features/editor/fields'
+import { setFamilyType } from '@/features/editor/relations'
+import { errorMessage } from '@/features/editor/lib'
 
 export function PersonPage() {
   const { id } = useParams()
@@ -116,7 +119,7 @@ export function PersonPage() {
 
               {(!isEmpty(profile.primary_parent_family ?? {}) || (profile.families?.length ?? 0) > 0 || (profile.other_parent_families?.length ?? 0) > 0) && (
                 <Panel id="family" title={t('familyDetails')}>
-                  <FamilyBlock profile={profile} self={person.handle} childRefs={childRefsOf(person)} />
+                  <FamilyBlock profile={profile} self={person.handle} childRefs={childRefsOf(person)} familyTypes={familyTypesOf(person)} editable={can('EditObject')} />
                 </Panel>
               )}
 
@@ -294,7 +297,53 @@ function childRefsOf(person: Person) {
   return out
 }
 
-function FamilyBlock({ profile, self, childRefs }: { profile: PersonProfile; self: string; childRefs: Map<string, Map<string, ChildRef>> }) {
+/** family handle -> raw relationship type (the profile only has the translated string). */
+function familyTypesOf(person: Person) {
+  const ext = person.extended as { families?: Family[] } | undefined
+  return new Map((ext?.families ?? []).map((f) => [f.handle, typeStr(f.type)]))
+}
+
+/** Relationship type of a partnership, changeable in place by editors. */
+function FamilyTypeEdit({ family, type, text }: { family: string; type: string; text?: string }) {
+  const { t } = useTranslation(['person', 'editor'])
+  return (
+    <TypeCombobox
+      category="family_relation_types"
+      value={type}
+      ariaLabel={t('editor:family.relationship')}
+      onChange={(v) =>
+        v !== type &&
+        setFamilyType(family, v).then(
+          () => toast.success(t('person:relationshipChanged')),
+          (e) => toast.error(t('person:relationshipFailed'), { description: errorMessage(e) }),
+        )
+      }
+      trigger={
+        <button
+          type="button"
+          className="-mx-1.5 inline-flex items-center gap-0.5 rounded-md px-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          {text || t('editor:family.relationship')}
+          <ChevronDown className="size-3.5 opacity-60" />
+        </button>
+      }
+    />
+  )
+}
+
+function FamilyBlock({
+  profile,
+  self,
+  childRefs,
+  familyTypes,
+  editable,
+}: {
+  profile: PersonProfile
+  self: string
+  childRefs: Map<string, Map<string, ChildRef>>
+  familyTypes: Map<string, string>
+  editable: boolean
+}) {
   const { t } = useTranslation(['person', 'objects'])
   const relNote = (family: string, child: string) => {
     const r = childRefs.get(family)?.get(child)
@@ -348,14 +397,21 @@ function FamilyBlock({ profile, self, childRefs }: { profile: PersonProfile; sel
       {families.map((f) => {
         const partner = ((f.father as PersonProfile)?.handle === self ? f.mother : f.father) as PersonProfile | undefined
         const marriage = f.marriage as EventProfile | undefined
+        const married = marriage && !isEmpty(marriage) ? `⚭ ${marriage.date}${marriage.place_name ? `, ${marriage.place_name}` : ''}` : ''
+        const relType =
+          editable && familyTypes.has(f.handle) ? <FamilyTypeEdit family={f.handle} type={familyTypes.get(f.handle)!} text={f.relationship} /> : f.relationship
         return (
           <div key={f.handle}>
             <FamilyHeading
               label={partner && !isEmpty(partner) ? t('partnerWith', { name: profileName(partner) }) : t('unknownPartner')}
               family={f}
-              meta={[f.relationship, marriage && !isEmpty(marriage) ? `⚭ ${marriage.date}${marriage.place_name ? `, ${marriage.place_name}` : ''}` : '']
-                .filter(Boolean)
-                .join(' · ')}
+              meta={
+                <>
+                  {relType}
+                  {relType && married && ' · '}
+                  {married}
+                </>
+              }
             />
             <div className="grid gap-1 sm:grid-cols-2">{chip(partner)}</div>
             {(f.children?.length ?? 0) > 0 ? (
@@ -383,7 +439,7 @@ function FamilyBlock({ profile, self, childRefs }: { profile: PersonProfile; sel
   )
 }
 
-function FamilyHeading({ label, family, meta }: { label: string; family: FamilyProfile; meta?: string }) {
+function FamilyHeading({ label, family, meta }: { label: string; family: FamilyProfile; meta?: ReactNode }) {
   return (
     <div className="mb-2 flex flex-wrap items-baseline gap-x-3">
       <h3 className="font-serif text-lg">{label}</h3>

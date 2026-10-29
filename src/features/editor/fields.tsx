@@ -246,6 +246,7 @@ export function TypeCombobox({
   placeholder,
   className,
   ariaLabel,
+  trigger,
 }: {
   category: TypeCategory
   value: TypedValue | string | undefined
@@ -253,6 +254,8 @@ export function TypeCombobox({
   placeholder?: string
   className?: string
   ariaLabel?: string
+  /** replaces the default full-width button (e.g. a compact inline control) */
+  trigger?: ReactNode
 }) {
   const { t } = useTranslation('editor')
   const { label, options } = useGrampsTypes()
@@ -276,16 +279,18 @@ export function TypeCombobox({
       size="tall"
       className="w-[min(20rem,calc(100vw-2rem))] p-0"
       trigger={
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-label={ariaLabel}
-          className={cn('w-full justify-between font-normal', className)}
-        >
-          <span className={cn('truncate', !current && 'text-muted-foreground')}>{current ? label(current) : placeholder ?? t('choose')}</span>
-          <ChevronsUpDown className="opacity-50" />
-        </Button>
+        trigger ?? (
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-label={ariaLabel}
+            className={cn('w-full justify-between font-normal', className)}
+          >
+            <span className={cn('truncate', !current && 'text-muted-foreground')}>{current ? label(current) : placeholder ?? t('choose')}</span>
+            <ChevronsUpDown className="opacity-50" />
+          </Button>
+        )
       }
     >
         <Command shouldFilter={false}>
