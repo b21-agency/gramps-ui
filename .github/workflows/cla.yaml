@@ -29,4 +29,4 @@ jobs:
           path-to-document: https://github.com/b21-agency/gramps-ui/blob/0.x/CLA.md
           path-to-signatures: signatures/cla.json
           branch: cla-signatures
-          allowlist: Corepex,dependabot[bot],github-actions[bot]
+          allowlist: Corepex,claude,dependabot[bot],github-actions[bot]
