@@ -33,6 +33,8 @@ export default {
   noChildren: 'No children recorded',
   otherParents: 'Other parents',
   unknownPartner: 'Unknown partner',
+  relationshipChanged: 'Relationship changed',
+  relationshipFailed: 'Could not change the relationship',
   age: 'aged {{age}}',
   livedFor: 'Lived {{span}}',
   living: 'Living',

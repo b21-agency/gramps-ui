@@ -26,6 +26,7 @@ import { useTitle } from '@/hooks/use-title'
 import { emptyName, emptyObject, errorMessage, listPathOf, txGrampsId, type AnyObj, type Transaction } from './lib'
 import { ObjectEditor } from './object-editor'
 import { addChild, addChildToFamily, addEventRef, addParent, addPartner, addSibling } from './relations'
+import { FamilyTypeChips } from './relationship-actions'
 import { MediaUpload } from './media-upload'
 import { ParticipantsField, type Participant } from './participants-field'
 
@@ -93,6 +94,8 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
 
   // participants of a new event: the person/family it was started from, plus any added in the form
   const [draft, setDraft] = useState<AnyObj | null>(null)
+  // relationship type of the family created for ?partnerOf=
+  const [partnerType, setPartnerType] = useState('Unknown')
   // Cancel asks before throwing away what was typed
   const [dirty, setDirty] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
@@ -155,7 +158,7 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
         if (relation === 'childOf') extra.push(...(await addChildToFamily(relHandle, obj.handle)))
         if (relation === 'childOfPerson') extra.push(...(await addChild(relHandle, obj.handle)))
         if (relation === 'parentOf') extra.push(...(await addParent(relHandle, obj.handle)))
-        if (relation === 'partnerOf') extra.push(...(await addPartner(relHandle, obj.handle)))
+        if (relation === 'partnerOf') extra.push(...(await addPartner(relHandle, obj.handle, partnerType)))
         if (relation === 'siblingOf') extra.push(...(await addSibling(relHandle, obj.handle)))
       }
       if (kind === 'event') for (const p of participants) extra.push(...(await addEventRef(p.kind, p.handle, obj.handle, p.role || 'Primary')))
@@ -187,6 +190,12 @@ function NewObjectForm({ kind }: { kind: ObjectKind }) {
             <UserRoundPlus className="size-5 shrink-0 text-brass" />
             {relationHint}
           </p>
+        )}
+        {relation === 'partnerOf' && (
+          <div className="mt-5">
+            <p className="mb-2 text-sm text-muted-foreground">{t('editor:family.relationship')}</p>
+            <FamilyTypeChips value={partnerType} onChange={setPartnerType} />
+          </div>
         )}
       </div>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
