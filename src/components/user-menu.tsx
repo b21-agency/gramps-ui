@@ -14,10 +14,14 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { logout } from '@/lib/api'
 import { useGetUserQuery } from '@/api/enhanced/users-slice-enhanced'
-import type { UserInfo } from '@/lib/types'
+import type { MediaRef, UserInfo } from '@/lib/types'
+import { useAccessToken } from '@/lib/auth'
+import { useObjectById } from '@/lib/queries'
+import { useHomePerson } from '@/lib/prefs'
+import { refThumbUrl } from './portrait'
 import { initials } from '@/lib/format'
 import { languages } from '@/i18n'
 import { useTheme, type Theme } from './theme'
@@ -28,6 +32,23 @@ export function useCurrentUser() {
   // tagged `Users`: profile/user writes invalidate it
   const r = useGetUserQuery({ userName: '-' })
   return { ...r, data: r.data as UserInfo | undefined }
+}
+
+/** The user's avatar: the home person's first photo when there is one, otherwise initials. */
+function UserAvatar({ name, size, className }: { name: string; size: number; className?: string }) {
+  useAccessToken()
+  const [homeId] = useHomePerson()
+  const { data: home } = useObjectById<{ media_list: MediaRef[] }>('person', homeId ?? undefined, { keys: ['media_list'] })
+  const photo = home?.media_list?.[0]
+  const px = Math.min(1000, Math.ceil((size * (window.devicePixelRatio || 1)) / 50) * 50)
+  return (
+    <Avatar style={{ width: size, height: size }}>
+      {photo && <AvatarImage src={refThumbUrl(photo, px)} alt="" draggable={false} />}
+      <AvatarFallback delayMs={photo ? 300 : 0} className={className}>
+        {initials(name || '?')}
+      </AvatarFallback>
+    </Avatar>
+  )
 }
 
 export function UserMenu() {
@@ -43,11 +64,7 @@ export function UserMenu() {
     { v: 'dark', icon: Moon },
     { v: 'system', icon: Monitor },
   ]
-  const avatar = (
-    <Avatar className="size-8">
-      <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">{initials(name || '?')}</AvatarFallback>
-    </Avatar>
-  )
+  const avatar = <UserAvatar name={name} size={32} className="bg-secondary text-xs font-medium text-secondary-foreground" />
   const signOut = () => {
     logout()
     navigate('/login')
@@ -65,9 +82,7 @@ export function UserMenu() {
           title={name}
           header={
             <div className="flex items-center gap-3">
-              <Avatar className="size-11">
-                <AvatarFallback className="bg-secondary font-serif text-secondary-foreground">{initials(name || '?')}</AvatarFallback>
-              </Avatar>
+              <UserAvatar name={name} size={44} className="bg-secondary font-serif text-secondary-foreground" />
               <div className="min-w-0">
                 <div className="truncate font-serif text-xl">{name}</div>
                 {me && <div className="text-sm text-muted-foreground">{t(`role.${me.role}`)}</div>}
