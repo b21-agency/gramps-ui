@@ -9,10 +9,12 @@ export type Translation = { original: string; translation: string }
 
 type Definitions = DefinitionsFromApi<typeof baseApi>
 type TagTypes = TagTypesFromApi<typeof baseApi>
-type Enhanced = Omit<Definitions, 'getMetadata' | 'postTranslation' | 'getDefaultTypeMap'> & {
+type Enhanced = Omit<Definitions, 'getMetadata' | 'postTranslation' | 'getDefaultTypeMap' | 'getConfigs'> & {
   getMetadata: OverrideResultType<Definitions['getMetadata'], Metadata>
   postTranslation: OverrideResultType<Definitions['postTranslation'], Translation[]>
   getDefaultTypeMap: OverrideResultType<Definitions['getDefaultTypeMap'], Record<string, string>>
+  /** server settings saved in the user database (admins only); keys missing here come from the server config */
+  getConfigs: OverrideResultType<Definitions['getConfigs'], Record<string, string | null>>
 }
 
 // Type names the server's catalogue leaves untranslated (they carry a context there),
@@ -61,4 +63,7 @@ export const {
   useGetFiltersNamespaceQuery,
   useGetMetadataResearcherQuery,
   usePutMetadataResearcherMutation,
+  useGetConfigsQuery,
+  usePutConfigMutation,
+  useDeleteConfigMutation,
 } = metadataApi

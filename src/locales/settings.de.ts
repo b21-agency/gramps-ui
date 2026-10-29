@@ -16,6 +16,7 @@ export default {
     preferences: 'Darstellung',
     users: 'Benutzer',
     administration: 'Verwaltung',
+    server: 'Server',
     info: 'Systeminfo',
   },
   profile: {
@@ -361,6 +362,35 @@ export default {
     confirmWord: 'löschen',
     typeToConfirm: 'Tippe „{{word}}“ zur Bestätigung',
     confirm: 'Einträge löschen',
+  },
+  server: {
+    email: {
+      title: 'E-Mail',
+      description: 'Der Mailserver für Passwort-Zurücksetzungen, Hinweise zu neuen Konten und E-Mail-Bestätigungen. Leere Felder übernehmen die Serverkonfiguration.',
+      encryption:
+        'Die Verschlüsselung wird in der Serverkonfiguration festgelegt: Standardmäßig wird SSL verwendet (Port 465). Für STARTTLS (meist Port 587) dort GRAMPSWEB_EMAIL_USE_STARTTLS=true setzen.',
+    },
+    address: {
+      title: 'Webadresse',
+      description: 'Unter dieser Adresse ist die App erreichbar. Links in E-Mails führen hierhin. Leere Felder übernehmen die Serverkonfiguration.',
+    },
+    fields: {
+      EMAIL_HOST: 'Mailserver',
+      EMAIL_PORT: 'Port',
+      EMAIL_HOST_USER: 'Benutzername',
+      EMAIL_HOST_PASSWORD: 'Passwort',
+      DEFAULT_FROM_EMAIL: 'Absenderadresse',
+      BASE_URL: 'Adresse der App',
+      FRONTEND_URL: 'Adresse nach Single Sign-on',
+    },
+    hints: {
+      FRONTEND_URL: 'Nur nötig, wenn Single Sign-on zu einer anderen Adresse als der oben zurückführen soll.',
+    },
+    passwordSaved: 'Ein Passwort ist gespeichert. Gib ein neues ein, um es zu ersetzen.',
+    remove: 'Entfernen',
+    saved: 'Einstellungen gespeichert',
+    passwordRemoved: 'Passwort entfernt',
+    saveFailed: 'Einstellungen konnten nicht gespeichert werden',
   },
   upgrade: {
     title: 'Datenbank-Aktualisierung',

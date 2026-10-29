@@ -1,6 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Info, ShieldCheck, SlidersHorizontal, UserRound, UsersRound } from 'lucide-react'
+import { Info, Server, ShieldCheck, SlidersHorizontal, UserRound, UsersRound } from 'lucide-react'
 import { AlbumPage } from '@/components/album-page'
 import { useAuth } from '@/lib/auth'
 import { useTitle } from '@/hooks/use-title'
@@ -10,8 +10,9 @@ import { PreferencesSection } from './preferences-section'
 import { UsersSection } from './users-section'
 import { AdministrationSection } from './administration-section'
 import { InfoSection } from './info-section'
+import { ServerSection } from './server-section'
 
-type SectionKey = 'user' | 'preferences' | 'users' | 'administration' | 'info'
+type SectionKey = 'user' | 'preferences' | 'users' | 'administration' | 'server' | 'info'
 
 /** URL segment aliases; the classic Gramps Web paths are /settings/user, /administration, /users, /info. */
 const aliases: Record<string, SectionKey> = {
@@ -23,6 +24,7 @@ const aliases: Record<string, SectionKey> = {
   users: 'users',
   administration: 'administration',
   admin: 'administration',
+  server: 'server',
   info: 'info',
   system: 'info',
 }
@@ -32,6 +34,7 @@ const sections: Array<{ key: SectionKey; icon: typeof UserRound; permission?: (c
   { key: 'preferences', icon: SlidersHorizontal },
   { key: 'users', icon: UsersRound, permission: (can) => can('EditOtherUser') },
   { key: 'administration', icon: ShieldCheck, permission: (can) => can('EditOtherUser') || can('EditTree') },
+  { key: 'server', icon: Server, permission: (can) => can('EditSettings') },
   { key: 'info', icon: Info },
 ]
 
@@ -125,6 +128,7 @@ export function SettingsPage() {
           {current.key === 'preferences' && <PreferencesSection />}
           {current.key === 'users' && <UsersSection />}
           {current.key === 'administration' && <AdministrationSection />}
+          {current.key === 'server' && <ServerSection />}
           {current.key === 'info' && <InfoSection />}
         </div>
       </div>

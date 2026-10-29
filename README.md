@@ -141,7 +141,7 @@ docker compose -p gramps-dev -f dev/docker-compose.yml up -d   # local Gramps We
 pnpm dev                                                       # http://localhost:5173
 ```
 
-Test users: `owner`, `editor`, `guest` (password = user name). To develop against a real instance:
+Test users: `admin`, `owner`, `editor`, `guest` (password = user name). To develop against a real instance:
 `GRAMPS_API_TARGET=https://your-gramps-web.example pnpm dev`.
 
 Stack: React 19, TypeScript, Vite, Tailwind CSS 4, shadcn/ui, RTK Query (generated from the Gramps Web

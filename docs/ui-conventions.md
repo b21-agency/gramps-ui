@@ -75,7 +75,7 @@ Reference implementations: `src/features/people/person-page.tsx`,
 - `npx tsc -b` must pass for your files. Run `pnpm build` at the end if possible.
 - Don't commit, don't touch git, don't start/stop dev servers or docker.
 - Local backend for testing: `http://localhost:5055` (Gramps Web API with the Gramps example
-  tree, users `owner/owner` (role 4), `editor/editor` (3), `guest/guest` (0)).
+  tree, users `admin/admin` (role 5), `owner/owner` (role 4), `editor/editor` (3), `guest/guest` (0)).
   Use curl against it to inspect real JSON shapes. Token: `POST /api/token/`.
   A Vite dev server runs at http://127.0.0.1:5173 (proxying /api), HMR picks up your files.
 
